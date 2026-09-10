@@ -1,0 +1,691 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-page-node-id="kw2o4M9SoHRbqqoIcFp4OB">
+<head data-page-node-id="MBG3krqrU3sRwI2bIylIDb">
+<meta charset="UTF-8" data-page-node-id="w3BHiIG5khlhEhhC16XEFw">
+<meta name="viewport" content="width=device-width, initial-scale=1.0" data-page-node-id="3SDWgohSZygfcImYmjFRa5">
+<title>食隅记 Pantry Nook · 设计系统与界面原型</title>
+<style>
+/* ============================================================
+   食隅记 Pantry Nook — Design Tokens
+   结构:单一强调色 / 纸感画布 / 紧凑字距标题 / 胶囊主按钮
+   气质:温暖、居家、生活化
+   ============================================================ */
+:root{
+  /* 主色:陶土 Terracotta(亮模式) */
+  --primary:#B3541E;
+  --primary-strong:#96430F;
+  --primary-deep:#7A360B;
+  --primary-300:#D68A52;
+  --primary-100:#F3D7BF;
+  --primary-50:#FBEEE3;
+  /* 中性:纸米体系 */
+  --canvas:#FAF6EF;
+  --surface:#FFFFFF;
+  --surface-warm:#F4EDE1;
+  --hairline:#E7DCCB;
+  --ink:#2E2620;
+  --ink-soft:#5B4F45;
+  --ink-muted:#84766A;
+  --ink-faint:#B9AC9E;
+  /* 功能色 */
+  --success:#4F7A45; --success-bg:#EAF1E5;
+  --warning:#C77F1A; --warning-bg:#F9F0DD;
+  --danger:#B03A2E;  --danger-bg:#F7E6E3;
+  --info:#4A6FA5;    --info-bg:#E6EDF5;
+  /* 圆角 */
+  --r-sm:8px; --r-md:12px; --r-lg:18px; --r-pill:9999px;
+  /* 间距:4 / 8 / 12 / 16 / 24 / 32 / 48 / 80 */
+  /* 动效 */
+  --dur-fast:150ms; --dur-base:300ms;
+  --ease:cubic-bezier(.4,0,.2,1);
+  --shadow-card:0 1px 2px rgba(46,38,32,.05), 0 12px 32px rgba(46,38,32,.06);
+  --grad-primary:linear-gradient(180deg,#C4632A 0%,#A34B1A 100%);
+  --inner-hi:inset 0 1px 1px rgba(255,255,255,.25);
+  --track:#F1E9DC;
+}
+[data-theme="dark"]{
+  --primary:#E58E5A;
+  --primary-strong:#F0A97E;
+  --primary-deep:#D68A52;
+  --primary-300:#8A4A24;
+  --primary-100:#4A2C18;
+  --primary-50:#33200F;
+  --canvas:#241D18;
+  --surface:#2E2620;
+  --surface-warm:#38302A;
+  --hairline:#4A4038;
+  --ink:#F4EDE1;
+  --ink-soft:#D8CCBE;
+  --ink-muted:#A8988A;
+  --ink-faint:#7A6E63;
+  --success:#8FB87F; --success-bg:#2C3A26;
+  --warning:#E0A44E; --warning-bg:#3D3018;
+  --danger:#E07B6D;  --danger-bg:#3E2320;
+  --info:#8FA9CF;    --info-bg:#26303F;
+  --shadow-card:0 1px 2px rgba(0,0,0,.2), 0 12px 32px rgba(0,0,0,.28);
+  --track:#4A4038;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  font-family:"SF Pro Text","PingFang SC","Microsoft YaHei",system-ui,-apple-system,sans-serif;
+  background:var(--canvas); color:var(--ink);
+  font-size:17px; line-height:1.47; letter-spacing:-.01em;
+  transition:background var(--dur-base) var(--ease), color var(--dur-base) var(--ease);
+}
+h1,h2,h3,.display{font-family:"SF Pro Display","PingFang SC","Microsoft YaHei",system-ui,sans-serif;font-weight:600;letter-spacing:-.02em}
+.wrap{max-width:1200px;margin:0 auto;padding:0 32px}
+section{padding:64px 0}
+.kicker{font-size:13px;font-weight:600;letter-spacing:.2em;color:var(--primary);text-transform:uppercase;margin-bottom:12px}
+.sec-title{font-size:32px;margin-bottom:8px}
+.sec-note{color:var(--ink-muted);font-size:15px;margin-bottom:32px}
+
+/* ---------- 顶部导航 ---------- */
+.topnav{
+  position:sticky;top:0;z-index:50;
+  background:color-mix(in srgb, var(--canvas) 82%, transparent);
+  backdrop-filter:saturate(180%) blur(20px);-webkit-backdrop-filter:saturate(180%) blur(20px);
+  border-bottom:1px solid var(--hairline);
+}
+.topnav .wrap{display:flex;align-items:center;justify-content:space-between;height:60px}
+.brand{display:flex;align-items:center;gap:10px;font-weight:600;font-size:17px}
+.navlinks{display:flex;gap:28px;font-size:14px}
+.navlinks a{color:var(--ink-soft);text-decoration:none;transition:color var(--dur-fast)}
+.navlinks a:hover{color:var(--primary)}
+.theme-toggle{
+  border:1px solid var(--hairline);background:var(--surface);color:var(--ink-soft);
+  border-radius:var(--r-pill);padding:8px 16px;font-size:13px;cursor:pointer;
+  display:flex;align-items:center;gap:8px;transition:all var(--dur-fast) var(--ease);
+}
+.theme-toggle:hover{border-color:var(--primary);color:var(--primary)}
+
+/* ---------- Hero ---------- */
+.hero{padding:96px 0 72px}
+.hero h1{font-size:56px;line-height:1.07;letter-spacing:-.025em;max-width:14em}
+.hero p.lead{font-size:21px;color:var(--ink-muted);margin-top:20px;max-width:36em;line-height:1.5}
+.hero .cta-row{display:flex;gap:16px;margin-top:36px;flex-wrap:wrap}
+
+/* ---------- 按钮 ---------- */
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:8px;
+  font-size:17px;border:none;cursor:pointer;text-decoration:none;
+  transition:transform var(--dur-fast) var(--ease), background var(--dur-fast), box-shadow var(--dur-fast);
+}
+.btn:active{transform:scale(.95)}
+.btn-primary{background:var(--grad-primary);color:#fff;border-radius:var(--r-pill);padding:11px 22px;box-shadow:var(--inner-hi),0 6px 16px rgba(179,84,30,.3);font-weight:600}
+.btn-primary:hover{filter:brightness(1.05)}
+.btn-primary:focus-visible{outline:2px solid var(--primary);outline-offset:2px}
+.btn-ghost{background:transparent;color:var(--primary);border:1px solid var(--primary);border-radius:var(--r-pill);padding:11px 22px}
+.btn-ghost:hover{background:var(--primary-50)}
+.btn-dark{background:var(--ink);color:var(--canvas);border-radius:var(--r-sm);padding:8px 15px;font-size:14px}
+.btn-pearl{background:var(--surface-warm);color:var(--ink-soft);border-radius:var(--r-md);padding:8px 14px;font-size:14px}
+.btn-danger{background:transparent;color:var(--danger);border:1px solid var(--danger);border-radius:var(--r-sm);padding:8px 15px;font-size:14px}
+.btn[disabled]{background:var(--surface-warm);color:var(--ink-faint);cursor:not-allowed;border:none;border-radius:var(--r-pill);padding:11px 22px}
+.btn-row{display:flex;gap:16px;flex-wrap:wrap;align-items:center}
+
+/* ---------- 色板 ---------- */
+.swatch-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:16px}
+.swatch{border-radius:var(--r-md);overflow:hidden}
+.swatch .chip{height:72px;border-radius:var(--r-md);border:1px solid var(--hairline)}
+.swatch .meta{font-size:13px;color:var(--ink-muted);margin-top:10px}
+.swatch .meta b{color:var(--ink);font-weight:600}
+.group-label{font-size:14px;font-weight:600;color:var(--ink-soft);margin:28px 0 14px}
+
+/* ---------- 字体排印 ---------- */
+.type-row{display:flex;justify-content:space-between;align-items:baseline;gap:24px;padding:20px 0;border-bottom:1px solid var(--hairline)}
+.type-row:last-child{border-bottom:none}
+.type-spec{font-size:13px;color:var(--ink-muted);white-space:nowrap}
+
+/* ---------- 卡片 / 表单 / 徽标 ---------- */
+.card{background:var(--surface);border:1px solid var(--hairline);border-radius:var(--r-lg);box-shadow:var(--shadow-card)}
+.badge{display:inline-flex;align-items:center;gap:5px;border-radius:var(--r-pill);padding:4px 10px;font-size:12px;font-weight:600}
+.badge::before{content:"";width:5px;height:5px;border-radius:50%;background:currentColor;flex-shrink:0}
+.badge-success{background:var(--success-bg);color:var(--success)}
+.badge-warning{background:var(--warning-bg);color:var(--warning)}
+.badge-danger{background:var(--danger-bg);color:var(--danger)}
+.badge-info{background:var(--info-bg);color:var(--info)}
+.badge-row{display:flex;gap:12px;flex-wrap:wrap}
+.form-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px}
+.input{
+  width:100%;height:48px;border-radius:var(--r-md);border:1px solid var(--hairline);
+  background:var(--surface);padding:0 18px;font-size:15px;color:var(--ink);font-family:inherit;
+  transition:border-color var(--dur-fast), box-shadow var(--dur-fast);
+}
+.input::placeholder{color:var(--ink-faint)}
+.input:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px var(--primary-100)}
+.input[disabled]{background:var(--surface-warm);cursor:not-allowed}
+.radius-row{display:flex;gap:24px;align-items:flex-end;flex-wrap:wrap}
+.radius-demo{width:88px;height:88px;background:var(--primary-100);display:flex;align-items:center;justify-content:center;font-weight:600;color:var(--primary-deep);font-size:17px}
+.radius-cap{text-align:center;font-size:13px;color:var(--ink-muted);margin-top:8px}
+
+/* ---------- 桌面端原型 ---------- */
+.demo-frame{border:1px solid var(--hairline);border-radius:20px;overflow:hidden;background:var(--canvas);box-shadow:var(--shadow-card)}
+.app-nav{background:var(--surface);border-bottom:1px solid var(--hairline);display:flex;align-items:center;justify-content:space-between;padding:0 32px;height:64px}
+.app-links{display:flex;gap:28px;font-size:14px}
+.app-links span{color:var(--ink-soft);cursor:pointer;padding:4px 2px}
+.app-links span.active{color:var(--primary);font-weight:600;border-bottom:2px solid var(--primary)}
+.search-pill{background:var(--surface-warm);border-radius:var(--r-pill);height:36px;width:220px;display:flex;align-items:center;padding:0 14px;font-size:13px;color:var(--ink-faint)}
+.app-body{padding:32px}
+.app-head{display:flex;justify-content:space-between;align-items:center;gap:24px;margin-bottom:24px;flex-wrap:wrap}
+.app-head h3{font-size:30px;letter-spacing:-.02em}
+.app-head .date{color:var(--ink-muted);font-size:14px;margin-top:6px}
+.app-grid{display:grid;grid-template-columns:1fr 340px;gap:24px}
+.panel{padding:24px}
+.panel-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}
+.panel-head h4{font-size:20px;letter-spacing:-.01em}
+.panel-head .sub{font-size:13px;color:var(--ink-muted)}
+.dish{display:flex;align-items:center;gap:14px;background:var(--canvas);border-radius:var(--r-md);padding:12px 14px;margin-bottom:10px}
+.dish:last-child{margin-bottom:0}
+.check{width:24px;height:24px;border-radius:50%;border:2px solid var(--hairline);flex-shrink:0;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all var(--dur-fast)}
+.check.done{background:var(--primary);border-color:var(--primary)}
+.dish .txt{flex:1}
+.dish .name{font-size:15px;font-weight:600}
+.dish .meta{font-size:13px;color:var(--ink-muted)}
+.stat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px}
+.stat{padding:16px}
+.stat .num{font-size:28px;font-weight:600;letter-spacing:-.02em}
+.stat .lbl{font-size:12px;color:var(--ink-muted)}
+.exp-row{display:flex;justify-content:space-between;align-items:center;padding:8px 0;font-size:14px}
+.rec-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+.rec{background:var(--canvas);border-radius:14px;padding:16px}
+.rec .name{font-size:15px;font-weight:600}
+.rec .use{font-size:13px;color:var(--ink-muted);margin:4px 0 8px}
+.rec .hit{font-size:12px;font-weight:500;color:var(--success)}
+
+/* ---------- 移动端原型 ---------- */
+.phone-wrap{display:flex;justify-content:center}
+.phone{width:390px;border-radius:36px;border:1px solid var(--hairline);background:var(--canvas);overflow:hidden;box-shadow:var(--shadow-card);position:relative}
+.phone-head{padding:24px 20px 16px}
+.phone-head h4{font-size:28px;letter-spacing:-.01em}
+.phone-head .sub{font-size:13px;color:var(--ink-muted);margin-top:4px}
+.phone-search{margin:16px 0 12px;height:44px;background:var(--surface);border:1px solid var(--hairline);border-radius:var(--r-pill);display:flex;align-items:center;padding:0 16px;font-size:14px;color:var(--ink-faint)}
+.chips{display:flex;gap:8px}
+.chip{border-radius:var(--r-pill);padding:6px 14px;font-size:13px;font-weight:500;background:var(--surface-warm);color:var(--ink-soft);cursor:pointer;border:none;font-family:inherit}
+.chip.active{background:var(--ink);color:var(--canvas)}
+.phone-list{padding:4px 20px 20px;display:flex;flex-direction:column;gap:10px;min-height:300px}
+.inv{display:flex;align-items:center;gap:12px;background:var(--surface);border:1px solid var(--hairline);border-radius:14px;padding:14px}
+.inv .txt{flex:1}
+.inv .name{font-size:15px;font-weight:600}
+.inv .meta{font-size:12px;color:var(--ink-muted)}
+.tabbar{height:64px;background:var(--surface);border-top:1px solid var(--hairline);display:flex;justify-content:space-around;align-items:center}
+.tab{display:flex;flex-direction:column;align-items:center;gap:4px;font-size:11px;color:var(--ink-muted)}
+.tab.active{color:var(--primary)}
+
+footer{border-top:1px solid var(--hairline);padding:40px 0;color:var(--ink-muted);font-size:13px}
+/* ---------- 打磨:微交互与可访问性 ---------- */
+section{scroll-margin-top:76px}
+::selection{background:var(--primary-100);color:var(--primary-deep)}
+.card{transition:transform var(--dur-fast) var(--ease), box-shadow var(--dur-fast) var(--ease)}
+.card:hover{transform:translateY(-2px);box-shadow:0 2px 4px rgba(46,38,32,.05),0 8px 24px rgba(46,38,32,.08)}
+.dish,.inv,.rec{transition:background var(--dur-fast) var(--ease)}
+.dish:hover,.inv:hover,.rec:hover{background:var(--surface-warm)}
+a:focus-visible,button:focus-visible,input:focus-visible,.check:focus-visible{outline:2px solid var(--primary);outline-offset:2px;border-radius:4px}
+.check:hover{border-color:var(--primary)}
+.fab{
+  position:absolute;right:20px;bottom:80px;width:56px;height:56px;border:none;border-radius:50%;
+  background:var(--primary);color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;
+  box-shadow:0 6px 16px rgba(179,84,30,.35);
+  transition:transform var(--dur-fast) var(--ease), background var(--dur-fast);
+}
+.fab:hover{background:var(--primary-strong)}
+.fab:active{transform:scale(.92)}
+.statusbar{display:flex;justify-content:space-between;align-items:center;padding:14px 24px 4px;font-size:14px;font-weight:600}
+.group-label-sm{font-size:12px;font-weight:600;letter-spacing:.1em;color:var(--ink-faint);margin:14px 0 2px}
+/* ---------- V3 精致化 ---------- */
+.card{border-radius:20px}
+.eyebrow{font-size:12px;font-weight:600;letter-spacing:.15em;color:var(--primary);margin-bottom:10px}
+.logo-tile{width:34px;height:34px;border-radius:10px;background:var(--grad-primary);box-shadow:var(--inner-hi);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.app-links span{border-radius:var(--r-pill);padding:6px 14px;border-bottom:none}
+.app-links span.active{background:#FAEFE4;color:var(--primary);font-weight:600}
+.icon-btn{width:38px;height:38px;border-radius:50%;background:var(--surface-warm);border:none;display:flex;align-items:center;justify-content:center;cursor:pointer;position:relative;transition:background var(--dur-fast)}
+.icon-btn:hover{background:var(--primary-100)}
+.icon-btn .dot{position:absolute;top:9px;right:10px;width:7px;height:7px;border-radius:50%;background:var(--primary);border:1.5px solid var(--surface)}
+.avatar{width:38px;height:38px;border-radius:50%;background:linear-gradient(180deg,#F3D7BF,#E0B587);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:600;color:var(--primary-deep)}
+.fresh{margin-bottom:14px}
+.fresh:last-child{margin-bottom:0}
+.fresh .row{display:flex;justify-content:space-between;align-items:center;font-size:14px;font-weight:500;margin-bottom:8px}
+.fresh .days{font-size:12px;font-weight:600}
+.fresh .track{height:4px;border-radius:2px;background:var(--track);overflow:hidden}
+.fresh .fill{height:100%;border-radius:2px}
+.stat .trend{font-size:12px;font-weight:600;margin-top:2px}
+.fab{background:var(--grad-primary);box-shadow:var(--inner-hi),0 8px 20px rgba(179,84,30,.35)}
+.tab{position:relative}
+.tab .active-dot{width:4px;height:4px;border-radius:50%;background:var(--primary)}
+/* ---------- V4 用户模块与反馈闭环 ---------- */
+.hero-loop{display:flex;align-items:center;gap:14px;margin-top:28px;flex-wrap:wrap}
+.hero-loop span{font-size:13px;font-weight:600;color:var(--ink-soft);background:var(--surface);border:1px solid var(--hairline);border-radius:var(--r-pill);padding:8px 16px}
+.hero-loop i{width:20px;height:1px;background:var(--primary-300);position:relative}
+.hero-loop i::after{content:"";position:absolute;right:0;top:-2.5px;border-left:6px solid var(--primary-300);border-top:3px solid transparent;border-bottom:3px solid transparent}
+.userpill{display:flex;align-items:center;gap:10px;background:var(--surface-warm);border:none;border-radius:var(--r-pill);padding:4px 12px 4px 4px;cursor:pointer;font-family:inherit;transition:background var(--dur-fast)}
+.userpill:hover{background:var(--primary-100)}
+.userpill .name{font-size:13px;font-weight:600;color:var(--ink)}
+.user-wrap{position:relative}
+.dropdown{
+  position:absolute;top:calc(100% + 10px);right:0;width:300px;background:var(--surface);
+  border:1px solid var(--hairline);border-radius:20px;box-shadow:0 2px 4px rgba(46,38,32,.08),0 20px 48px rgba(46,38,32,.12);
+  padding:8px;z-index:60;display:none;
+}
+.dropdown.open{display:block;animation:ddIn .18s cubic-bezier(.2,.8,.3,1)}
+@keyframes ddIn{from{opacity:0;transform:translateY(-6px) scale(.98)}to{opacity:1;transform:none}}
+.dd-head{display:flex;align-items:center;gap:12px;padding:14px}
+.dd-head .avatar{width:44px;height:44px;font-size:17px}
+.dd-head .n{font-size:15px;font-weight:600}
+.dd-head .m{font-size:12px;color:var(--ink-muted)}
+.dd-div{height:1px;background:var(--track);margin:2px 0}
+.dd-item{display:flex;align-items:center;gap:12px;width:100%;padding:12px;border:none;background:none;border-radius:12px;cursor:pointer;font-family:inherit;font-size:14px;color:var(--ink);text-align:left;transition:background var(--dur-fast)}
+.dd-item:hover{background:var(--surface-warm)}
+.dd-item.hot{background:#FAEFE4;color:var(--primary);font-weight:600}
+.dd-item.hot:hover{background:var(--primary-100)}
+.dd-item.danger{color:var(--danger)}
+.dd-item .unread{margin-left:auto;background:var(--primary);color:#fff;font-size:11px;font-weight:600;width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center}
+.fb-scrim{position:fixed;inset:0;background:rgba(46,38,32,.45);z-index:80;display:none;align-items:flex-end;justify-content:center}
+.fb-scrim.open{display:flex}
+.sheet{background:var(--surface);border-radius:24px 24px 0 0;width:100%;max-width:480px;padding:12px 24px 28px;animation:sheetUp .28s cubic-bezier(.2,.8,.3,1)}
+@keyframes sheetUp{from{transform:translateY(40px);opacity:0}to{transform:none;opacity:1}}
+.sheet .handle{width:40px;height:4px;border-radius:2px;background:var(--hairline);margin:0 auto 18px}
+.mood-row{display:flex;gap:8px;margin:16px 0}
+.mood{flex:1;border-radius:var(--r-pill);padding:10px 0;font-size:13px;font-weight:500;border:none;cursor:pointer;background:var(--surface-warm);color:var(--ink-soft);font-family:inherit;transition:all var(--dur-fast)}
+.mood.sel{background:#FAEFE4;color:var(--primary);font-weight:600;box-shadow:inset 0 0 0 1.5px var(--primary)}
+.sheet textarea{width:100%;height:96px;border-radius:14px;border:1px solid var(--hairline);background:var(--canvas);padding:14px;font-size:14px;font-family:inherit;color:var(--ink);resize:none}
+.sheet textarea:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px var(--primary-100)}
+.qtag-row{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0 18px}
+.qtag{border-radius:var(--r-pill);padding:7px 12px;font-size:12px;font-weight:500;border:1px solid var(--hairline);background:none;color:var(--ink-muted);cursor:pointer;font-family:inherit;transition:all var(--dur-fast)}
+.qtag:hover{border-color:var(--primary);color:var(--primary)}
+.fb-card{background:var(--surface);border:1px solid var(--hairline);border-radius:20px;padding:24px;box-shadow:var(--shadow-card)}
+.fb-card.unread{border-color:#E8C9AE;border-width:1.5px}
+.fb-card.read{opacity:.65}
+.fb-card .top{display:flex;align-items:center;gap:12px;margin-bottom:12px}
+.fb-card .avatar{width:40px;height:40px;font-size:15px;background:linear-gradient(180deg,#F5C7C2,#E39993);color:#8E4038}
+.fb-card .n{font-size:14px;font-weight:600}
+.fb-card .t{font-size:12px;color:var(--ink-muted)}
+.fb-card .uread{width:8px;height:8px;border-radius:50%;background:var(--primary);margin-left:auto}
+.fb-card .ftag{border-radius:9999px;padding:6px 12px;font-size:12px;font-weight:600;margin-left:8px}
+.fb-card .body{font-size:15px;line-height:1.6;color:var(--ink-soft);margin-bottom:14px}
+.fb-card .acts{display:flex;gap:10px}
+.fb-grid{display:grid;grid-template-columns:420px 1fr;gap:40px;align-items:start}
+@media(max-width:900px){.fb-grid{grid-template-columns:1fr}}
+.toast{position:fixed;bottom:32px;left:50%;transform:translateX(-50%) translateY(80px);background:var(--ink);color:var(--canvas);border-radius:var(--r-pill);padding:12px 24px;font-size:14px;z-index:100;transition:transform .3s cubic-bezier(.2,.8,.3,1)}
+.toast.show{transform:translateX(-50%) translateY(0)}
+@media(prefers-reduced-motion:reduce){
+  *,*::before,*::after{transition-duration:.01ms !important;animation-duration:.01ms !important;scroll-behavior:auto !important}
+}
+@media(max-width:900px){
+  .app-grid{grid-template-columns:1fr}
+  .hero h1{font-size:40px}
+  .navlinks{display:none}
+  .rec-grid{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body data-page-node-id="47lr0FjkQVcOvdSY28f6Jk">
+
+<nav class="topnav" data-page-node-id="5aliKoiazbVm0Rw4K6Y2VB">
+  <div class="wrap" data-page-node-id="yz6QfYLt7p4vF69y5blLam">
+    <div class="brand" data-page-node-id="f4u5GDbc5glSESNxmQWi32">
+      <span class="logo-tile"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M4 10h16v2c0 4-3 7-8 7s-8-3-8-7v-2z" fill="#fff"/><path d="M8 7c0-2 1.5-3 4-3s4 1 4 3" stroke="#fff" stroke-width="2" stroke-linecap="round"/></svg></span>
+      食隅记
+    </div>
+    <div class="navlinks" data-page-node-id="s1CDPedYlDsGD7uGyZgG2G">
+      <a href="#tokens" data-page-node-id="2ILFeZw50UqFsBFLy5ZDRX">色彩</a><a href="#type" data-page-node-id="5sOLEYJa6DHEUtK4GzkweW">排印</a><a href="#components" data-page-node-id="HKoaY2UH6CsDpd72fKgTPV">组件</a><a href="#desktop" data-page-node-id="mEpArN8ktHhVzAjDGSBZ0x">桌面端</a><a href="#mobile" data-page-node-id="OFXJMHQnOWkfFyaf0hKsv6">移动端</a><a href="#feedback">共享反馈墙</a>
+    </div>
+    <button class="theme-toggle" id="themeToggle" data-page-node-id="HmPDfwdsNTDSGCneYCbEEI">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" data-page-node-id="vwtyTrYvMGHIYOCwyBa0bO"><path d="M21 12.8A9 9 0 1111.2 3a7 7 0 009.8 9.8z" stroke="currentColor" stroke-width="2" stroke-linejoin="round" data-page-node-id="PByEtbOjstAdjBDwlyZE2i"/></svg>
+      切换暗色
+    </button>
+  </div>
+</nav>
+
+<header class="hero" data-page-node-id="Jf97wNvq9XoSgAzg1hJrMl">
+  <div class="wrap" data-page-node-id="yroht3Vg7cDuPlGZTsvMBi">
+    <div class="kicker" data-page-node-id="DHZGpQLLBM1sL0TZZZtSyq">Pantry Nook · Design System 2.0</div>
+    <h1 data-page-node-id="spSKm4endVP9eLuABIVV7Z">在厨房一隅,<br data-page-node-id="iPL0Ii9TZuahaFPDP1AhSQ">记录食材与烹饪。</h1>
+    <p class="lead" data-page-node-id="lz9BBS5E2b9XQZiQoMe2Hi">食隅记是一套属于 1-2 人家庭的厨房管理语言:从「记录食材」到「今日菜单」,从「确认晚餐」到「消耗归档」,再到伴侣的一句反馈悄悄回到你的收件箱 —— 闭环里的每一步,都应该像翻一本家常菜谱一样自然。纸感米色画布、单一陶土强调色、紧凑字距标题与胶囊形主按钮,让数据密集的界面保留家的温度。</p>
+    <div class="hero-loop">
+      <span>记录食材</span><i></i><span>今日菜单</span><i></i><span>确认三餐</span><i></i><span>消耗归档</span><i></i><span>共享反馈墙</span>
+    </div>
+    <div class="cta-row" data-page-node-id="3ijvCrHwDkInGAvqx1kZIt">
+      <a class="btn btn-primary" href="#desktop" data-page-node-id="ygRalKYJfn6CMSfw5DH7Fh">查看界面原型</a>
+      <a class="btn btn-ghost" href="#feedback" >体验反馈闭环</a>
+      <a class="btn btn-ghost" href="#tokens" data-page-node-id="mh5yzfssLy32x5UN6q3Aw2">浏览设计规范</a>
+    </div>
+  </div>
+</header>
+
+<section id="tokens" data-page-node-id="vqOvqzF6qXzvQYsSmyAeLs">
+  <div class="wrap" data-page-node-id="RACYTj1H3o74svCiWycW3K">
+    <h2 class="sec-title" data-page-node-id="rQ4pO7iIXW0BtWujRNSTlS">色彩 Color</h2>
+    <p class="sec-note" data-page-node-id="nAP0uYZHHpGlEwYusdHmaT">主色仅一个:陶土橙(亮模式 #B3541E,白字对比度 4.6:1,过 WCAG AA)。功能色语义绑定食材状态:罗勒绿=新鲜,蜂蜜黄=临期,砖红=过期,陶蓝=冷冻/信息。</p>
+    <div class="group-label" data-page-node-id="ThT81i88Lce8aTmdHIFiJT">主色阶 · 陶土 Terracotta</div>
+    <div class="swatch-grid" data-page-node-id="XwIYHMqEEmmGTOGjbzrqlU">
+      <div class="swatch" data-page-node-id="nXqh7OABgPwupGTlSRwaoB"><div class="chip" style="background:#FBEEE3" data-page-node-id="vsNMI0ZOB5TUhEE8nRTegw"></div><div class="meta" data-page-node-id="0eEu62Doe6ZeCdpLDz7rgb">陶土 50<br data-page-node-id="5u8zPDJOJozPOcwrep6P9G"><b data-page-node-id="dA041LTJUPJfVfBO9ivJHG">#FBEEE3</b></div></div>
+      <div class="swatch" data-page-node-id="L6MmYnbPN2VkyLikl0b502"><div class="chip" style="background:#F3D7BF" data-page-node-id="AbbJJAj2oFs8ryEeysMnYa"></div><div class="meta" data-page-node-id="5CyeaVMzfdgaXhXKx6Iak4">陶土 100<br data-page-node-id="htNP8BbFzEdEKm0qOtk7Ci"><b data-page-node-id="Qh0T60Nl8gNfjrYFENCuNK">#F3D7BF</b></div></div>
+      <div class="swatch" data-page-node-id="JOxKyhdNGwhBevEgGm0Ax4"><div class="chip" style="background:#D68A52" data-page-node-id="DEU9Z1eDFh1hyvBC4UHBHA"></div><div class="meta" data-page-node-id="k1st0uURdP0CQjUFNxk0aD">陶土 300<br data-page-node-id="M43Rcw8tkM5XTr7MeaUfmi"><b data-page-node-id="d2eIKzroTyOqeHHnNdxKQI">#D68A52</b></div></div>
+      <div class="swatch" data-page-node-id="rv91nA0H7v7lIH5jdiQglA"><div class="chip" style="background:#B3541E" data-page-node-id="Wxw1ZTWCUyemCyH2lFY5Qx"></div><div class="meta" data-page-node-id="aRGuDIbKXqyydJqrMMFW1L">陶土 500 · 主色<br data-page-node-id="tfBLmZk1viU1wvyEqgs6Ol"><b data-page-node-id="F9jyygACtlcbFSJ2c1JWbZ">#B3541E</b></div></div>
+      <div class="swatch" data-page-node-id="LzPfxqF9ejhRY8G451iDYU"><div class="chip" style="background:#96430F" data-page-node-id="4SSNkMYcTQ5881frNaup0e"></div><div class="meta" data-page-node-id="ocZIlIcRnCx2qIfCF4ptEF">陶土 600 · 悬停<br data-page-node-id="Djp6N02Vq2bKbnbdxlVbkt"><b data-page-node-id="41bj62CpoFARUmEbjof0gY">#96430F</b></div></div>
+      <div class="swatch" data-page-node-id="2UO12k39TY1CtlEFefChdQ"><div class="chip" style="background:#7A360B" data-page-node-id="HvI6n1Tnv1GTjVvJyBtn4I"></div><div class="meta" data-page-node-id="avZ708cwrVIKN6O6SpLszx">陶土 700<br data-page-node-id="oX267hlbSfrGXCitqbfbqe"><b data-page-node-id="jzFaozB695r8zmyDnForGs">#7A360B</b></div></div>
+    </div>
+    <div class="group-label" data-page-node-id="dc1v32cHDOR2yHDVTCgKmO">中性色 · 纸米体系</div>
+    <div class="swatch-grid" data-page-node-id="DQYlZMMGeksRfWSSVwHN25">
+      <div class="swatch" data-page-node-id="BhxzV0SwKLp49k6SzN3g7i"><div class="chip" style="background:#FAF6EF" data-page-node-id="HAkEuybLcqEnWQ5F2RhqOp"></div><div class="meta" data-page-node-id="qrWjrajGtVyOF9FcF1iXR3">纸米画布<br data-page-node-id="K8FLBXi395Q1erXCmXPbkR"><b data-page-node-id="Bjeng0mUgMFLTRDC9LLuTQ">#FAF6EF</b></div></div>
+      <div class="swatch" data-page-node-id="LHLjaK0F1CknnnM7DO46qr"><div class="chip" style="background:#F4EDE1" data-page-node-id="sNHbKkYS8tyEsBGkMrCUYw"></div><div class="meta" data-page-node-id="v19ReGo8McuBGS045aSy05">暖白表面<br data-page-node-id="WneCZnVEr1aSQuuv7cYivn"><b data-page-node-id="KWagqCYxxaHZI8Kp8vzQoa">#F4EDE1</b></div></div>
+      <div class="swatch" data-page-node-id="h4Z7GhqsSmFXN5A5IU0JwW"><div class="chip" style="background:#E7DCCB" data-page-node-id="SDOLRjYQ4w9yu1ynTdm7Su"></div><div class="meta" data-page-node-id="EAe7Dxy6YNEsnKFsBWLER1">分隔线<br data-page-node-id="ygKBcpAknJCfevJ7jMqlnb"><b data-page-node-id="ThYkMUheNsTnUPn14ftFIo">#E7DCCB</b></div></div>
+      <div class="swatch" data-page-node-id="hGhWNkvu0nwzRC5nlGKGj2"><div class="chip" style="background:#84766A" data-page-node-id="HrBld4OlWPE0S9a2q8gGf0"></div><div class="meta" data-page-node-id="uZlKNBJKEJ6b8wM6vhSEWg">灰褐 · 次要文本<br data-page-node-id="9CUrjk6bLOSoN3JGXFIjJB"><b data-page-node-id="0QDhSEQsNJMxBmLvq7nVL2">#84766A</b></div></div>
+      <div class="swatch" data-page-node-id="5TVUMHcTpELG1M5XNls93q"><div class="chip" style="background:#2E2620" data-page-node-id="YLMnYpO3DeI4oyK9XNigr8"></div><div class="meta" data-page-node-id="bf4TJxq1pRBEyJ498nTZKn">暖墨 · 正文<br data-page-node-id="TAnESBtnj10wroGjMlIfAm"><b data-page-node-id="PDBBFQw2POsF1cro8ttCKy">#2E2620</b></div></div>
+      <div class="swatch" data-page-node-id="vL51P9cQOJuifLZHbsfd8e"><div class="chip" style="background:#241D18" data-page-node-id="0vIti9uzrHDHBVbCbQ7bB0"></div><div class="meta" data-page-node-id="NoctfSUYhbr9bEgqSVTTWd">深焙 · 暗色画布<br data-page-node-id="dGWEEXsddIf74B9Jj877ye"><b data-page-node-id="raJt2Fn5zBL12UtsANZSpd">#241D18</b></div></div>
+    </div>
+    <div class="group-label" data-page-node-id="uCxFJQZ2X5SVQXQxP5ucEt">功能色 · 食材状态语义</div>
+    <div class="swatch-grid" data-page-node-id="pAOeKZsUCbc5abhQ3WoEOE">
+      <div class="swatch" data-page-node-id="JQ2SNmda8abEoX72DDIMLc"><div class="chip" style="background:#4F7A45" data-page-node-id="tl91gKCeoPyTTprdASULB7"></div><div class="meta" data-page-node-id="PwIAnM04dd3SvvxHBCdt4p">罗勒绿 · 新鲜/成功<br data-page-node-id="NVED3xvitTFQjduXHEUxbS"><b data-page-node-id="luwCZCf4kL5QQ2Kp0y6eiC">#4F7A45</b></div></div>
+      <div class="swatch" data-page-node-id="HBH0vBvdFgeeWJWQQEYzOu"><div class="chip" style="background:#C77F1A" data-page-node-id="or4BpJflkANcta7p3fs3Ck"></div><div class="meta" data-page-node-id="rmTyoQEufM8NLWOPNSYipC">蜂蜜黄 · 临期/警告<br data-page-node-id="PapK2dSlMG0xnCJkp7G9uK"><b data-page-node-id="UKelhIAoBntHrfRxDjHRre">#C77F1A</b></div></div>
+      <div class="swatch" data-page-node-id="6x13D9bnSCTvoymQ2A6J6C"><div class="chip" style="background:#B03A2E" data-page-node-id="bZN1Wr7paN1gEky3RJWCDA"></div><div class="meta" data-page-node-id="amYOGlG6GyCkFTUtPrzKIB">砖红 · 过期/错误<br data-page-node-id="E0RrAljkCVaT8Z3GsHCBtD"><b data-page-node-id="4mRMvin9iDlz8QVUyhCERT">#B03A2E</b></div></div>
+      <div class="swatch" data-page-node-id="4txrYY2Mh6tFWqLGmyIOTy"><div class="chip" style="background:#4A6FA5" data-page-node-id="wnsnAejXyaSqhsO1ihMSlb"></div><div class="meta" data-page-node-id="q7THCMMIU6qoJ0iWc70VrT">陶蓝 · 冷冻/信息<br data-page-node-id="oeE4E0QFAuVj4sUMGPhdYk"><b data-page-node-id="oewuVJZ6gCKb6nki7kAjk6">#4A6FA5</b></div></div>
+    </div>
+  </div>
+</section>
+
+<section id="type" style="padding-top:0" data-page-node-id="2AXl7U1GC7dq5nFL7HZUai">
+  <div class="wrap" data-page-node-id="fHQM11B6l813T8iNTnPV3B">
+    <h2 class="sec-title" data-page-node-id="wVpQnPg41aFOi28LuJyzay">字体排印 Typography</h2>
+    <p class="sec-note" data-page-node-id="lRBqarFsyOm9pGcH0FwHV0">系统字体栈(SF Pro / PingFang SC / system-ui)。标题 600 字重 + 负字距;正文 17px / 400 / 行高 1.47;无 500 中间档,层级靠字距与灰度区分。</p>
+    <div class="card panel" data-page-node-id="9DFFaP6KEwyUeIcUnNzIYJ">
+      <div class="type-row" data-page-node-id="Ti7MGEC2Z1EoFUeL6yoRiA"><span style="font-size:40px;font-weight:600;letter-spacing:-.02em" data-page-node-id="AYaHNRSCh4rXzQXm47erxM">今晚吃什么?</span><span class="type-spec" data-page-node-id="u7Sz3l2M5mPmL7T8ayTSFA">Display · 40/600 · -0.02em</span></div>
+      <div class="type-row" data-page-node-id="KIe2TpNvhDuKvaVoMwzTRL"><span style="font-size:28px;font-weight:600;letter-spacing:-.01em" data-page-node-id="H2kJeqLviaBHuf1EhuH4T0">今日作战计划</span><span class="type-spec" data-page-node-id="rrS05FB1DxOeTsMil804ui">Title · 28/600 · -0.01em</span></div>
+      <div class="type-row" data-page-node-id="9evH0oRH2F9fuhSxY4k67H"><span style="font-size:17px;font-weight:600" data-page-node-id="HvGQkOuy5bdz7RkZzoBaTk">番茄牛腩 · 晚餐主菜</span><span class="type-spec" data-page-node-id="Ao4N9jGG2VMGUz5DG9WDiB">Headline · 17/600</span></div>
+      <div class="type-row" data-page-node-id="cCGh2kAVPHE3YUObFEHOuR"><span style="font-size:17px" data-page-node-id="6zJ8BFs1cStjkE1dVz8M21">牛腩 500g,番茄 3 颗,小火慢炖 90 分钟。</span><span class="type-spec" data-page-node-id="TMOsU9DTDsM6zW5rlYolje">Body · 17/400 · 1.47</span></div>
+      <div class="type-row" data-page-node-id="d2xXkrGLjhbJT7sdCjQhuI"><span style="font-size:14px;color:var(--ink-muted)" data-page-node-id="wLO5kHP1pFo4tJn4qbdMh9">冷藏 · 剩 2 天 · 约 300g</span><span class="type-spec" data-page-node-id="9EcXjeaxKcnmLeOBjUSgjr">Caption · 14/400</span></div>
+      <div class="type-row" data-page-node-id="7ftK1BYSNqLP2zzrZwyELp"><span style="font-size:12px;color:var(--ink-muted)" data-page-node-id="yD4WdqvvE88alyHKIdaoEL">更新于 10 分钟前</span><span class="type-spec" data-page-node-id="G2sd4Beft1hM9HERkqn1rf">Fine Print · 12/400</span></div>
+    </div>
+  </div>
+</section>
+
+<section id="components" style="padding-top:0" data-page-node-id="poQ7hjPxFpHme1nmYielB6">
+  <div class="wrap" data-page-node-id="5HAlwihXZMgpvDy7DHbYUF">
+    <h2 class="sec-title" data-page-node-id="6GTs5h8GK2HLmB4quElGPO">组件 Components</h2>
+    <p class="sec-note" data-page-node-id="a1ezPuh5bJFzDBf16FzzMy">胶囊形 = 「行动」的唯一语法;按压反馈统一为 scale(0.95)。输入框聚焦 = 陶土描边 + 3px 浅陶土光晕。</p>
+    <div class="group-label" data-page-node-id="9H1J78v6gkvxWYCdsfC68p">按钮 Buttons</div>
+    <div class="btn-row" data-page-node-id="OgSToBbFNmdJZ40GOHKEMb">
+      <button class="btn btn-primary" data-page-node-id="rurme2A64N7XY8SRqH2mYg">加入今日计划</button>
+      <button class="btn btn-ghost" data-page-node-id="qq4xMYdXGPX6QvgC72pAwH">查看食谱</button>
+      <button class="btn btn-dark" data-page-node-id="J9fz4K4qvKldg6Hok7BCeB">记录消耗</button>
+      <button class="btn btn-pearl" data-page-node-id="iJqgormA2cA5u2eRBaWF04">冷藏区</button>
+      <button class="btn btn-danger" data-page-node-id="tMPfG9sKtwGfa365NE1qa5">丢弃食材</button>
+      <button class="btn" disabled data-page-node-id="rVNsavfPjhab2gDIiLbn5g">确认晚餐</button>
+    </div>
+    <div class="group-label" data-page-node-id="qCmfCcJnZLBPMNqAjyHyck">状态标签 Badges</div>
+    <div class="badge-row" data-page-node-id="XB3qt6eZM7Ui9BlT2IWsdi">
+      <span class="badge badge-success" data-page-node-id="rygs5FmOwuLRbGqiyBtwyI">新鲜 · 剩 5 天</span>
+      <span class="badge badge-warning" data-page-node-id="lz4lVrIZPIS3D5ZBfQmCFE">临期 · 剩 2 天</span>
+      <span class="badge badge-danger" data-page-node-id="jHcQstyI0ko4qEIqG9yTQD">已过期</span>
+      <span class="badge badge-info" data-page-node-id="zqIDFgusGVqi3ak20NNrXw">冷冻储存</span>
+    </div>
+    <div class="group-label" data-page-node-id="6bWAaZyA5GFRSfRO14bQqA">表单 Inputs</div>
+    <div class="form-row" data-page-node-id="URLTuPBQbPHidInn27ttsv">
+      <input class="input" placeholder="搜索食材,如:鸡蛋" data-page-node-id="5yfxoO82cUBsFGVC55Znuh">
+      <input class="input" value="番茄" style="border-color:var(--primary);box-shadow:0 0 0 3px var(--primary-100)" data-page-node-id="KcCeC6oOMoStn0v1x13y0Y">
+      <input class="input" placeholder="秋季菜单(未开放)" disabled data-page-node-id="lHeLTIVuWu6nEzYgI6D1ID">
+    </div>
+    <div class="group-label" data-page-node-id="E6Yn38dOFz4fYCNafv7DoG">圆角与间距 Radius & Spacing</div>
+    <div class="radius-row" data-page-node-id="7p7JthRHQ7TWi2YI9nvtHF">
+      <div data-page-node-id="ApgPGN0sjDBWuAfJteYaC4"><div class="radius-demo" style="border-radius:8px" data-page-node-id="EN2XWRsdPd6IYO6iU1KaC8">8</div><div class="radius-cap" data-page-node-id="zTFpLTsnJ3O7VDcnjWXEj0">工具按钮</div></div>
+      <div data-page-node-id="0T9dDibkxtVggJ4GKVgdoc"><div class="radius-demo" style="border-radius:12px" data-page-node-id="RbyDipYeXdsRChAn6WSNAE">12</div><div class="radius-cap" data-page-node-id="TQddSwerWGFueyt6WdiXvH">输入框 / 行</div></div>
+      <div data-page-node-id="qPC1uqVB8T3HHciQJtcjVF"><div class="radius-demo" style="border-radius:18px" data-page-node-id="Jlwuc2CRmXJAZzCjODzEpT">18</div><div class="radius-cap" data-page-node-id="GIZRSdEKXuftzaK8yCHnqP">卡片</div></div>
+      <div data-page-node-id="IGzZasjHTdSabCOg0AWk8w"><div class="radius-demo" style="border-radius:9999px;width:132px;background:var(--primary);color:#fff" data-page-node-id="TMiabckVstQWzXCG60YPfF">Pill</div><div class="radius-cap" data-page-node-id="pediAGOdA98HEJENEbMxAT">主按钮 / 徽标</div></div>
+    </div>
+    <p class="sec-note" style="margin-top:20px" data-page-node-id="RFfYpSAMGL0jHsTwepNqkf">间距单元 4 / 8 / 12 / 16 / 24 / 32 / 48 / 80 · 卡片内边距 24 · 区块间距 48 · 动效 150ms / 300ms,cubic-bezier(.4,0,.2,1)</p>
+  </div>
+</section>
+
+<section id="desktop" style="padding-top:0" data-page-node-id="XdbsYdLn6ie2gy8FbJjtq8">
+  <div class="wrap" data-page-node-id="m1dXJp7e81L9YZIv7LSppD">
+    <h2 class="sec-title" data-page-node-id="JDbym2D3DElg7sW09COp7O">桌面端 · 今日作战</h2>
+    <p class="sec-note" data-page-node-id="xEbphUffs4dgTHrRYwjBCn">一屏一目的:回答「今晚吃什么」。左栏主导区 = 作战计划,右栏从属 = 库存概览与临期提醒。</p>
+    <div class="demo-frame" data-page-node-id="B3yIwT3A7n8ev9Fhgp8m5l">
+      <div class="app-nav" data-page-node-id="Hbgng6Euoyyagy69h6NgqY">
+        <div class="brand" data-page-node-id="nNTRoaF4g5m8QdcE00l57F">
+          <span class="logo-tile"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M4 10h16v2c0 4-3 7-8 7s-8-3-8-7v-2z" fill="#fff"/><path d="M8 7c0-2 1.5-3 4-3s4 1 4 3" stroke="#fff" stroke-width="2" stroke-linecap="round"/></svg></span>
+          食隅记
+        </div>
+        <div class="app-links" data-page-node-id="quvb13JvVXjVwJSrbkOur5"><span class="active" data-page-node-id="ur3Y3mUV4nvtG91dswxUbG">今日</span><span data-page-node-id="AUMwcjdAobWQKXm4A6FbcQ">库存</span><span data-page-node-id="2EILzWgHz9KHtM07LHAKEv">菜品</span><span data-page-node-id="A3xWUq4VPUS3WvRe7Bkq3O">记录</span></div>
+        <div style="display:flex;align-items:center;gap:12px">
+          <div class="search-pill" data-page-node-id="hDYreHTFDxObNKE8EAcOVO">搜索食材或菜品</div>
+          <button class="icon-btn" aria-label="提醒"><svg width="17" height="17" viewBox="0 0 24 24" fill="none"><path d="M18 9a6 6 0 10-12 0c0 6-2.5 7-2.5 7h17S18 15 18 9z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M10 20a2.5 2.5 0 005 0" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><span class="dot"></span></button>
+          <div class="user-wrap">
+            <button class="userpill" id="userPill">
+              <span class="avatar" style="width:30px;height:30px;font-size:12px">超</span>
+              <span class="name">超新</span>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M6 9l6 6 6-6" stroke="var(--ink-muted)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+            <div class="dropdown" id="userDropdown">
+              <div class="dd-head">
+                <span class="avatar">超</span>
+                <div><div class="n">杨超新</div><div class="m">家庭空间 · 2 位成员</div></div>
+              </div>
+              <div class="dd-div"></div>
+              <button class="dd-item hot" data-goto="#feedback"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M21 12a8 8 0 01-8 8H4l2-3a8 8 0 1115-5z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>共享反馈墙<span class="unread">3</span></button>
+              <button class="dd-item"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><circle cx="9" cy="8" r="3.5" stroke="currentColor" stroke-width="2"/><path d="M2.5 20c1.2-3 3.8-4.5 6.5-4.5s5.3 1.5 6.5 4.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="17" cy="9" r="2.5" stroke="currentColor" stroke-width="2"/><path d="M15.5 14.8c2.3.2 4.3 1.6 5.2 4.2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>家庭成员 · 伴侣已加入</button>
+              <button class="dd-item"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M12 21s-7-4.3-9.5-9C1 8.5 3 5 6.5 5c2 0 3.5 1 4.5 2.5C12 6 13.5 5 15.5 5 19 5 21 8.5 20.5 12 19 16.7 12 21 12 21z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>口味与忌口偏好</button>
+              <button class="dd-item"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="2"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M19.1 4.9L17 7M7 17l-2.1 2.1" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>设置</button>
+              <div class="dd-div"></div>
+              <button class="dd-item danger"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M9 21H6a2 2 0 01-2-2V5a2 2 0 012-2h3M16 17l5-5-5-5M21 12H9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>退出登录</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="app-body" data-page-node-id="EZw8aXaB77RY8LucMDkq2A">
+        <div class="app-head" data-page-node-id="aPt7b68Dasj2JJG8KqxqHr">
+          <div data-page-node-id="w5cBqYFJzORZ59ABTIzVon">
+            <div class="eyebrow">9 月 7 日 周一 · 晚餐筹备中</div>
+            <h3 data-page-node-id="oywBTP5ktZlptekywDxsSn">晚上好,今晚吃点什么?</h3>
+            <div class="date" data-page-node-id="5ZCWukPmJyGJmKfKnvwd1y">冰箱里有 6 样食材等待安排,其中 3 样建议优先消耗。</div>
+          </div>
+          <div style="display:flex;gap:12px;align-items:center">
+            <button class="btn btn-ghost" style="font-size:14px;padding:10px 20px">生成购物清单</button>
+            <button class="btn btn-primary" style="font-size:14px" data-page-node-id="Zaj9xhYGDozCsjcPcSAxYC">快速记录食材</button>
+          </div>
+        </div>
+        <div class="app-grid" data-page-node-id="1Oql5AtRDFKR9BH6AlXGfb">
+          <div data-page-node-id="TL8CC390mryki6iO0XYuG8">
+            <div class="card panel" style="margin-bottom:24px" data-page-node-id="y363i10QxCoWNzIDMRUHIZ">
+              <div class="panel-head" data-page-node-id="kLUAbAlzaVYZxyCtqqTVDT"><h4 data-page-node-id="9lfZASjHouQRUxJY8DXBuR">今日作战计划</h4><span class="sub" data-page-node-id="zGmqUEcTEtryeyPqpI2DRv">3 道菜 · 2 人已确认</span></div>
+              <div class="dish" data-page-node-id="fnQjOkyi5cEEwwHXytkdbh">
+                <div class="check done" data-page-node-id="aEe1RvT7cwFOOOFLUeRohZ"><svg width="12" height="12" viewBox="0 0 12 12" fill="none" data-page-node-id="kAnzmPzah8h229JIp4Zs2T"><path d="M2 6l3 3 5-6" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-page-node-id="Z97gDTLqSPZEvZ3GnvArMl"/></svg></div>
+                <div class="txt" data-page-node-id="hIS6WHwzKRuJuTQVvHEMEL"><div class="name" data-page-node-id="OSGWfAMy4E1A3k7PAHI0QP">番茄牛腩</div><div class="meta" data-page-node-id="IGKKtehTgRYKFBDRLmfqwD">晚餐 · 消耗牛腩 500g、番茄 3 颗</div></div>
+                <span class="badge badge-success" data-page-node-id="nB7mf38KL1nQu30VEEnHFi">已确认</span>
+              </div>
+              <div class="dish" data-page-node-id="fzkelMh7dBDWhiPYRluo4L">
+                <div class="check" data-page-node-id="qE1999ks2hqSGuf6QCHkiI"></div>
+                <div class="txt" data-page-node-id="FbEDXnVYBCJ7WCB9NHzKEk"><div class="name" data-page-node-id="VGQV7SusWZ8HGk1TfiQIo8">蒜蓉西兰花</div><div class="meta" data-page-node-id="pvBWpau8EYjuL3K3Wqiq85">晚餐 · 消耗西兰花 1 颗</div></div>
+                <span class="badge badge-warning" data-page-node-id="BNMKyWdiy6dR4o8bGfdNMn">待确认</span>
+              </div>
+              <div class="dish" data-page-node-id="Vpx24bCHJBHnkSegO3FxhW">
+                <div class="check" data-page-node-id="F2jbeOc63L3goQJxWi1jVH"></div>
+                <div class="txt" data-page-node-id="fXRgFVlQUSqRkJDxeRvubp"><div class="name" data-page-node-id="W8vDvJlwlAQhk3Yhh2fGTD">杂粮米饭</div><div class="meta" data-page-node-id="I4g0Z675206FNeB00DbEAH">晚餐 · 消耗杂粮米 200g</div></div>
+                <span class="badge badge-warning" data-page-node-id="2vuMF4yhrlFfiIzCQLhOHw">待确认</span>
+              </div>
+            </div>
+            <div class="card panel" data-page-node-id="7QbKuqdB3KbAQ9tJMawcNW">
+              <div class="panel-head" data-page-node-id="emaPcxcqDutl26ixFjeh6M"><h4 data-page-node-id="VRJMsnHxXBG9sLD4egAYhB">用临期食材,推荐这样搭</h4><span class="sub" style="color:var(--primary)" data-page-node-id="mgVOMPlhzJgqZ2iqzEL0Sc">查看全部 8 个方案</span></div>
+              <div class="rec-grid" data-page-node-id="6TB4iVUI38WeW2rJ72Tz0W">
+                <div class="rec" data-page-node-id="hQteLepaYnc5tVZuAJWlKW"><div class="name" data-page-node-id="L9UTCejEFzIWlEQtyLz4Vb">菠菜牛奶浓汤</div><div class="use" data-page-node-id="vTMIWBMS7rsfj1KgBHvSA8">消耗菠菜 + 鲜牛奶</div><div class="hit" data-page-node-id="o68fYj6FAuhu0AR4Oh0pWk">可清空 2 样临期</div></div>
+                <div class="rec" data-page-node-id="DpimH2bprLBuqb0PzOONy3"><div class="name" data-page-node-id="HjCa93SN6QW3lbGFsCntwk">照烧鸡腿饭</div><div class="use" data-page-node-id="iRbecS43UmuDoovqMwUp1u">消耗鸡腿肉 + 杂粮米</div><div class="hit" data-page-node-id="sfRFVvz8cX7bOf3xLGgekz">可清空 1 样临期</div></div>
+                <div class="rec" data-page-node-id="dhPauUTnolhxgC9dAJ7cwa"><div class="name" data-page-node-id="mcr0bRQcGaH0FRZesjTAoZ">鸡腿菠菜咖喱</div><div class="use" data-page-node-id="ALiAgi9LA8j9diVrOHQmhU">消耗鸡腿肉 + 菠菜</div><div class="hit" data-page-node-id="7QWCSD0zABWr7B9QGHXlYq">可清空 2 样临期</div></div>
+              </div>
+            </div>
+          </div>
+          <div data-page-node-id="8yBvmx6joxHLSWZ5K3Ywb2">
+            <div class="stat-grid" data-page-node-id="tbTttP6nCdELGsQT4cZiV5">
+              <div class="card stat" data-page-node-id="i1zfECw2ejUU9MQfLWa5lO"><div class="num" data-page-node-id="VG17ndfFYQ3RsBsa8JswYH">28</div><div class="lbl" data-page-node-id="qDpULnIG4orNeOkbMkPAfX">在库食材</div><div class="trend" style="color:var(--success)">本周新增 +3</div></div>
+              <div class="card stat" data-page-node-id="daEUgSSnPH3FNpq0RdU3t7"><div class="num" style="color:var(--warning)" data-page-node-id="1khPT878J66E1jBzDVjN7f">3</div><div class="lbl" data-page-node-id="0qGXMDuU74l3CcuBOykBle">临期提醒</div><div class="trend" style="color:var(--warning)">需 48h 内处理</div></div>
+              <div class="card stat" data-page-node-id="GQdD9JEBnEHJLcGADtreqv"><div class="num" style="color:var(--success)" data-page-node-id="qcM7lNuo9mo9SF2sEbHrrG">12</div><div class="lbl" data-page-node-id="TPmSuuqbaAVem6uOeD5Bqm">本周消耗</div></div>
+            </div>
+            <div class="card panel" data-page-node-id="9jodsuTZBiqnug2hVEhxXx">
+              <div class="panel-head" data-page-node-id="l2BFmMMhmnSsmNU1gnkJpE"><h4 style="font-size:17px" data-page-node-id="GEX7X1d7kWpIcoOyatVNBT">优先吃掉它们</h4></div>
+              <div class="fresh"><div class="row"><span>鲜牛奶 1L</span><span class="days" style="color:var(--danger)">今天到期</span></div><div class="track"><div class="fill" style="width:12%;background:var(--danger)"></div></div></div>
+              <div class="fresh"><div class="row"><span>菠菜 300g</span><span class="days" style="color:var(--warning)">剩 1 天</span></div><div class="track"><div class="fill" style="width:28%;background:var(--warning)"></div></div></div>
+              <div class="fresh"><div class="row"><span>鸡腿肉 500g</span><span class="days" style="color:var(--warning)">剩 2 天</span></div><div class="track"><div class="fill" style="width:45%;background:#D9A44A"></div></div></div>
+            </div>
+            <div class="card panel" style="margin-top:16px">
+              <div class="panel-head"><h4 style="font-size:17px">最近消耗</h4></div>
+              <div class="exp-row"><span>鸡蛋 2 枚 · 早餐煎蛋</span><span style="font-size:12px;color:var(--ink-faint)">今早</span></div>
+              <div class="exp-row"><span>鸡胸肉 300g · 昨晚沙拉</span><span style="font-size:12px;color:var(--ink-faint)">昨天</span></div>
+              <div class="exp-row"><span>土豆 2 颗 · 咖喱配菜</span><span style="font-size:12px;color:var(--ink-faint)">周日</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="mobile" style="padding-top:0" data-page-node-id="5VpXiMCZNEAtCQiUPv6Meh">
+  <div class="wrap" data-page-node-id="d5jz17j1N5m9LifkVF1OvG">
+    <h2 class="sec-title" data-page-node-id="JESscgg0aCCd0C16DP2kqM">移动端 · 食材库存</h2>
+    <p class="sec-note" data-page-node-id="QLrYx4ukoAqbVChcJJvFdf">单主导列 + 底部标签栏;列表行 = 名称 / 储存位 / 余量 / 状态徽标,一眼可扫。</p>
+    <div class="phone-wrap" data-page-node-id="87cDTE8BUySlAd4K1NOerA">
+      <div class="phone" data-page-node-id="RIOD7OindlAeCj6hjwgtAs">
+        <div class="statusbar">
+          <span>9:41</span>
+          <svg width="66" height="14" viewBox="0 0 66 14" fill="none"><path d="M2 11V3M6 11V3M10 11V5M14 11V7" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M22 3c4 0 8 3 10 7M24 7c2 0 4 1.5 5 3.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><rect x="40" y="2" width="22" height="10" rx="3" stroke="currentColor"/><rect x="42" y="4" width="14" height="6" rx="1.5" fill="currentColor"/><path d="M64 5v4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        </div>
+        <div class="phone-head" data-page-node-id="5m1Alls20F1K18ebEBcN83">
+          <div class="eyebrow" style="font-size:11px">PANTRY · 库存总览</div>
+          <h4 data-page-node-id="b5UYd2mI72kYdXOQKiAoLq">食材库存</h4>
+          <div class="sub" data-page-node-id="tcJWxoMHjlEPhSNvwwZzxB">28 样在库 · 3 样临期</div>
+          <div class="phone-search" data-page-node-id="fgZAAjjJCe7diwaB8oZh0i">搜索食材</div>
+          <div class="chips" data-page-node-id="FCfBn4HOzTCUBTYaX27yku">
+            <button class="chip active" data-page-node-id="J8ZOxeOu82clR3eGVaEYtR">全部</button><button class="chip" data-page-node-id="qRHRVRk9Tq9Mfda4NCfgc6">冷藏</button><button class="chip" data-page-node-id="B7ySXbchHJfaCrEgrepkdD">冷冻</button><button class="chip" data-page-node-id="qEe4Y79M16QI2Pm2uT5GMs">常温</button>
+          </div>
+        </div>
+        <div class="phone-list" data-page-node-id="gGJiHFPNfYSFWMNSS0Y2DQ">
+          <div class="group-label-sm">冷藏</div>
+          <div class="inv" data-page-node-id="1iPJsmx5CkhoU91aO3tDBW"><div class="txt" data-page-node-id="W7GDprA5Ih7g1vibsp4yv8"><div class="name" data-page-node-id="Pz7kYK4bmxIomlCvUdp5EN">鲜牛奶</div><div class="meta" data-page-node-id="ksR62uqBEeEJ4AjyvlOMQx">冷藏 · 1L · 今天到期</div></div><span class="badge badge-danger" data-page-node-id="7NaWTEkSfJSeyvBAFJwZz8">过期</span></div>
+          <div class="inv" data-page-node-id="C1Ozhy5y2Bdos92ftwgeal"><div class="txt" data-page-node-id="zQYoj79AlqLZ3Ipq6JKh1y"><div class="name" data-page-node-id="nj8wj4vDOFePSnwCQEENZX">菠菜</div><div class="meta" data-page-node-id="tQVnLcRgJSCBc9QXiUiFci">冷藏 · 300g · 剩 1 天</div></div><span class="badge badge-warning" data-page-node-id="XcjLPY3Le3ZKvmvfQIZSKb">临期</span></div>
+          <div class="inv" data-page-node-id="RlAeH8R84nIOjQZ0HRHyKs"><div class="txt" data-page-node-id="cvCWtQ7SYLOk9kbASyoJJA"><div class="name" data-page-node-id="HGxXXe3kNF7neajaiBVJFQ">鸡蛋</div><div class="meta" data-page-node-id="63mCs5Lm2LW20IZDlGHB4p">冷藏 · 8 枚 · 剩 5 天</div></div><span class="badge badge-success" data-page-node-id="IPSdtvj4Ja2um9QJNRfyBW">新鲜</span></div>
+          <div class="group-label-sm">冷冻</div>
+          <div class="inv" data-page-node-id="bcEWfwTDMNbFSUyKQ9wwYs"><div class="txt" data-page-node-id="meRf3Wecrzv4c2bGeWPNBA"><div class="name" data-page-node-id="BcMNubEj5AuJOfnjMOBEm3">鸡腿肉</div><div class="meta" data-page-node-id="gd2EB6vyt8K8GeY51PyLCu">冷冻 · 500g · 剩 2 天</div></div><span class="badge badge-info" data-page-node-id="agVpERZib2S3PNB9WHfX6s">冷冻</span></div>
+          <div class="group-label-sm">常温</div>
+          <div class="inv" data-page-node-id="VM3QFGeLHgPYSvmldt9Bre"><div class="txt" data-page-node-id="ICrrBgUxjaevGDHkwrnqB4"><div class="name" data-page-node-id="oSZLAcZc82fbpBHHzaEV6D">番茄</div><div class="meta" data-page-node-id="BomdUiwD5uoxdOeanXzrOY">常温 · 3 颗 · 剩 4 天</div></div><span class="badge badge-success" data-page-node-id="vYryKTUYwOQZQhohVb9wyW">新鲜</span></div>
+        </div>
+        <button class="fab" aria-label="快速记录食材">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/></svg>
+        </button>
+        <div class="tabbar" data-page-node-id="tHq6zWSxWGfXj3sNKvlqk7">
+          <div class="tab" data-page-node-id="DBzdqcktvKJ1nFTQHfyk2E"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" data-page-node-id="SHmMYpLrSN9OelrkLqOdmG"><path d="M3 10.5L12 3l9 7.5V21h-7v-6h-4v6H3V10.5z" stroke="currentColor" stroke-width="2" stroke-linejoin="round" data-page-node-id="rK9JhOA7S0qdRC3Z3EVaFb"/></svg>今日</div>
+          <div class="tab active" data-page-node-id="Wfmgv385LTG5ataygw4d5U"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" data-page-node-id="338gdlKBN89xvd9nOuI3dW"><rect x="4" y="3" width="16" height="18" rx="2" stroke="currentColor" stroke-width="2" data-page-node-id="FStiY7B3YuNcJwACx3RUjb"/><path d="M4 10h16M8 6v2M8 13v3" stroke="currentColor" stroke-width="2" stroke-linecap="round" data-page-node-id="wHk5mOApHlORiBSZO6DnTm"/></svg>库存<span class="active-dot"></span></div>
+          <div class="tab" data-page-node-id="MoDuBVwUQNxKYnXC3rRwiF"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" data-page-node-id="uzesWlT1g0fOEzftVqpMzN"><path d="M4 5a2 2 0 012-2h13v16H6a2 2 0 00-2 2V5z" stroke="currentColor" stroke-width="2" stroke-linejoin="round" data-page-node-id="AL1zFMKvlGZYyW8J7HLqpJ"/><path d="M8 7h7M8 11h5" stroke="currentColor" stroke-width="2" stroke-linecap="round" data-page-node-id="hfbtEWSxAazB9uloECQuFl"/></svg>菜品</div>
+          <div class="tab" data-page-node-id="kRFdspWoPirVvY9f1yDEPG"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" data-page-node-id="qGGFpHJL5oQl8Vc8LOpsOd"><circle cx="12" cy="8" r="4" stroke="currentColor" stroke-width="2" data-page-node-id="BWFYbkURiLnQKBalycVT6Q"/><path d="M4 21c1.5-3.5 4.5-5 8-5s6.5 1.5 8 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" data-page-node-id="vXMvf9xREB1nSeLSp5X3Dw"/></svg>我的</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="feedback" style="padding-top:0">
+  <div class="wrap">
+    <h2 class="sec-title">共享反馈墙 · 一家人共同的声音</h2>
+    <p class="sec-note">部署后凭一个链接打开即见全部内容,无需登录(左,可交互写入);任何进入同一条链接的人都能看到、采纳为待办、标记已读(右)——无需线下转述,产品随生活一起变好。</p>
+    <div class="fb-grid">
+      <div class="phone-wrap">
+        <div class="phone">
+          <div class="statusbar">
+            <span>9:41</span>
+            <svg width="66" height="14" viewBox="0 0 66 14" fill="none"><path d="M2 11V3M6 11V3M10 11V5M14 11V7" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M22 3c4 0 8 3 10 7M24 7c2 0 4 1.5 5 3.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><rect x="40" y="2" width="22" height="10" rx="3" stroke="currentColor"/><rect x="42" y="4" width="14" height="6" rx="1.5" fill="currentColor"/><path d="M64 5v4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+          </div>
+          <div class="phone-head">
+            <div class="eyebrow" style="font-size:11px">FEEDBACK · 写进共享反馈墙</div>
+            <h4 style="font-size:24px">今天用着感觉如何?</h4>
+            <div class="mood-row">
+              <button class="mood sel">很喜欢</button><button class="mood">有点困惑</button><button class="mood">想吐槽</button>
+            </div>
+            <textarea placeholder="比如:早餐的豆浆配得太稳了,想按人数给份量…"></textarea>
+            <div class="qtag-row">
+              <button class="qtag">早餐很稳</button><button class="qtag">想按人数配餐</button><button class="qtag">录入有点麻烦</button>
+            </div>
+            <button class="btn btn-primary" id="fbSubmit" style="width:100%;font-size:15px">发布到反馈墙</button>
+            <p style="font-size:12px;color:var(--ink-faint);text-align:center;margin-top:12px">无需登录,提交后同一链接内全家可见,可随时删除</p>
+          </div>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:16px">
+        <div class="chips" style="margin-bottom:4px">
+          <button class="chip active">全部 3</button><button class="chip">未读 2</button><button class="chip">已读 1</button>
+        </div>
+        <div style="background:var(--success-bg);padding:10px 14px;border-radius:9999px;font-size:12px;color:var(--success);font-weight:600;align-self:flex-start;display:inline-flex;gap:6px;align-items:center"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><circle cx="7" cy="12" r="3" stroke="currentColor" stroke-width="2"/><circle cx="17" cy="6" r="2.5" stroke="currentColor" stroke-width="2"/><circle cx="17" cy="18" r="2.5" stroke="currentColor" stroke-width="2"/><path d="M10 11l4.5-3.5M10 13l4.5 3.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>共享部署 · 无需登录,打开即见</div>
+        <div class="fb-card unread">
+          <div class="top"><span class="avatar">伴</span><div><div class="n">伴侣 · 早餐 · 很喜欢</div><div class="t">今天 08:22 · 来自移动端</div></div><span class="uread"></span><span class="ftag" style="background:var(--success-bg);color:var(--success)">很喜欢</span></div>
+          <div class="body">早餐建议的「豆浆 + 全麦吐司」很稳,关键是真的会根据昨天剩的牛奶给出搭配,不浪费。</div>
+          <div class="acts"><button class="btn btn-primary" style="font-size:13px;padding:8px 14px">采纳为待办</button><button class="btn btn-ghost" style="font-size:13px;padding:8px 14px">标记已读</button></div>
+        </div>
+        <div class="fb-card unread">
+          <div class="top"><span class="avatar">伴</span><div><div class="n">伴侣 · 午餐 · 有点困惑</div><div class="t">今天 12:40 · 来自移动端</div></div><span class="uread"></span><span class="ftag" style="background:var(--warning-bg);color:var(--warning)">有点困惑</span></div>
+          <div class="body">午餐的「剩菜变奏」给的三选一里,有两道其实差别不大,选起来反而更费劲。能不能只推荐最优的一道?</div>
+          <div class="acts"><button class="btn btn-primary" style="font-size:13px;padding:8px 14px">采纳为待办</button><button class="btn btn-ghost" style="font-size:13px;padding:8px 14px">标记已读</button></div>
+        </div>
+        <div class="fb-card read">
+          <div class="top"><div><div class="n">伴侣 · 晚餐 · 已采纳</div><div class="t">今天 19:50 · 已转为待办「番茄牛腩保鲜」</div></div></div>
+          <div class="body">晚上那道番茄牛腩好吃,但做多了没吃完,放冰箱隔天味道差很多。下次能不能按人数给份量?我们两个人。</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer data-page-node-id="GmfVx9anEVqYFgoyK3Ntie">
+  <div class="wrap" data-page-node-id="iCkHNU2jbXtfix19zSbQLR">
+    食隅记 Pantry Nook · Design System 2.0 — 亮/暗双主题基于同一套 CSS 变量 · 主色对比度 4.6:1(WCAG AA) · 断点 640 / 768 / 1024 · 共享反馈墙:一个链接,谁都能写、看、采纳为待办
+  </div>
+</footer>
+
+<script>
+var toggle=document.getElementById('themeToggle');
+toggle.addEventListener('click',function(){
+  var d=document.documentElement;
+  var dark=d.getAttribute('data-theme')==='dark';
+  d.setAttribute('data-theme',dark?'':'dark');
+  toggle.lastChild.textContent=dark?' 切换暗色':' 切换亮色';
+});
+// 交互演示:作战计划勾选
+document.querySelectorAll('.check').forEach(function(c){
+  c.addEventListener('click',function(){c.classList.toggle('done');
+    if(c.classList.contains('done')&&!c.querySelector('svg')){
+      c.innerHTML='<svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2 6l3 3 5-6" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+    }else if(!c.classList.contains('done')){c.innerHTML='';}
+  });
+});
+// 移动端筛选 chip
+document.querySelectorAll('.chip').forEach(function(ch){
+  ch.addEventListener('click',function(){
+    ch.parentElement.querySelectorAll('.chip').forEach(function(x){x.classList.remove('active')});
+    ch.classList.add('active');
+  });
+});
+// 用户模块下拉
+var pill=document.getElementById('userPill'),dd=document.getElementById('userDropdown');
+if(pill&&dd){
+  pill.addEventListener('click',function(e){e.stopPropagation();dd.classList.toggle('open')});
+  document.addEventListener('click',function(e){if(!dd.contains(e.target))dd.classList.remove('open')});
+  dd.querySelectorAll('[data-goto]').forEach(function(b){
+    b.addEventListener('click',function(){
+      dd.classList.remove('open');
+      var el=document.querySelector(b.getAttribute('data-goto'));
+      if(el)el.scrollIntoView({behavior:'smooth'});
+    });
+  });
+}
+// 反馈感受选择
+document.querySelectorAll('.mood').forEach(function(m){
+  m.addEventListener('click',function(){
+    m.parentElement.querySelectorAll('.mood').forEach(function(x){x.classList.remove('sel')});
+    m.classList.add('sel');
+  });
+});
+// 反馈提交 toast
+var toast=document.createElement('div');toast.className='toast';toast.textContent='已发布到共享反馈墙,感谢你的反馈';document.body.appendChild(toast);
+var fbs=document.getElementById('fbSubmit');
+if(fbs){fbs.addEventListener('click',function(){
+  toast.classList.add('show');
+  setTimeout(function(){toast.classList.remove('show')},2400);
+});}
+</script>
+</body>
+</html>

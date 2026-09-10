@@ -1,0 +1,670 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>食隅记</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    :root {
+      --bg: #FAFAFA;
+      --text: #1A1A1A;
+      --text-muted: #999;
+      --accent: #FF006E;
+      --accent-light: #FF4D9C;
+      --success: #00D98C;
+      --warning: #FFB800;
+      --danger: #FF3D71;
+      --purple: #8B5CF6;
+      --blue: #0EA5E9;
+      --orange: #F97316;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #0A0A0A;
+        --text: #FAFAFA;
+        --text-muted: #666;
+      }
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      padding-bottom: 100px;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .header {
+      padding: 24px 20px;
+      text-align: center;
+    }
+
+    .logo {
+      font-size: 32px;
+      font-weight: 800;
+      background: linear-gradient(135deg, var(--accent), var(--purple));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      letter-spacing: -0.02em;
+    }
+
+    .container {
+      padding: 0 20px;
+    }
+
+    .section-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-muted);
+      margin: 32px 0 16px;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+    }
+
+    /* 库存页面 - 超大数字卡片 */
+    .stat-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 16px;
+      margin-bottom: 32px;
+    }
+
+    .stat-card {
+      background: white;
+      border-radius: 24px;
+      padding: 24px 20px;
+      box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+      transition: transform 120ms;
+    }
+
+    .stat-card:active {
+      transform: scale(0.98);
+    }
+
+    .stat-label {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-bottom: 8px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .stat-value {
+      font-size: 48px;
+      font-weight: 900;
+      line-height: 1;
+      background: linear-gradient(135deg, var(--accent), var(--accent-light));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      .stat-card {
+        background: #1A1A1A;
+        box-shadow: 0 2px 12px rgba(255, 255, 255, 0.05);
+      }
+    }
+
+    /* 食材卡片 - 彩色大数字 */
+    .ingredient-card {
+      background: white;
+      border-radius: 20px;
+      padding: 20px;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+      transition: all 120ms;
+    }
+
+    .ingredient-card:active {
+      transform: translateY(2px);
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+    }
+
+    @media (prefers-color-scheme: dark) {
+      .ingredient-card {
+        background: #1A1A1A;
+        box-shadow: 0 2px 8px rgba(255, 255, 255, 0.03);
+      }
+    }
+
+    .ingredient-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      flex-shrink: 0;
+    }
+
+    .icon-vegetable {
+      background: linear-gradient(135deg, #10B981, #34D399);
+    }
+
+    .icon-protein {
+      background: linear-gradient(135deg, #F59E0B, #FBBF24);
+    }
+
+    .icon-carb {
+      background: linear-gradient(135deg, #8B5CF6, #A78BFA);
+    }
+
+    .ingredient-info {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .ingredient-name {
+      font-size: 18px;
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+
+    .ingredient-location {
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+
+    .ingredient-qty {
+      font-size: 32px;
+      font-weight: 900;
+      line-height: 1;
+      white-space: nowrap;
+    }
+
+    .qty-ok {
+      color: var(--success);
+    }
+
+    .qty-low {
+      color: var(--danger);
+    }
+
+    /* 菜品标签 - 彩虹色 */
+    .dish-pills {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .dish-pill {
+      padding: 12px 20px;
+      border-radius: 999px;
+      font-size: 15px;
+      font-weight: 600;
+      color: white;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+      transition: transform 120ms;
+    }
+
+    .dish-pill:active {
+      transform: scale(0.95);
+    }
+
+    .dish-pill:nth-child(6n+1) {
+      background: linear-gradient(135deg, #FF006E, #FF4D9C);
+    }
+
+    .dish-pill:nth-child(6n+2) {
+      background: linear-gradient(135deg, #8B5CF6, #A78BFA);
+    }
+
+    .dish-pill:nth-child(6n+3) {
+      background: linear-gradient(135deg, #0EA5E9, #38BDF8);
+    }
+
+    .dish-pill:nth-child(6n+4) {
+      background: linear-gradient(135deg, #10B981, #34D399);
+    }
+
+    .dish-pill:nth-child(6n+5) {
+      background: linear-gradient(135deg, #F59E0B, #FBBF24);
+    }
+
+    .dish-pill:nth-child(6n+6) {
+      background: linear-gradient(135deg, #F97316, #FB923C);
+    }
+
+    /* 搭配方案卡片 */
+    .plan-card {
+      background: white;
+      border-radius: 24px;
+      padding: 24px;
+      margin-bottom: 20px;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+    }
+
+    @media (prefers-color-scheme: dark) {
+      .plan-card {
+        background: #1A1A1A;
+        box-shadow: 0 4px 16px rgba(255, 255, 255, 0.05);
+      }
+    }
+
+    .plan-title {
+      font-size: 22px;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+
+    .plan-meta {
+      font-size: 13px;
+      color: var(--text-muted);
+      margin-bottom: 20px;
+    }
+
+    .plan-dishes {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .plan-dishes .dish-pill {
+      font-size: 14px;
+      padding: 8px 16px;
+    }
+
+    /* 今日作战 - 时间轴样式 */
+    .battle-item {
+      position: relative;
+      padding-left: 32px;
+      margin-bottom: 40px;
+    }
+
+    .battle-item::before {
+      content: '';
+      position: absolute;
+      left: 6px;
+      top: 32px;
+      bottom: -20px;
+      width: 2px;
+      background: linear-gradient(180deg, var(--accent) 0%, transparent 100%);
+    }
+
+    .battle-item:last-child::before {
+      display: none;
+    }
+
+    .battle-dot {
+      position: absolute;
+      left: 0;
+      top: 8px;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: var(--accent);
+      box-shadow: 0 0 0 4px var(--bg);
+    }
+
+    .battle-dot.done {
+      background: var(--success);
+    }
+
+    .battle-card {
+      background: white;
+      border-radius: 20px;
+      padding: 20px;
+      box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+    }
+
+    @media (prefers-color-scheme: dark) {
+      .battle-card {
+        background: #1A1A1A;
+        box-shadow: 0 2px 12px rgba(255, 255, 255, 0.05);
+      }
+    }
+
+    .battle-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+    }
+
+    .battle-date {
+      font-size: 16px;
+      font-weight: 700;
+    }
+
+    .battle-status {
+      font-size: 12px;
+      font-weight: 600;
+      padding: 4px 12px;
+      border-radius: 999px;
+    }
+
+    .status-planned {
+      background: rgba(255, 184, 0, 0.15);
+      color: var(--warning);
+    }
+
+    .status-done {
+      background: rgba(0, 217, 140, 0.15);
+      color: var(--success);
+    }
+
+    .battle-dishes {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+
+    .battle-dishes .dish-pill {
+      font-size: 13px;
+      padding: 6px 14px;
+    }
+
+    .battle-actions {
+      display: flex;
+      gap: 12px;
+    }
+
+    /* 按钮 */
+    .btn {
+      flex: 1;
+      padding: 14px 20px;
+      border: none;
+      border-radius: 999px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 120ms;
+      font-family: inherit;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, var(--accent), var(--accent-light));
+      color: white;
+      box-shadow: 0 4px 12px rgba(255, 0, 110, 0.3);
+    }
+
+    .btn-primary:active {
+      transform: scale(0.98);
+    }
+
+    .btn-secondary {
+      background: transparent;
+      color: var(--text-muted);
+      text-decoration: underline;
+    }
+
+    /* FAB */
+    .fab {
+      position: fixed;
+      bottom: 90px;
+      right: 20px;
+      width: 64px;
+      height: 64px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--accent), var(--purple));
+      color: white;
+      border: none;
+      font-size: 32px;
+      font-weight: 300;
+      box-shadow: 0 8px 24px rgba(255, 0, 110, 0.4);
+      cursor: pointer;
+      transition: all 150ms;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+    }
+
+    .fab:active {
+      transform: scale(0.95);
+    }
+
+    /* 底部导航 */
+    .nav {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: white;
+      border-top: 1px solid rgba(0, 0, 0, 0.06);
+      display: flex;
+      justify-content: space-around;
+      padding: 8px 0 20px;
+      z-index: 10;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      .nav {
+        background: #0A0A0A;
+        border-top-color: rgba(255, 255, 255, 0.06);
+      }
+    }
+
+    .nav-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      padding: 8px 16px;
+      cursor: pointer;
+      transition: all 120ms;
+      color: var(--text-muted);
+      border-radius: 12px;
+    }
+
+    .nav-item.active {
+      color: var(--accent);
+    }
+
+    .nav-icon {
+      font-size: 24px;
+      transition: transform 120ms;
+    }
+
+    .nav-item.active .nav-icon {
+      transform: scale(1.2);
+    }
+
+    .nav-label {
+      font-size: 11px;
+      font-weight: 600;
+    }
+
+    .hidden {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="logo">食隅记</div>
+  </div>
+
+  <!-- 库存页面 -->
+  <div id="view-inventory" class="view">
+    <div class="container">
+      <div class="stat-grid">
+        <div class="stat-card">
+          <div class="stat-label">活跃食材</div>
+          <div class="stat-value">8</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">已消耗</div>
+          <div class="stat-value">12</div>
+        </div>
+      </div>
+
+      <div class="section-title">蔬菜</div>
+      <div class="ingredient-card">
+        <div class="ingredient-icon icon-vegetable">🥬</div>
+        <div class="ingredient-info">
+          <div class="ingredient-name">西红柿</div>
+          <div class="ingredient-location">冰箱冷藏</div>
+        </div>
+        <div class="ingredient-qty qty-low">2</div>
+      </div>
+      <div class="ingredient-card">
+        <div class="ingredient-icon icon-vegetable">🥬</div>
+        <div class="ingredient-info">
+          <div class="ingredient-name">菠菜</div>
+          <div class="ingredient-location">冰箱冷藏</div>
+        </div>
+        <div class="ingredient-qty qty-ok">1份</div>
+      </div>
+
+      <div class="section-title">蛋白质</div>
+      <div class="ingredient-card">
+        <div class="ingredient-icon icon-protein">🥚</div>
+        <div class="ingredient-info">
+          <div class="ingredient-name">鸡蛋</div>
+          <div class="ingredient-location">冰箱冷藏</div>
+        </div>
+        <div class="ingredient-qty qty-ok">6</div>
+      </div>
+      <div class="ingredient-card">
+        <div class="ingredient-icon icon-protein">🥓</div>
+        <div class="ingredient-info">
+          <div class="ingredient-name">五花肉</div>
+          <div class="ingredient-location">冰箱冷冻</div>
+        </div>
+        <div class="ingredient-qty qty-ok">300g</div>
+      </div>
+
+      <div class="section-title">碳水</div>
+      <div class="ingredient-card">
+        <div class="ingredient-icon icon-carb">🌾</div>
+        <div class="ingredient-info">
+          <div class="ingredient-name">大米</div>
+          <div class="ingredient-location">室温</div>
+        </div>
+        <div class="ingredient-qty qty-ok">充足</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 菜品页面 -->
+  <div id="view-dishes" class="view hidden">
+    <div class="container">
+      <div class="section-title">全部菜品</div>
+      <div class="dish-pills">
+        <div class="dish-pill">西红柿炒鸡蛋</div>
+        <div class="dish-pill">菠菜炒蛋</div>
+        <div class="dish-pill">红烧肉</div>
+        <div class="dish-pill">胡萝卜炒肉</div>
+        <div class="dish-pill">米饭</div>
+        <div class="dish-pill">蛋炒饭</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 搭配方案页面 -->
+  <div id="view-plans" class="view hidden">
+    <div class="container">
+      <div class="section-title">我的方案</div>
+      <div class="plan-card">
+        <div class="plan-title">工作日午餐</div>
+        <div class="plan-meta">3 道菜</div>
+        <div class="plan-dishes">
+          <div class="dish-pill">西红柿炒鸡蛋</div>
+          <div class="dish-pill">菠菜炒蛋</div>
+          <div class="dish-pill">米饭</div>
+        </div>
+      </div>
+      <div class="plan-card">
+        <div class="plan-title">周末大餐</div>
+        <div class="plan-meta">3 道菜</div>
+        <div class="plan-dishes">
+          <div class="dish-pill">红烧肉</div>
+          <div class="dish-pill">胡萝卜炒肉</div>
+          <div class="dish-pill">米饭</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 今日作战页面 -->
+  <div id="view-battles" class="view hidden">
+    <div class="container">
+      <div class="section-title">作战记录</div>
+
+      <div class="battle-item">
+        <div class="battle-dot"></div>
+        <div class="battle-card">
+          <div class="battle-header">
+            <div class="battle-date">2026-09-05</div>
+            <div class="battle-status status-planned">计划中</div>
+          </div>
+          <div class="battle-dishes">
+            <div class="dish-pill">西红柿炒鸡蛋</div>
+            <div class="dish-pill">菠菜炒蛋</div>
+            <div class="dish-pill">米饭</div>
+          </div>
+          <div class="battle-actions">
+            <button class="btn btn-primary">确认完成</button>
+            <button class="btn btn-secondary">取消</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="battle-item">
+        <div class="battle-dot done"></div>
+        <div class="battle-card">
+          <div class="battle-header">
+            <div class="battle-date">2026-09-04</div>
+            <div class="battle-status status-done">已完成</div>
+          </div>
+          <div class="battle-dishes">
+            <div class="dish-pill">红烧肉</div>
+            <div class="dish-pill">米饭</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <button class="fab">+</button>
+
+  <nav class="nav">
+    <div class="nav-item active" onclick="switchView('inventory')">
+      <div class="nav-icon">🥬</div>
+      <div class="nav-label">库存</div>
+    </div>
+    <div class="nav-item" onclick="switchView('dishes')">
+      <div class="nav-icon">🍳</div>
+      <div class="nav-label">菜品</div>
+    </div>
+    <div class="nav-item" onclick="switchView('plans')">
+      <div class="nav-icon">📋</div>
+      <div class="nav-label">搭配</div>
+    </div>
+    <div class="nav-item" onclick="switchView('battles')">
+      <div class="nav-icon">⚔️</div>
+      <div class="nav-label">作战</div>
+    </div>
+  </nav>
+
+  <script>
+    function switchView(viewName) {
+      document.querySelectorAll('.view').forEach(view => {
+        view.classList.add('hidden');
+      });
+      document.getElementById('view-' + viewName).classList.remove('hidden');
+
+      document.querySelectorAll('.nav-item').forEach(item => {
+        item.classList.remove('active');
+      });
+      event.currentTarget.classList.add('active');
+    }
+  </script>
+</body>
+</html>

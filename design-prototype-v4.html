@@ -1,0 +1,734 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>食隅记</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    :root {
+      --bg: #F5F1E8;
+      --bg-overlay: rgba(245, 241, 232, 0.95);
+      --text: #2C2416;
+      --text-secondary: #5C5548;
+      --text-muted: #8C8578;
+      --accent: #D4622E;
+      --accent-light: #E87D4F;
+      --border: #DDD8CC;
+      --card-bg: rgba(255, 255, 255, 0.6);
+    }
+
+    body {
+      font-family: 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      -webkit-font-smoothing: antialiased;
+      position: relative;
+      overflow-x: hidden;
+    }
+
+    /* 背景纹理 - 手绘网格感 */
+    body::before {
+      content: '';
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-image:
+        repeating-linear-gradient(
+          0deg,
+          transparent,
+          transparent 39px,
+          rgba(44, 36, 22, 0.03) 39px,
+          rgba(44, 36, 22, 0.03) 41px
+        ),
+        repeating-linear-gradient(
+          90deg,
+          transparent,
+          transparent 39px,
+          rgba(44, 36, 22, 0.03) 39px,
+          rgba(44, 36, 22, 0.03) 41px
+        );
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    /* 右上角装饰斑块 */
+    body::after {
+      content: '';
+      position: fixed;
+      top: -100px;
+      right: -100px;
+      width: 300px;
+      height: 300px;
+      background: radial-gradient(circle, rgba(212, 98, 46, 0.12) 0%, transparent 70%);
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    .app {
+      position: relative;
+      z-index: 2;
+      min-height: 100vh;
+      padding-bottom: 100px;
+    }
+
+    /* 顶部 - 大标题设计 */
+    .header {
+      padding: 48px 24px 32px;
+      text-align: center;
+      position: relative;
+    }
+
+    .logo {
+      font-size: 42px;
+      font-weight: 900;
+      letter-spacing: 0.02em;
+      color: var(--text);
+      margin-bottom: 8px;
+      position: relative;
+      display: inline-block;
+    }
+
+    .logo::after {
+      content: '';
+      position: absolute;
+      bottom: -8px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 60px;
+      height: 4px;
+      background: var(--accent);
+      border-radius: 2px;
+    }
+
+    .tagline {
+      font-size: 13px;
+      color: var(--text-muted);
+      letter-spacing: 0.15em;
+      margin-top: 16px;
+    }
+
+    /* 导航标签 */
+    .nav-tabs {
+      display: flex;
+      gap: 8px;
+      padding: 0 24px;
+      margin-bottom: 32px;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+    }
+
+    .nav-tabs::-webkit-scrollbar {
+      display: none;
+    }
+
+    .nav-tab {
+      flex-shrink: 0;
+      padding: 10px 20px;
+      background: var(--card-bg);
+      backdrop-filter: blur(10px);
+      border: 2px solid transparent;
+      border-radius: 20px;
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      cursor: pointer;
+      transition: all 180ms cubic-bezier(0.4, 0, 0.2, 1);
+      white-space: nowrap;
+    }
+
+    .nav-tab.active {
+      background: var(--accent);
+      color: white;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(212, 98, 46, 0.3);
+    }
+
+    .container {
+      padding: 0 24px;
+    }
+
+    .view {
+      display: none;
+    }
+
+    .view.active {
+      display: block;
+    }
+
+    /* 库存页 - 卡片网格 */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-bottom: 40px;
+    }
+
+    .stat-box {
+      background: var(--card-bg);
+      backdrop-filter: blur(10px);
+      border: 2px solid var(--border);
+      border-radius: 16px;
+      padding: 24px 20px;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .stat-box::before {
+      content: '';
+      position: absolute;
+      top: -50%;
+      left: -50%;
+      width: 200%;
+      height: 200%;
+      background: radial-gradient(circle, rgba(212, 98, 46, 0.05) 0%, transparent 70%);
+      opacity: 0;
+      transition: opacity 300ms;
+    }
+
+    .stat-box:active::before {
+      opacity: 1;
+    }
+
+    .stat-value {
+      font-size: 56px;
+      font-weight: 900;
+      line-height: 1;
+      color: var(--accent);
+      margin-bottom: 8px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .stat-label {
+      font-size: 13px;
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+
+    /* 分组标题 */
+    .category-title {
+      font-size: 20px;
+      font-weight: 700;
+      margin: 40px 0 20px;
+      color: var(--text);
+      position: relative;
+      padding-left: 16px;
+    }
+
+    .category-title::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 6px;
+      height: 24px;
+      background: var(--accent);
+      border-radius: 3px;
+    }
+
+    /* 食材卡片 - 横向布局 */
+    .ingredient-card {
+      background: var(--card-bg);
+      backdrop-filter: blur(10px);
+      border: 2px solid var(--border);
+      border-radius: 16px;
+      padding: 20px;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      transition: all 180ms;
+    }
+
+    .ingredient-card:active {
+      transform: scale(0.98);
+      border-color: var(--accent);
+    }
+
+    .ingredient-emoji {
+      font-size: 36px;
+      width: 56px;
+      height: 56px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: white;
+      border-radius: 12px;
+      flex-shrink: 0;
+    }
+
+    .ingredient-info {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .ingredient-name {
+      font-size: 18px;
+      font-weight: 600;
+      margin-bottom: 4px;
+      color: var(--text);
+    }
+
+    .ingredient-location {
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+
+    .ingredient-amount {
+      text-align: right;
+      flex-shrink: 0;
+    }
+
+    .amount-value {
+      font-size: 28px;
+      font-weight: 800;
+      line-height: 1;
+      color: var(--accent);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .amount-value.low {
+      color: #C44536;
+    }
+
+    .amount-unit {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-top: 4px;
+    }
+
+    /* 菜品页 - 标签云 */
+    .dish-cloud {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-top: 24px;
+    }
+
+    .dish-tag {
+      padding: 14px 24px;
+      background: var(--card-bg);
+      backdrop-filter: blur(10px);
+      border: 2px solid var(--border);
+      border-radius: 24px;
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--text);
+      transition: all 180ms;
+      cursor: pointer;
+    }
+
+    .dish-tag:active {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: white;
+      transform: scale(0.95);
+    }
+
+    /* 搭配方案 - 卡片 */
+    .plan-card {
+      background: var(--card-bg);
+      backdrop-filter: blur(10px);
+      border: 2px solid var(--border);
+      border-radius: 20px;
+      padding: 28px 24px;
+      margin-bottom: 20px;
+    }
+
+    .plan-header {
+      margin-bottom: 20px;
+      padding-bottom: 16px;
+      border-bottom: 2px solid var(--border);
+    }
+
+    .plan-name {
+      font-size: 24px;
+      font-weight: 700;
+      margin-bottom: 8px;
+      color: var(--text);
+    }
+
+    .plan-meta {
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+
+    .plan-dishes {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .plan-dish-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 16px;
+      color: var(--text-secondary);
+    }
+
+    .plan-dish-item::before {
+      content: '•';
+      color: var(--accent);
+      font-size: 24px;
+      font-weight: 900;
+    }
+
+    /* 今日作战 - 时间线 */
+    .battle-timeline {
+      position: relative;
+      padding-left: 40px;
+    }
+
+    .battle-timeline::before {
+      content: '';
+      position: absolute;
+      left: 16px;
+      top: 24px;
+      bottom: 80px;
+      width: 3px;
+      background: linear-gradient(180deg, var(--accent) 0%, var(--border) 100%);
+      border-radius: 2px;
+    }
+
+    .battle-entry {
+      position: relative;
+      margin-bottom: 40px;
+    }
+
+    .battle-marker {
+      position: absolute;
+      left: -28px;
+      top: 8px;
+      width: 16px;
+      height: 16px;
+      background: var(--accent);
+      border: 3px solid var(--bg);
+      border-radius: 50%;
+      box-shadow: 0 0 0 3px var(--accent);
+    }
+
+    .battle-marker.done {
+      background: #10B981;
+      box-shadow: 0 0 0 3px #10B981;
+    }
+
+    .battle-date {
+      font-size: 32px;
+      font-weight: 900;
+      margin-bottom: 8px;
+      color: var(--text);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .battle-status {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--accent);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 16px;
+    }
+
+    .battle-status.done {
+      color: #10B981;
+    }
+
+    .battle-dishes {
+      background: var(--card-bg);
+      backdrop-filter: blur(10px);
+      border: 2px solid var(--border);
+      border-radius: 16px;
+      padding: 20px;
+      margin-bottom: 16px;
+    }
+
+    .battle-dish {
+      padding: 8px 0;
+      font-size: 16px;
+      color: var(--text-secondary);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .battle-dish:last-child {
+      border-bottom: none;
+    }
+
+    .battle-actions {
+      display: flex;
+      gap: 12px;
+    }
+
+    .btn {
+      flex: 1;
+      padding: 14px 20px;
+      border-radius: 12px;
+      font-size: 15px;
+      font-weight: 600;
+      border: 2px solid var(--border);
+      background: var(--card-bg);
+      backdrop-filter: blur(10px);
+      color: var(--text);
+      cursor: pointer;
+      transition: all 180ms;
+      font-family: inherit;
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: white;
+    }
+
+    .btn-primary:active {
+      transform: scale(0.96);
+    }
+
+    .btn-secondary:active {
+      background: white;
+    }
+
+    /* 添加按钮 */
+    .fab {
+      position: fixed;
+      bottom: 32px;
+      right: 24px;
+      width: 64px;
+      height: 64px;
+      border-radius: 50%;
+      background: var(--accent);
+      color: white;
+      border: none;
+      font-size: 32px;
+      font-weight: 300;
+      box-shadow: 0 8px 24px rgba(212, 98, 46, 0.4), 0 0 0 0 rgba(212, 98, 46, 0.4);
+      cursor: pointer;
+      transition: all 180ms;
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% {
+        box-shadow: 0 8px 24px rgba(212, 98, 46, 0.4), 0 0 0 0 rgba(212, 98, 46, 0.4);
+      }
+      50% {
+        box-shadow: 0 8px 24px rgba(212, 98, 46, 0.4), 0 0 0 12px rgba(212, 98, 46, 0);
+      }
+    }
+
+    .fab:active {
+      transform: scale(0.9);
+    }
+
+    .hidden {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <!-- 顶部 -->
+    <header class="header">
+      <h1 class="logo">食隅记</h1>
+      <p class="tagline">厨房小确幸</p>
+    </header>
+
+    <!-- 导航 -->
+    <nav class="nav-tabs">
+      <button class="nav-tab active" onclick="switchView('inventory')">库存</button>
+      <button class="nav-tab" onclick="switchView('dishes')">菜品</button>
+      <button class="nav-tab" onclick="switchView('plans')">搭配</button>
+      <button class="nav-tab" onclick="switchView('battles')">作战</button>
+    </nav>
+
+    <!-- 库存页 -->
+    <div id="view-inventory" class="view active">
+      <div class="container">
+        <div class="stats-grid">
+          <div class="stat-box">
+            <div class="stat-value">8</div>
+            <div class="stat-label">活跃食材</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-value">12</div>
+            <div class="stat-label">已消耗</div>
+          </div>
+        </div>
+
+        <h2 class="category-title">蔬菜</h2>
+        <div class="ingredient-card">
+          <div class="ingredient-emoji">🍅</div>
+          <div class="ingredient-info">
+            <div class="ingredient-name">西红柿</div>
+            <div class="ingredient-location">冰箱冷藏</div>
+          </div>
+          <div class="ingredient-amount">
+            <div class="amount-value low">2</div>
+            <div class="amount-unit">个</div>
+          </div>
+        </div>
+        <div class="ingredient-card">
+          <div class="ingredient-emoji">🥬</div>
+          <div class="ingredient-info">
+            <div class="ingredient-name">菠菜</div>
+            <div class="ingredient-location">冰箱冷藏</div>
+          </div>
+          <div class="ingredient-amount">
+            <div class="amount-value">1</div>
+            <div class="amount-unit">份</div>
+          </div>
+        </div>
+        <div class="ingredient-card">
+          <div class="ingredient-emoji">🥕</div>
+          <div class="ingredient-info">
+            <div class="ingredient-name">胡萝卜</div>
+            <div class="ingredient-location">冰箱冷藏</div>
+          </div>
+          <div class="ingredient-amount">
+            <div class="amount-value">3</div>
+            <div class="amount-unit">根</div>
+          </div>
+        </div>
+
+        <h2 class="category-title">蛋白质</h2>
+        <div class="ingredient-card">
+          <div class="ingredient-emoji">🥚</div>
+          <div class="ingredient-info">
+            <div class="ingredient-name">鸡蛋</div>
+            <div class="ingredient-location">冰箱冷藏</div>
+          </div>
+          <div class="ingredient-amount">
+            <div class="amount-value">6</div>
+            <div class="amount-unit">个</div>
+          </div>
+        </div>
+        <div class="ingredient-card">
+          <div class="ingredient-emoji">🥓</div>
+          <div class="ingredient-info">
+            <div class="ingredient-name">五花肉</div>
+            <div class="ingredient-location">冰箱冷冻</div>
+          </div>
+          <div class="ingredient-amount">
+            <div class="amount-value">300</div>
+            <div class="amount-unit">克</div>
+          </div>
+        </div>
+
+        <h2 class="category-title">碳水</h2>
+        <div class="ingredient-card">
+          <div class="ingredient-emoji">🌾</div>
+          <div class="ingredient-info">
+            <div class="ingredient-name">大米</div>
+            <div class="ingredient-location">室温</div>
+          </div>
+          <div class="ingredient-amount">
+            <div class="amount-value">∞</div>
+            <div class="amount-unit">充足</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 菜品页 -->
+    <div id="view-dishes" class="view">
+      <div class="container">
+        <div class="dish-cloud">
+          <div class="dish-tag">西红柿炒鸡蛋</div>
+          <div class="dish-tag">菠菜炒蛋</div>
+          <div class="dish-tag">红烧肉</div>
+          <div class="dish-tag">胡萝卜炒肉</div>
+          <div class="dish-tag">米饭</div>
+          <div class="dish-tag">蛋炒饭</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 搭配方案页 -->
+    <div id="view-plans" class="view">
+      <div class="container">
+        <div class="plan-card">
+          <div class="plan-header">
+            <div class="plan-name">工作日午餐</div>
+            <div class="plan-meta">3 道菜</div>
+          </div>
+          <div class="plan-dishes">
+            <div class="plan-dish-item">西红柿炒鸡蛋</div>
+            <div class="plan-dish-item">菠菜炒蛋</div>
+            <div class="plan-dish-item">米饭</div>
+          </div>
+        </div>
+
+        <div class="plan-card">
+          <div class="plan-header">
+            <div class="plan-name">周末大餐</div>
+            <div class="plan-meta">3 道菜</div>
+          </div>
+          <div class="plan-dishes">
+            <div class="plan-dish-item">红烧肉</div>
+            <div class="plan-dish-item">胡萝卜炒肉</div>
+            <div class="plan-dish-item">米饭</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 今日作战页 -->
+    <div id="view-battles" class="view">
+      <div class="container">
+        <div class="battle-timeline">
+          <div class="battle-entry">
+            <div class="battle-marker"></div>
+            <div class="battle-date">09.05</div>
+            <div class="battle-status">计划中</div>
+            <div class="battle-dishes">
+              <div class="battle-dish">西红柿炒鸡蛋</div>
+              <div class="battle-dish">菠菜炒蛋</div>
+              <div class="battle-dish">米饭</div>
+            </div>
+            <div class="battle-actions">
+              <button class="btn btn-primary">确认完成</button>
+              <button class="btn btn-secondary">取消</button>
+            </div>
+          </div>
+
+          <div class="battle-entry">
+            <div class="battle-marker done"></div>
+            <div class="battle-date">09.04</div>
+            <div class="battle-status done">已完成</div>
+            <div class="battle-dishes">
+              <div class="battle-dish">红烧肉</div>
+              <div class="battle-dish">米饭</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <button class="fab">+</button>
+  </div>
+
+  <script>
+    function switchView(viewName) {
+      document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+      document.getElementById('view-' + viewName).classList.add('active');
+
+      document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+      event.target.classList.add('active');
+    }
+  </script>
+</body>
+</html>

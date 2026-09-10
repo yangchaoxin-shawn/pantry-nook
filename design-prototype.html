@@ -1,0 +1,789 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>食隅记 · 设计原型</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    :root {
+      /* 色彩系统 - 基于橄榄绿主题 */
+      --olive-50: #f7f8f6;
+      --olive-100: #e8ebe5;
+      --olive-200: #d4d9cd;
+      --olive-500: #5a7557;
+      --olive-600: #4a6247;
+      --olive-700: #3d5139;
+
+      --tomato-50: #fef4f3;
+      --tomato-500: #d94a3d;
+      --tomato-600: #b83b2f;
+
+      --neutral-50: #fafaf8;
+      --neutral-100: #f4f4f1;
+      --neutral-200: #e7e7e3;
+      --neutral-300: #d1d1cb;
+      --neutral-400: #a8a89f;
+      --neutral-500: #797970;
+      --neutral-600: #5c5c54;
+      --neutral-700: #434339;
+      --neutral-800: #2d2d26;
+      --neutral-900: #1a1a16;
+
+      /* 语义化 token */
+      --bg: var(--neutral-50);
+      --bg-elevated: #ffffff;
+      --bg-subtle: var(--olive-50);
+      --border: var(--neutral-200);
+      --border-strong: var(--neutral-300);
+
+      --text: var(--neutral-900);
+      --text-secondary: var(--neutral-600);
+      --text-muted: var(--neutral-500);
+
+      --accent: var(--olive-600);
+      --accent-hover: var(--olive-700);
+      --accent-subtle: var(--olive-100);
+
+      --danger: var(--tomato-500);
+      --danger-hover: var(--tomato-600);
+      --danger-subtle: var(--tomato-50);
+
+      --success: #2d7d3f;
+      --success-subtle: #e8f5ea;
+
+      --radius-sm: 8px;
+      --radius-md: 10px;
+      --radius-lg: 12px;
+      --radius-full: 9999px;
+
+      --space-1: 4px;
+      --space-2: 8px;
+      --space-3: 12px;
+      --space-4: 16px;
+      --space-5: 20px;
+      --space-6: 24px;
+      --space-8: 32px;
+
+      --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04);
+      --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.08);
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root:not([data-theme="light"]) {
+        --bg: var(--neutral-900);
+        --bg-elevated: var(--neutral-800);
+        --bg-subtle: #232318;
+        --border: var(--neutral-700);
+        --border-strong: var(--neutral-600);
+
+        --text: var(--neutral-50);
+        --text-secondary: var(--neutral-300);
+        --text-muted: var(--neutral-400);
+
+        --accent: #6b8a68;
+        --accent-hover: #7a9a76;
+        --accent-subtle: #2a3229;
+
+        --danger: #e05a4d;
+        --danger-hover: #ea6b5e;
+        --danger-subtle: #3a221f;
+
+        --success: #3d9350;
+        --success-subtle: #1f2e22;
+
+        --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+        --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.4);
+      }
+    }
+
+    :root[data-theme="dark"] {
+      --bg: var(--neutral-900);
+      --bg-elevated: var(--neutral-800);
+      --bg-subtle: #232318;
+      --border: var(--neutral-700);
+      --border-strong: var(--neutral-600);
+
+      --text: var(--neutral-50);
+      --text-secondary: var(--neutral-300);
+      --text-muted: var(--neutral-400);
+
+      --accent: #6b8a68;
+      --accent-hover: #7a9a76;
+      --accent-subtle: #2a3229;
+
+      --danger: #e05a4d;
+      --danger-hover: #ea6b5e;
+      --danger-subtle: #3a221f;
+
+      --success: #3d9350;
+      --success-subtle: #1f2e22;
+
+      --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+      --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.4);
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Microsoft YaHei', sans-serif;
+      font-size: 15px;
+      line-height: 1.6;
+      color: var(--text);
+      background: var(--bg);
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      padding-bottom: 80px;
+    }
+
+    .app-header {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      background: var(--bg-elevated);
+      border-bottom: 1px solid var(--border);
+      padding: var(--space-4) var(--space-5);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .app-title {
+      font-size: 18px;
+      font-weight: 600;
+      color: var(--accent);
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+    }
+
+    .theme-toggle {
+      padding: var(--space-2);
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      border-radius: var(--radius-sm);
+      transition: background 120ms;
+    }
+
+    .theme-toggle:hover {
+      background: var(--accent-subtle);
+      color: var(--text);
+    }
+
+    .main-content {
+      padding: var(--space-4) var(--space-5) var(--space-5);
+      max-width: 640px;
+      margin: 0 auto;
+    }
+
+    .section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: var(--space-5);
+      padding: 0 var(--space-1);
+    }
+
+    .section-title {
+      font-size: 22px;
+      font-weight: 600;
+      color: var(--text);
+      letter-spacing: -0.01em;
+    }
+
+    .card {
+      background: transparent;
+      border: none;
+      border-radius: 0;
+      padding: 0;
+      margin-bottom: var(--space-6);
+    }
+
+    .card-title {
+      font-size: 15px;
+      font-weight: 600;
+      margin-bottom: var(--space-4);
+      color: var(--text-secondary);
+      padding: 0 var(--space-1);
+    }
+
+    .ingredient-group {
+      margin-bottom: var(--space-8);
+    }
+
+    .ingredient-group:last-child {
+      margin-bottom: 0;
+    }
+
+    .group-header {
+      display: flex;
+      align-items: baseline;
+      gap: var(--space-3);
+      margin-bottom: var(--space-4);
+      padding: 0 var(--space-1);
+    }
+
+    .group-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    .group-count {
+      font-size: 14px;
+      font-variant-numeric: tabular-nums;
+      color: var(--text-muted);
+      font-weight: 400;
+    }
+
+    .ingredient-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+    }
+
+    .ingredient-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--space-3);
+      padding: var(--space-4) var(--space-1);
+      border-bottom: 1px solid var(--border);
+      transition: background 120ms;
+    }
+
+    .ingredient-item:last-child {
+      border-bottom: none;
+    }
+
+    .ingredient-item:active {
+      background: var(--accent-subtle);
+    }
+
+    .ingredient-main {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      align-items: baseline;
+      gap: var(--space-3);
+    }
+
+    .ingredient-name {
+      font-size: 15px;
+      font-weight: 500;
+      color: var(--text);
+    }
+
+    .ingredient-meta {
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+      font-size: 14px;
+      color: var(--text-muted);
+    }
+
+    .ingredient-qty {
+      font-variant-numeric: tabular-nums;
+      color: var(--text-secondary);
+      white-space: nowrap;
+      font-size: 14px;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 0;
+      font-size: 13px;
+      font-weight: 400;
+      white-space: nowrap;
+    }
+
+    .badge-active {
+      color: var(--success);
+    }
+
+    .badge-low {
+      color: var(--danger);
+    }
+
+    .badge-planned {
+      color: var(--accent);
+    }
+
+    .badge-confirmed {
+      color: var(--success);
+    }
+
+    .dish-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--space-2);
+      padding: 0 var(--space-1);
+    }
+
+    .dish-tag {
+      padding: var(--space-2) var(--space-3);
+      background: transparent;
+      color: var(--text-secondary);
+      border-radius: var(--radius-full);
+      font-size: 14px;
+      font-weight: 400;
+      border: 1px solid var(--border);
+      transition: all 120ms;
+    }
+
+    .dish-tag.selected {
+      background: var(--accent-subtle);
+      color: var(--accent);
+      border-color: var(--accent);
+    }
+
+    .battle-card {
+      background: transparent;
+      border: none;
+      border-radius: 0;
+      padding: var(--space-5) 0;
+      margin-bottom: 0;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .battle-card:last-child {
+      border-bottom: none;
+    }
+
+    .battle-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: var(--space-4);
+      padding: 0 var(--space-1);
+    }
+
+    .battle-date {
+      font-size: 16px;
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+      color: var(--text);
+    }
+
+    .battle-actions {
+      display: flex;
+      gap: var(--space-3);
+      margin-top: var(--space-5);
+      padding: 0 var(--space-1);
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: var(--space-3) var(--space-5);
+      border-radius: var(--radius-full);
+      font-size: 15px;
+      font-weight: 500;
+      border: none;
+      cursor: pointer;
+      transition: all 120ms;
+      font-family: inherit;
+      min-height: 48px;
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      color: white;
+      flex: 1;
+    }
+
+    .btn-primary:hover {
+      background: var(--accent-hover);
+      transform: translateY(-1px);
+    }
+
+    .btn-primary:active {
+      transform: translateY(0);
+    }
+
+    .btn-secondary {
+      background: transparent;
+      color: var(--text-secondary);
+      border: none;
+      text-decoration: underline;
+      text-underline-offset: 3px;
+      min-height: auto;
+      padding: var(--space-2) var(--space-3);
+    }
+
+    .btn-secondary:hover {
+      color: var(--accent);
+    }
+
+    .btn-danger {
+      background: transparent;
+      color: var(--danger);
+      border: none;
+      text-decoration: underline;
+      text-underline-offset: 3px;
+      padding: var(--space-2) var(--space-3);
+      font-size: 14px;
+      min-height: auto;
+    }
+
+    .btn-danger:hover {
+      color: var(--danger-hover);
+    }
+
+    .form-group {
+      margin-bottom: var(--space-4);
+    }
+
+    .form-label {
+      display: block;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      margin-bottom: var(--space-2);
+    }
+
+    .form-input {
+      width: 100%;
+      padding: var(--space-3);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      font-size: 15px;
+      font-family: inherit;
+      color: var(--text);
+      background: var(--bg);
+      transition: border-color 120ms;
+    }
+
+    .form-input:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+
+    .bottom-nav {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: var(--bg-elevated);
+      border-top: 1px solid var(--border);
+      display: flex;
+      justify-content: space-around;
+      padding: var(--space-2) 0;
+      z-index: 10;
+    }
+
+    .nav-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: var(--space-1);
+      padding: var(--space-2) var(--space-4);
+      color: var(--text-muted);
+      text-decoration: none;
+      cursor: pointer;
+      border-radius: var(--radius-sm);
+      transition: all 120ms;
+      min-width: 64px;
+      font-size: 11px;
+      font-weight: 500;
+    }
+
+    .nav-item:hover {
+      color: var(--text-secondary);
+      background: var(--accent-subtle);
+    }
+
+    .nav-item.active {
+      color: var(--accent);
+    }
+
+    .nav-icon {
+      font-size: 20px;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: var(--space-8) var(--space-5);
+      color: var(--text-muted);
+      font-size: 15px;
+      line-height: 1.8;
+    }
+
+    .fab {
+      position: fixed;
+      bottom: 88px;
+      right: var(--space-5);
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      background: var(--accent);
+      color: white;
+      border: none;
+      font-size: 28px;
+      cursor: pointer;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      transition: all 150ms ease-out;
+      z-index: 9;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 300;
+      line-height: 1;
+    }
+
+    .fab:hover {
+      background: var(--accent-hover);
+      transform: translateY(-2px);
+      box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
+    }
+
+    .fab:active {
+      transform: translateY(0);
+    }
+
+    .hidden {
+      display: none;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        transition: none !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header class="app-header">
+    <h1 class="app-title">
+      <span>🥬</span>
+      <span>食隅记</span>
+    </h1>
+    <button class="theme-toggle" onclick="toggleTheme()" aria-label="切换主题">
+      <span id="theme-icon">🌙</span>
+    </button>
+  </header>
+
+  <main class="main-content">
+    <!-- 库存页面 -->
+    <div id="view-ingredients" class="view">
+      <div class="section-header">
+        <h2 class="section-title">当前库存</h2>
+      </div>
+
+      <div class="ingredient-group">
+        <div class="group-header">
+          <h3 class="group-title">蔬菜</h3>
+          <span class="group-count">3 项</span>
+        </div>
+        <div class="ingredient-list">
+          <div class="ingredient-item">
+            <div class="ingredient-main">
+              <span class="ingredient-name">西红柿</span>
+              <span class="ingredient-qty">剩余 2 个</span>
+            </div>
+            <span class="badge badge-active">充足</span>
+          </div>
+          <div class="ingredient-item">
+            <div class="ingredient-main">
+              <span class="ingredient-name">菠菜</span>
+              <span class="ingredient-qty">一份</span>
+            </div>
+            <span class="badge badge-low">少量</span>
+          </div>
+          <div class="ingredient-item">
+            <div class="ingredient-main">
+              <span class="ingredient-name">胡萝卜</span>
+              <span class="ingredient-qty">3 根</span>
+            </div>
+            <span class="badge badge-active">充足</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="ingredient-group">
+        <div class="group-header">
+          <h3 class="group-title">蛋白质</h3>
+          <span class="group-count">2 项</span>
+        </div>
+        <div class="ingredient-list">
+          <div class="ingredient-item">
+            <div class="ingredient-main">
+              <span class="ingredient-name">鸡蛋</span>
+              <span class="ingredient-qty">6 个</span>
+            </div>
+            <span class="badge badge-active">充足</span>
+          </div>
+          <div class="ingredient-item">
+            <div class="ingredient-main">
+              <span class="ingredient-name">五花肉</span>
+              <span class="ingredient-qty">300 克</span>
+            </div>
+            <span class="badge badge-active">充足</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="ingredient-group">
+        <div class="group-header">
+          <h3 class="group-title">碳水</h3>
+          <span class="group-count">1 项</span>
+        </div>
+        <div class="ingredient-list">
+          <div class="ingredient-item">
+            <div class="ingredient-main">
+              <span class="ingredient-name">大米</span>
+              <span class="ingredient-qty">充足</span>
+            </div>
+            <span class="badge badge-active">充足</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 菜品页面 -->
+    <div id="view-dishes" class="view hidden">
+      <div class="section-header">
+        <h2 class="section-title">菜品</h2>
+      </div>
+
+      <div class="dish-grid">
+        <span class="dish-tag">西红柿炒鸡蛋</span>
+        <span class="dish-tag">菠菜炒蛋</span>
+        <span class="dish-tag">红烧肉</span>
+        <span class="dish-tag">胡萝卜炒肉</span>
+        <span class="dish-tag">米饭</span>
+        <span class="dish-tag">蛋炒饭</span>
+      </div>
+    </div>
+
+    <!-- 搭配方案页面 -->
+    <div id="view-plans" class="view hidden">
+      <div class="section-header">
+        <h2 class="section-title">搭配方案</h2>
+      </div>
+
+      <div class="card">
+        <h3 class="card-title">工作日午餐</h3>
+        <div class="dish-grid">
+          <span class="dish-tag">西红柿炒鸡蛋</span>
+          <span class="dish-tag">菠菜炒蛋</span>
+          <span class="dish-tag">米饭</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3 class="card-title">周末大餐</h3>
+        <div class="dish-grid">
+          <span class="dish-tag">红烧肉</span>
+          <span class="dish-tag">胡萝卜炒肉</span>
+          <span class="dish-tag">米饭</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 今日作战页面 -->
+    <div id="view-battles" class="view hidden">
+      <div class="section-header">
+        <h2 class="section-title">今日作战</h2>
+      </div>
+
+      <div class="battle-card">
+        <div class="battle-header">
+          <span class="battle-date">2026-09-05</span>
+          <span class="badge badge-planned">计划中</span>
+        </div>
+        <div class="dish-grid">
+          <span class="dish-tag">西红柿炒鸡蛋</span>
+          <span class="dish-tag">菠菜炒蛋</span>
+          <span class="dish-tag">米饭</span>
+        </div>
+        <div class="battle-actions">
+          <button class="btn btn-primary">确认完成</button>
+          <button class="btn btn-secondary">取消</button>
+        </div>
+      </div>
+
+      <div class="battle-card">
+        <div class="battle-header">
+          <span class="battle-date">2026-09-04</span>
+          <span class="badge badge-confirmed">已完成</span>
+        </div>
+        <div class="dish-grid">
+          <span class="dish-tag">红烧肉</span>
+          <span class="dish-tag">米饭</span>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <button class="fab" aria-label="添加">+</button>
+
+  <nav class="bottom-nav">
+    <a class="nav-item active" onclick="switchView('ingredients')">
+      <span class="nav-icon">🥬</span>
+      <span>库存</span>
+    </a>
+    <a class="nav-item" onclick="switchView('dishes')">
+      <span class="nav-icon">🍳</span>
+      <span>菜品</span>
+    </a>
+    <a class="nav-item" onclick="switchView('plans')">
+      <span class="nav-icon">📋</span>
+      <span>搭配</span>
+    </a>
+    <a class="nav-item" onclick="switchView('battles')">
+      <span class="nav-icon">⚔️</span>
+      <span>作战</span>
+    </a>
+  </nav>
+
+  <script>
+    // 主题切换
+    function toggleTheme() {
+      const root = document.documentElement;
+      const icon = document.getElementById('theme-icon');
+      const current = root.getAttribute('data-theme');
+
+      if (current === 'dark') {
+        root.removeAttribute('data-theme');
+        icon.textContent = '🌙';
+      } else {
+        root.setAttribute('data-theme', 'dark');
+        icon.textContent = '☀️';
+      }
+    }
+
+    // 视图切换
+    function switchView(viewName) {
+      // 隐藏所有视图
+      document.querySelectorAll('.view').forEach(view => {
+        view.classList.add('hidden');
+      });
+
+      // 显示目标视图
+      document.getElementById('view-' + viewName).classList.remove('hidden');
+
+      // 更新导航栏激活状态
+      document.querySelectorAll('.nav-item').forEach(item => {
+        item.classList.remove('active');
+      });
+      event.currentTarget.classList.add('active');
+    }
+
+    // 初始化：检测系统主题偏好
+    if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+      document.getElementById('theme-icon').textContent = '☀️';
+    }
+  </script>
+</body>
+</html>

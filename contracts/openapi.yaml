@@ -1,0 +1,5268 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "食隅记 Pantry Nook API",
+    "version": "0.1.0"
+  },
+  "paths": {
+    "/api/ingredients": {
+      "get": {
+        "tags": [
+          "ingredients"
+        ],
+        "summary": "Listed",
+        "operationId": "listed_api_ingredients_get",
+        "responses": {
+          "200": {
+            "description": "请求成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IngredientList"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "请求参数或 JSON 格式不正确",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "资源不存在",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "服务器内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 50
+            },
+            "description": ""
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0
+            },
+            "description": ""
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            },
+            "description": ""
+          },
+          {
+            "name": "category",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "碳水",
+                "蔬菜",
+                "蛋白质",
+                "水果",
+                "其他"
+              ]
+            },
+            "description": ""
+          },
+          {
+            "name": "location",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "冰箱冷藏",
+                "冰箱冷冻",
+                "室温",
+                "其他"
+              ]
+            },
+            "description": ""
+          }
+        ]
+      }
+    },
+    "/api/ingredients/{ingredient_id}": {
+      "get": {
+        "tags": [
+          "ingredients"
+        ],
+        "summary": "One",
+        "operationId": "one_api_ingredients__ingredient_id__get",
+        "parameters": [
+          {
+            "name": "ingredient_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9007199254740991
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "请求成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IngredientResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "请求参数或 JSON 格式不正确",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "资源不存在",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "服务器内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "ingredients"
+        ],
+        "summary": "Patch",
+        "operationId": "patch_api_ingredients__ingredient_id__patch",
+        "parameters": [
+          {
+            "name": "ingredient_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9007199254740991
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "请求成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IngredientResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "请求参数或 JSON 格式不正确",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "资源不存在",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "当前业务状态不允许该操作",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "服务器内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IngredientUpdate"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/ingredients/batch": {
+      "post": {
+        "tags": [
+          "ingredients"
+        ],
+        "summary": "Batch",
+        "operationId": "batch_api_ingredients_batch_post",
+        "responses": {
+          "201": {
+            "description": "创建成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IngredientBatchResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "请求参数或 JSON 格式不正确",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "资源不存在",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "当前业务状态不允许该操作",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "服务器内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IngredientBatchCreate"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/ingredients/{ingredient_id}/waste": {
+      "post": {
+        "tags": [
+          "ingredients"
+        ],
+        "summary": "Waste",
+        "operationId": "waste_api_ingredients__ingredient_id__waste_post",
+        "parameters": [
+          {
+            "name": "ingredient_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9007199254740991
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "创建成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InventoryWasteResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "请求参数或 JSON 格式不正确",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "资源不存在",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "当前业务状态不允许该操作",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "服务器内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InventoryWaste"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/ingredients/{ingredient_id}/adjustments": {
+      "get": {
+        "tags": [
+          "ingredients"
+        ],
+        "summary": "History",
+        "operationId": "history_api_ingredients__ingredient_id__adjustments_get",
+        "parameters": [
+          {
+            "name": "ingredient_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9007199254740991
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "请求成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InventoryAdjustmentList"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "请求参数或 JSON 格式不正确",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "资源不存在",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "服务器内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/ingredients/adjustments/{adjustment_id}/revoke": {
+      "post": {
+        "tags": [
+          "ingredients"
+        ],
+        "summary": "Revoke",
+        "operationId": "revoke_api_ingredients_adjustments__adjustment_id__revoke_post",
+        "parameters": [
+          {
+            "name": "adjustment_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9007199254740991
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "请求成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InventoryWasteResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "请求参数或 JSON 格式不正确",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "资源不存在",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "当前业务状态不允许该操作",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "服务器内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/inventory-adjustments": {
+      "get": {
+        "tags": [
+          "inventory-adjustments"
+        ],
+        "summary": "List Adjustments",
+        "operationId": "list_adjustments_api_inventory_adjustments_get",
+        "responses": {
+          "200": {
+            "description": "请求成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InventoryAdjustmentPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "请求参数或 JSON 格式不正确",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "资源不存在",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "服务器内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 50
+            },
+            "description": ""
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0
+            },
+            "description": ""
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "active",
+                "reversed"
+              ]
+            },
+            "description": ""
+          },
+          {
+            "name": "reason",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "spoiled",
+                "damaged",
+                "other"
+              ]
+            },
+            "description": ""
+          }
+        ]
+      }
+    },
+    "/api/dishes": {
+      "get": {
+        "tags": [
+          "dishes"
+        ],
+        "summary": "List Dishes",
+        "operationId": "list_dishes_api_dishes_get",
+        "responses": {
+          "200": {
+            "description": "请求成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DishList"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "请求参数或 JSON 格式不正确",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "资源不存在",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "服务器内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 50
+            },
+            "description": ""
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0
+            },
+            "description": ""
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            },
+            "description": ""
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "dishes"
+        ],
+        "summary": "Create Dish",
+        "operationId": "create_dish_api_dishes_post",
+        "responses": {
+          "201": {
+            "description": "创建成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DishResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "请求参数或 JSON 格式不正确",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "资源不存在",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "当前业务状态不允许该操作",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "服务器内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DishInput"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/dishes/{dish_id}": {
+      "get": {
+        "tags": [
+          "dishes"
+        ],
+        "summary": "Get Dish",
+        "operationId": "get_dish_api_dishes__dish_id__get",
+        "parameters": [
+          {
+            "name": "dish_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9007199254740991
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "请求成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DishResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "请求参数或 JSON 格式不正确",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "资源不存在",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "服务器内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "dishes"
+        ],
+        "summary": "Update Dish",
+        "operationId": "update_dish_api_dishes__dish_id__patch",
+        "parameters": [
+          {
+            "name": "dish_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9007199254740991
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "请求成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DishResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "请求参数或 JSON 格式不正确",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "资源不存在",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "当前业务状态不允许该操作",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "服务器内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DishInput"
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "dishes"
+        ],
+        "summary": "Delete Dish",
+        "operationId": "delete_dish_api_dishes__dish_id__delete",
+        "parameters": [
+          {
+            "name": "dish_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9007199254740991
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "请求成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DishResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "请求参数或 JSON 格式不正确",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "资源不存在",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "当前业务状态不允许该操作",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "服务器内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/dishes/{dish_id}/meal-plans": {
+      "get": {
+        "tags": [
+          "dishes"
+        ],
+        "summary": "Dish Meal Plans",
+        "operationId": "dish_meal_plans_api_dishes__dish_id__meal_plans_get",
+        "parameters": [
+          {
+            "name": "dish_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9007199254740991
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "请求成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DishMealPlanList"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "请求参数或 JSON 格式不正确",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "资源不存在",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "服务器内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/meal-plans": {
+      "get": {
+        "tags": [
+          "meal-plans"
+        ],
+        "summary": "List Plans",
+        "operationId": "list_plans_api_meal_plans_get",
+        "responses": {
+          "200": {
+            "description": "请求成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MealPlanList"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "请求参数或 JSON 格式不正确",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "资源不存在",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "服务器内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 50
+            },
+            "description": ""
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0
+            },
+            "description": ""
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "meal-plans"
+        ],
+        "summary": "Create Plan",
+        "operationId": "create_plan_api_meal_plans_post",
+        "responses": {
+          "201": {
+            "description": "创建成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MealPlanResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "请求参数或 JSON 格式不正确",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "资源不存在",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "当前业务状态不允许该操作",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "服务器内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MealPlanCreate"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/meal-plans/{plan_id}": {
+      "get": {
+        "tags": [
+          "meal-plans"
+        ],
+        "summary": "Get Plan",
+        "operationId": "get_plan_api_meal_plans__plan_id__get",
+        "parameters": [
+          {
+            "name": "plan_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9007199254740991
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "请求成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MealPlanResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "请求参数或 JSON 格式不正确",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "资源不存在",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "服务器内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "meal-plans"
+        ],
+        "summary": "Update Plan",
+        "operationId": "update_plan_api_meal_plans__plan_id__patch",
+        "parameters": [
+          {
+            "name": "plan_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9007199254740991
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "请求成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MealPlanResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "请求参数或 JSON 格式不正确",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "资源不存在",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "当前业务状态不允许该操作",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "服务器内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MealPlanUpdate"
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "meal-plans"
+        ],
+        "summary": "Delete Plan",
+        "operationId": "delete_plan_api_meal_plans__plan_id__delete",
+        "parameters": [
+          {
+            "name": "plan_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9007199254740991
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "请求成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MealPlanRecordResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "请求参数或 JSON 格式不正确",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "资源不存在",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "当前业务状态不允许该操作",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "服务器内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/daily-battles": {
+      "get": {
+        "tags": [
+          "daily-battles"
+        ],
+        "summary": "List Battles",
+        "operationId": "list_battles_api_daily_battles_get",
+        "responses": {
+          "200": {
+            "description": "请求成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DailyBattleList"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "请求参数或 JSON 格式不正确",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "资源不存在",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "服务器内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 50
+            },
+            "description": ""
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0
+            },
+            "description": ""
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "description": ""
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "description": ""
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "planned",
+                "confirmed",
+                "cancelled"
+              ]
+            },
+            "description": ""
+          },
+          {
+            "name": "meal_slot",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "breakfast",
+                "lunch",
+                "dinner"
+              ]
+            },
+            "description": ""
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "daily-battles"
+        ],
+        "summary": "Create Battle",
+        "operationId": "create_battle_api_daily_battles_post",
+        "responses": {
+          "201": {
+            "description": "创建成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DailyBattleResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "请求参数或 JSON 格式不正确",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "资源不存在",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "当前业务状态不允许该操作",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "服务器内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DailyBattleCreate"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/daily-battles/{battle_id}/consumptions": {
+      "get": {
+        "tags": [
+          "daily-battles"
+        ],
+        "summary": "Battle Consumptions",
+        "operationId": "battle_consumptions_api_daily_battles__battle_id__consumptions_get",
+        "parameters": [
+          {
+            "name": "battle_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9007199254740991
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "请求成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BattleConsumptionList"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "请求参数或 JSON 格式不正确",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "资源不存在",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "服务器内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/daily-battles/{battle_id}": {
+      "get": {
+        "tags": [
+          "daily-battles"
+        ],
+        "summary": "Get Battle Route",
+        "operationId": "get_battle_route_api_daily_battles__battle_id__get",
+        "parameters": [
+          {
+            "name": "battle_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9007199254740991
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "请求成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DailyBattleResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "请求参数或 JSON 格式不正确",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "资源不存在",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "服务器内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "daily-battles"
+        ],
+        "summary": "Update Battle",
+        "operationId": "update_battle_api_daily_battles__battle_id__patch",
+        "parameters": [
+          {
+            "name": "battle_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9007199254740991
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "请求成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DailyBattleResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "请求参数或 JSON 格式不正确",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "资源不存在",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "当前业务状态不允许该操作",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "服务器内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DailyBattleUpdate"
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "daily-battles"
+        ],
+        "summary": "Delete Battle",
+        "operationId": "delete_battle_api_daily_battles__battle_id__delete",
+        "parameters": [
+          {
+            "name": "battle_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9007199254740991
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "请求成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DailyBattleRecordResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "请求参数或 JSON 格式不正确",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "资源不存在",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "当前业务状态不允许该操作",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "服务器内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/daily-battles/{battle_id}/cancel": {
+      "post": {
+        "tags": [
+          "daily-battles"
+        ],
+        "summary": "Cancel Battle",
+        "operationId": "cancel_battle_api_daily_battles__battle_id__cancel_post",
+        "parameters": [
+          {
+            "name": "battle_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9007199254740991
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "请求成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DailyBattleResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "请求参数或 JSON 格式不正确",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "资源不存在",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "当前业务状态不允许该操作",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "服务器内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/daily-battles/{battle_id}/confirm": {
+      "post": {
+        "tags": [
+          "daily-battles"
+        ],
+        "summary": "Confirm Battle",
+        "operationId": "confirm_battle_api_daily_battles__battle_id__confirm_post",
+        "parameters": [
+          {
+            "name": "battle_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9007199254740991
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "请求成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConfirmedBattleResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "请求参数或 JSON 格式不正确",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "资源不存在",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "当前业务状态不允许该操作",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "服务器内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BattleConfirm"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/daily-battles/{battle_id}/revoke-confirmation": {
+      "post": {
+        "tags": [
+          "daily-battles"
+        ],
+        "summary": "Revoke Confirmation",
+        "operationId": "revoke_confirmation_api_daily_battles__battle_id__revoke_confirmation_post",
+        "parameters": [
+          {
+            "name": "battle_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9007199254740991
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "请求成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DailyBattleResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "请求参数或 JSON 格式不正确",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "资源不存在",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "当前业务状态不允许该操作",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "服务器内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BattleRevoke"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/consumptions": {
+      "get": {
+        "tags": [
+          "consumptions"
+        ],
+        "summary": "List Consumptions",
+        "operationId": "list_consumptions_api_consumptions_get",
+        "responses": {
+          "200": {
+            "description": "请求成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConsumptionList"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "请求参数或 JSON 格式不正确",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "资源不存在",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "服务器内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 50
+            },
+            "description": ""
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0
+            },
+            "description": ""
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "description": ""
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "description": ""
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            },
+            "description": ""
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "active",
+                "reversed"
+              ]
+            },
+            "description": ""
+          },
+          {
+            "name": "daily_battle_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9007199254740991
+            },
+            "description": ""
+          },
+          {
+            "name": "ingredient_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9007199254740991
+            },
+            "description": ""
+          }
+        ]
+      }
+    },
+    "/api/consumptions/{consumption_id}": {
+      "get": {
+        "tags": [
+          "consumptions"
+        ],
+        "summary": "Get Consumption",
+        "operationId": "get_consumption_api_consumptions__consumption_id__get",
+        "parameters": [
+          {
+            "name": "consumption_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9007199254740991
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "请求成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConsumptionResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "请求参数或 JSON 格式不正确",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "资源不存在",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "服务器内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/health": {
+      "get": {
+        "summary": "Health",
+        "operationId": "health_health_get",
+        "responses": {
+          "200": {
+            "description": "请求成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Health"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "服务器内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "ctx": {
+            "type": "object",
+            "title": "Context"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      },
+      "Ingredient": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 255,
+            "minLength": 1,
+            "description": "去除首尾空白后不能为空。"
+          },
+          "category": {
+            "type": "string",
+            "enum": [
+              "碳水",
+              "蔬菜",
+              "蛋白质",
+              "水果",
+              "其他"
+            ]
+          },
+          "stock_text": {
+            "type": "string",
+            "maxLength": 255,
+            "minLength": 1,
+            "description": "去除首尾空白后不能为空。"
+          },
+          "stock_value": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 999999999.999,
+            "multipleOf": 0.001
+          },
+          "stock_unit": {
+            "type": "string",
+            "maxLength": 50
+          },
+          "location": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "冰箱冷藏",
+                  "冰箱冷冻",
+                  "室温",
+                  "其他"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "category",
+          "stock_text",
+          "stock_value",
+          "stock_unit",
+          "location",
+          "note",
+          "created_at",
+          "updated_at"
+        ]
+      },
+      "Dish": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 255
+          },
+          "deleted_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "deleted_at",
+          "created_at",
+          "updated_at"
+        ]
+      },
+      "MealPlanRecord": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 255
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "created_at",
+          "updated_at"
+        ]
+      },
+      "MealPlanDish": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 255
+          },
+          "position": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "position"
+        ]
+      },
+      "MealPlan": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 255
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "dishes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MealPlanDish"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "created_at",
+          "updated_at",
+          "dishes"
+        ]
+      },
+      "DishMealPlan": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 255
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "position": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "created_at",
+          "updated_at",
+          "position"
+        ]
+      },
+      "DailyBattleRecord": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "battle_date": {
+            "type": "string",
+            "format": "date"
+          },
+          "meal_plan_id": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "meal_slot": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "breakfast",
+                  "lunch",
+                  "dinner"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "planned",
+              "confirmed",
+              "cancelled"
+            ]
+          },
+          "confirmed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "cancelled_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "battle_date",
+          "meal_plan_id",
+          "meal_slot",
+          "status",
+          "confirmed_at",
+          "cancelled_at",
+          "created_at",
+          "updated_at"
+        ]
+      },
+      "DailyBattleDish": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "dish_id": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 255
+          },
+          "position": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "id",
+          "dish_id",
+          "name",
+          "position"
+        ]
+      },
+      "PreparationInput": {
+        "type": "object",
+        "properties": {
+          "dish_id": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "ingredient_id": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "planned_quantity_text": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 255
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "dish_id",
+          "ingredient_id"
+        ]
+      },
+      "Preparation": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "daily_battle_dish_id": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "dish_id": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "ingredient_id": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "ingredient_name": {
+            "type": "string",
+            "maxLength": 255
+          },
+          "ingredient_status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "consumed",
+              "discarded"
+            ]
+          },
+          "planned_quantity_text": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 255
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "position": {
+            "type": "integer"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "daily_battle_dish_id",
+          "dish_id",
+          "ingredient_id",
+          "ingredient_name",
+          "ingredient_status",
+          "planned_quantity_text",
+          "position",
+          "created_at",
+          "updated_at"
+        ]
+      },
+      "DailyBattle": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "battle_date": {
+            "type": "string",
+            "format": "date"
+          },
+          "meal_plan_id": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "meal_slot": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "breakfast",
+                  "lunch",
+                  "dinner"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "planned",
+              "confirmed",
+              "cancelled"
+            ]
+          },
+          "confirmed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "cancelled_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "dishes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DailyBattleDish"
+            }
+          },
+          "preparations": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Preparation"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "battle_date",
+          "meal_plan_id",
+          "meal_slot",
+          "status",
+          "confirmed_at",
+          "cancelled_at",
+          "created_at",
+          "updated_at",
+          "dishes",
+          "preparations"
+        ]
+      },
+      "ConfirmedBattle": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "battle_date": {
+            "type": "string",
+            "format": "date"
+          },
+          "meal_plan_id": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "meal_slot": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "breakfast",
+                  "lunch",
+                  "dinner"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "planned",
+              "confirmed",
+              "cancelled"
+            ]
+          },
+          "confirmed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "cancelled_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "dishes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DailyBattleDish"
+            }
+          },
+          "preparations": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Preparation"
+            }
+          },
+          "consumptions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BattleConsumption"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "battle_date",
+          "meal_plan_id",
+          "meal_slot",
+          "status",
+          "confirmed_at",
+          "cancelled_at",
+          "created_at",
+          "updated_at",
+          "dishes",
+          "preparations",
+          "consumptions"
+        ]
+      },
+      "BattleConsumption": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "daily_battle_id": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "daily_battle_dish_id": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "ingredient_id": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "quantity_used_text": {
+            "type": "string",
+            "maxLength": 255
+          },
+          "quantity_value": {
+            "anyOf": [
+              {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 999999999.999,
+                "multipleOf": 0.001
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "quantity_unit": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 255
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "remaining_before_text": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 255
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "remaining_before_value": {
+            "anyOf": [
+              {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 999999999.999,
+                "multipleOf": 0.001
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "remaining_after_text": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 255
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "remaining_after_value": {
+            "anyOf": [
+              {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 999999999.999,
+                "multipleOf": 0.001
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "ingredient_status_before": {
+            "type": "string",
+            "enum": [
+              "active",
+              "consumed",
+              "discarded"
+            ]
+          },
+          "ingredient_ended_at_before": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "ingredient_status_after": {
+            "type": "string",
+            "enum": [
+              "active",
+              "consumed",
+              "discarded"
+            ]
+          },
+          "ingredient_ended_at_after": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "reversed"
+            ]
+          },
+          "reversed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "ingredient_name": {
+            "type": "string",
+            "maxLength": 255
+          },
+          "category": {
+            "type": "string",
+            "enum": [
+              "碳水",
+              "蔬菜",
+              "蛋白质",
+              "水果",
+              "其他"
+            ]
+          },
+          "daily_battle_dish_name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 255
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "daily_battle_id",
+          "daily_battle_dish_id",
+          "ingredient_id",
+          "quantity_used_text",
+          "quantity_value",
+          "quantity_unit",
+          "note",
+          "remaining_before_text",
+          "remaining_before_value",
+          "remaining_after_text",
+          "remaining_after_value",
+          "ingredient_status_before",
+          "ingredient_ended_at_before",
+          "ingredient_status_after",
+          "ingredient_ended_at_after",
+          "status",
+          "reversed_at",
+          "created_at",
+          "updated_at",
+          "ingredient_name",
+          "category",
+          "daily_battle_dish_name"
+        ]
+      },
+      "IngredientConsumption": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "daily_battle_id": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "daily_battle_dish_id": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "ingredient_id": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "quantity_used_text": {
+            "type": "string",
+            "maxLength": 255
+          },
+          "quantity_value": {
+            "anyOf": [
+              {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 999999999.999,
+                "multipleOf": 0.001
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "quantity_unit": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 255
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "remaining_before_text": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 255
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "remaining_before_value": {
+            "anyOf": [
+              {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 999999999.999,
+                "multipleOf": 0.001
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "remaining_after_text": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 255
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "remaining_after_value": {
+            "anyOf": [
+              {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 999999999.999,
+                "multipleOf": 0.001
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "ingredient_status_before": {
+            "type": "string",
+            "enum": [
+              "active",
+              "consumed",
+              "discarded"
+            ]
+          },
+          "ingredient_ended_at_before": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "ingredient_status_after": {
+            "type": "string",
+            "enum": [
+              "active",
+              "consumed",
+              "discarded"
+            ]
+          },
+          "ingredient_ended_at_after": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "reversed"
+            ]
+          },
+          "reversed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "battle_date": {
+            "type": "string",
+            "format": "date"
+          },
+          "battle_status": {
+            "type": "string",
+            "enum": [
+              "planned",
+              "confirmed",
+              "cancelled"
+            ]
+          },
+          "daily_battle_dish_name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 255
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "daily_battle_id",
+          "daily_battle_dish_id",
+          "ingredient_id",
+          "quantity_used_text",
+          "quantity_value",
+          "quantity_unit",
+          "note",
+          "remaining_before_text",
+          "remaining_before_value",
+          "remaining_after_text",
+          "remaining_after_value",
+          "ingredient_status_before",
+          "ingredient_ended_at_before",
+          "ingredient_status_after",
+          "ingredient_ended_at_after",
+          "status",
+          "reversed_at",
+          "created_at",
+          "updated_at",
+          "battle_date",
+          "battle_status",
+          "daily_battle_dish_name"
+        ]
+      },
+      "Consumption": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "daily_battle_id": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "daily_battle_dish_id": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "ingredient_id": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "quantity_used_text": {
+            "type": "string",
+            "maxLength": 255
+          },
+          "quantity_value": {
+            "anyOf": [
+              {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 999999999.999,
+                "multipleOf": 0.001
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "quantity_unit": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 255
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "remaining_before_text": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 255
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "remaining_before_value": {
+            "anyOf": [
+              {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 999999999.999,
+                "multipleOf": 0.001
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "remaining_after_text": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 255
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "remaining_after_value": {
+            "anyOf": [
+              {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 999999999.999,
+                "multipleOf": 0.001
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "ingredient_status_before": {
+            "type": "string",
+            "enum": [
+              "active",
+              "consumed",
+              "discarded"
+            ]
+          },
+          "ingredient_ended_at_before": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "ingredient_status_after": {
+            "type": "string",
+            "enum": [
+              "active",
+              "consumed",
+              "discarded"
+            ]
+          },
+          "ingredient_ended_at_after": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "reversed"
+            ]
+          },
+          "reversed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "battle_date": {
+            "type": "string",
+            "format": "date"
+          },
+          "battle_status": {
+            "type": "string",
+            "enum": [
+              "planned",
+              "confirmed",
+              "cancelled"
+            ]
+          },
+          "daily_battle_dish_name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 255
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "ingredient_name": {
+            "type": "string",
+            "maxLength": 255
+          },
+          "category": {
+            "type": "string",
+            "enum": [
+              "碳水",
+              "蔬菜",
+              "蛋白质",
+              "水果",
+              "其他"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "daily_battle_id",
+          "daily_battle_dish_id",
+          "ingredient_id",
+          "quantity_used_text",
+          "quantity_value",
+          "quantity_unit",
+          "note",
+          "remaining_before_text",
+          "remaining_before_value",
+          "remaining_after_text",
+          "remaining_after_value",
+          "ingredient_status_before",
+          "ingredient_ended_at_before",
+          "ingredient_status_after",
+          "ingredient_ended_at_after",
+          "status",
+          "reversed_at",
+          "created_at",
+          "updated_at",
+          "battle_date",
+          "battle_status",
+          "daily_battle_dish_name",
+          "ingredient_name",
+          "category"
+        ]
+      },
+      "IngredientCreate": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 255,
+            "minLength": 1,
+            "description": "去除首尾空白后不能为空。"
+          },
+          "category": {
+            "type": "string",
+            "enum": [
+              "碳水",
+              "蔬菜",
+              "蛋白质",
+              "水果",
+              "其他"
+            ]
+          },
+          "stock_text": {
+            "type": "string",
+            "maxLength": 255,
+            "minLength": 1,
+            "description": "去除首尾空白后不能为空。"
+          },
+          "stock_value": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 999999999.999,
+            "multipleOf": 0.001
+          },
+          "stock_unit": {
+            "type": "string",
+            "maxLength": 50
+          },
+          "location": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "冰箱冷藏",
+                  "冰箱冷冻",
+                  "室温",
+                  "其他"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 5000
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "name",
+          "category",
+          "stock_text",
+          "stock_value",
+          "stock_unit"
+        ]
+      },
+      "InventoryResolution": {
+        "type": "object",
+        "properties": {
+          "ingredient_id": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "category": {
+            "type": "string",
+            "enum": [
+              "碳水",
+              "蔬菜",
+              "蛋白质",
+              "水果",
+              "其他"
+            ]
+          },
+          "stock_unit": {
+            "type": "string",
+            "maxLength": 50
+          },
+          "final_stock_text": {
+            "type": "string",
+            "maxLength": 255,
+            "minLength": 1,
+            "description": "去除首尾空白后不能为空。"
+          },
+          "final_stock_value": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 999999999.999,
+            "multipleOf": 0.001
+          }
+        },
+        "required": [
+          "ingredient_id"
+        ],
+        "description": "同名在库食材发生分类或单位冲突时的用户选择。单位不可换算时，final_stock_text 与 final_stock_value 必填。"
+      },
+      "IngredientBatchCreate": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/IngredientCreate"
+            },
+            "minItems": 1,
+            "maxItems": 30
+          },
+          "resolutions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/InventoryResolution"
+            },
+            "maxItems": 30
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "description": "批量记录当前库存。空白行不发送；任意一项校验失败或存在未确认菜单时，整批不写入。"
+      },
+      "IngredientUpdate": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 255,
+            "minLength": 1,
+            "description": "去除首尾空白后不能为空。"
+          },
+          "category": {
+            "type": "string",
+            "enum": [
+              "碳水",
+              "蔬菜",
+              "蛋白质",
+              "水果",
+              "其他"
+            ]
+          },
+          "stock_text": {
+            "type": "string",
+            "maxLength": 255,
+            "minLength": 1,
+            "description": "去除首尾空白后不能为空。"
+          },
+          "stock_value": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 999999999.999,
+            "multipleOf": 0.001
+          },
+          "stock_unit": {
+            "type": "string",
+            "maxLength": 50
+          },
+          "location": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "冰箱冷藏",
+                  "冰箱冷冻",
+                  "室温",
+                  "其他"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 5000
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [],
+        "minProperties": 1,
+        "not": {
+          "properties": {
+            "name": false,
+            "category": false,
+            "stock_text": false,
+            "stock_value": false,
+            "stock_unit": false,
+            "location": false,
+            "note": false
+          }
+        },
+        "description": "至少提供一个列出的可修改字段。计划中存在作战时不得修改数量字段。"
+      },
+      "IngredientFinish": {
+        "type": "object",
+        "properties": {
+          "stock_text": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 255
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 5000
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": []
+      },
+      "InventoryWaste": {
+        "type": "object",
+        "properties": {
+          "stock_text": {
+            "type": "string",
+            "maxLength": 255,
+            "minLength": 1,
+            "description": "去除首尾空白后不能为空。"
+          },
+          "stock_value": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 999999999.999,
+            "multipleOf": 0.001,
+            "exclusiveMinimum": 0
+          },
+          "stock_unit": {
+            "type": "string",
+            "maxLength": 50
+          },
+          "reason": {
+            "type": "string",
+            "enum": [
+              "spoiled",
+              "damaged",
+              "other"
+            ]
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 255
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "expected_updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "stock_text",
+          "stock_value",
+          "stock_unit",
+          "reason",
+          "expected_updated_at"
+        ]
+      },
+      "InventoryAdjustment": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "ingredient_id": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "reason": {
+            "type": "string",
+            "enum": [
+              "spoiled",
+              "damaged",
+              "other"
+            ]
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 255
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "stock_before_text": {
+            "type": "string",
+            "maxLength": 255
+          },
+          "stock_before_value": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 999999999.999,
+            "multipleOf": 0.001
+          },
+          "stock_before_unit": {
+            "type": "string",
+            "maxLength": 255
+          },
+          "stock_after_text": {
+            "type": "string",
+            "maxLength": 255
+          },
+          "stock_after_value": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 999999999.999,
+            "multipleOf": 0.001
+          },
+          "stock_after_unit": {
+            "type": "string",
+            "maxLength": 255
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "reversed"
+            ]
+          },
+          "reversed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "ingredient_id",
+          "reason",
+          "note",
+          "stock_before_text",
+          "stock_before_value",
+          "stock_before_unit",
+          "stock_after_text",
+          "stock_after_value",
+          "stock_after_unit",
+          "status",
+          "reversed_at",
+          "created_at",
+          "updated_at"
+        ]
+      },
+      "DishInput": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 255,
+            "minLength": 1,
+            "description": "去除首尾空白后不能为空。"
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
+      "MealPlanCreate": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 255
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "dish_ids": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9007199254740991
+            },
+            "minItems": 1,
+            "maxItems": 50,
+            "uniqueItems": true
+          }
+        },
+        "required": [
+          "dish_ids"
+        ]
+      },
+      "MealPlanUpdate": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 255
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "dish_ids": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9007199254740991
+            },
+            "minItems": 1,
+            "maxItems": 50,
+            "uniqueItems": true
+          }
+        },
+        "required": [],
+        "minProperties": 1,
+        "not": {
+          "properties": {
+            "name": false,
+            "dish_ids": false
+          }
+        }
+      },
+      "DailyBattleCreate": {
+        "type": "object",
+        "properties": {
+          "battle_date": {
+            "type": "string",
+            "format": "date"
+          },
+          "meal_plan_id": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "dish_ids": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9007199254740991
+            },
+            "minItems": 1,
+            "maxItems": 50,
+            "uniqueItems": true
+          },
+          "meal_slot": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "breakfast",
+                  "lunch",
+                  "dinner"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "preparations": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PreparationInput"
+            },
+            "minItems": 1,
+            "maxItems": 500
+          }
+        },
+        "required": [
+          "battle_date",
+          "preparations"
+        ],
+        "oneOf": [
+          {
+            "required": [
+              "meal_plan_id"
+            ],
+            "properties": {
+              "meal_plan_id": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              "dish_ids": false
+            },
+            "not": {
+              "required": [
+                "dish_ids"
+              ]
+            }
+          },
+          {
+            "required": [
+              "dish_ids"
+            ],
+            "properties": {
+              "dish_ids": {
+                "type": "array",
+                "items": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 9007199254740991
+                },
+                "minItems": 1,
+                "maxItems": 50,
+                "uniqueItems": true
+              },
+              "meal_plan_id": {
+                "type": "null"
+              }
+            }
+          }
+        ],
+        "description": "meal_plan_id 与 dish_ids 必须二选一；从方案创建时复制菜品。保存前每道菜必须贴至少一项耗材；预计用量可在草稿阶段补全，确认库存前必须完整。"
+      },
+      "DailyBattleUpdate": {
+        "type": "object",
+        "properties": {
+          "dish_ids": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9007199254740991
+            },
+            "minItems": 1,
+            "maxItems": 50,
+            "uniqueItems": true
+          },
+          "battle_date": {
+            "type": "string",
+            "format": "date"
+          },
+          "meal_slot": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "breakfast",
+                  "lunch",
+                  "dinner"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "preparations": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PreparationInput"
+            },
+            "minItems": 1,
+            "maxItems": 500
+          },
+          "expected_updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "dish_ids",
+          "preparations"
+        ]
+      },
+      "ConsumptionInput": {
+        "type": "object",
+        "properties": {
+          "ingredient_id": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "daily_battle_dish_id": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "quantity_used_text": {
+            "type": "string",
+            "maxLength": 255,
+            "minLength": 1,
+            "description": "去除首尾空白后不能为空。"
+          },
+          "quantity_value": {
+            "anyOf": [
+              {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 999999999.999,
+                "multipleOf": 0.001,
+                "exclusiveMinimum": 0
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "quantity_unit": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 50
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "stock_text": {
+            "type": "string",
+            "maxLength": 255,
+            "minLength": 1,
+            "description": "必须填写确认后的实际剩余数量原文。"
+          },
+          "stock_value": {
+            "anyOf": [
+              {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 999999999.999,
+                "multipleOf": 0.001
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 5000
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "ingredient_id",
+          "quantity_used_text",
+          "stock_text"
+        ]
+      },
+      "ActualUsage": {
+        "type": "object",
+        "properties": {
+          "ingredient_id": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "daily_battle_dish_id": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "quantity_used_text": {
+            "type": "string",
+            "maxLength": 255,
+            "minLength": 1,
+            "description": "去除首尾空白后不能为空。"
+          },
+          "quantity_value": {
+            "anyOf": [
+              {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 999999999.999,
+                "multipleOf": 0.001,
+                "exclusiveMinimum": 0
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "quantity_unit": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 50
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 5000
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "ingredient_id",
+          "quantity_used_text"
+        ]
+      },
+      "IngredientTotal": {
+        "type": "object",
+        "properties": {
+          "ingredient_id": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "stock_text": {
+            "type": "string",
+            "maxLength": 255,
+            "minLength": 1,
+            "description": "去除首尾空白后不能为空。"
+          },
+          "stock_value": {
+            "anyOf": [
+              {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 999999999.999,
+                "multipleOf": 0.001
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "expected_updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "ingredient_id",
+          "stock_text",
+          "expected_updated_at"
+        ]
+      },
+      "BattleConfirm": {
+        "type": "object",
+        "properties": {
+          "consumptions": {
+            "anyOf": [
+              {
+                "type": "array",
+                "items": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/ConsumptionInput"
+                    },
+                    {
+                      "$ref": "#/components/schemas/ActualUsage"
+                    }
+                  ]
+                },
+                "maxItems": 500
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "ingredient_totals": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/IngredientTotal"
+            },
+            "maxItems": 500
+          },
+          "expected_updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [],
+        "oneOf": [
+          {
+            "required": [
+              "ingredient_totals",
+              "expected_updated_at"
+            ],
+            "properties": {
+              "consumptions": {
+                "anyOf": [
+                  {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/ActualUsage"
+                    },
+                    "maxItems": 500
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            }
+          },
+          {
+            "not": {
+              "required": [
+                "ingredient_totals"
+              ]
+            },
+            "properties": {
+              "consumptions": {
+                "anyOf": [
+                  {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/ConsumptionInput"
+                    },
+                    "maxItems": 500
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            }
+          }
+        ],
+        "description": "请求体必须为对象；缺省或 null consumptions 表示没有库存消耗。确认在同一事务保存消耗和调整库存。"
+      },
+      "BattleRevoke": {
+        "type": "object",
+        "properties": {
+          "target_status": {
+            "type": "string",
+            "enum": [
+              "planned",
+              "cancelled"
+            ],
+            "default": "planned"
+          }
+        },
+        "required": []
+      },
+      "PaginationMeta": {
+        "type": "object",
+        "properties": {
+          "total": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "offset": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "total",
+          "limit",
+          "offset"
+        ]
+      },
+      "Error": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string"
+              },
+              "message": {
+                "type": "string"
+              },
+              "details": {}
+            },
+            "required": [
+              "code",
+              "message"
+            ]
+          }
+        },
+        "required": [
+          "error"
+        ]
+      },
+      "Health": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "ok"
+            ]
+          },
+          "database": {
+            "type": "string",
+            "enum": [
+              "connected"
+            ]
+          }
+        },
+        "required": [
+          "status",
+          "database"
+        ]
+      },
+      "IngredientResponse": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/Ingredient"
+          }
+        },
+        "required": [
+          "data"
+        ]
+      },
+      "DishResponse": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/Dish"
+          }
+        },
+        "required": [
+          "data"
+        ]
+      },
+      "MealPlanResponse": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/MealPlan"
+          }
+        },
+        "required": [
+          "data"
+        ]
+      },
+      "MealPlanRecordResponse": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/MealPlanRecord"
+          }
+        },
+        "required": [
+          "data"
+        ]
+      },
+      "DailyBattleResponse": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/DailyBattle"
+          }
+        },
+        "required": [
+          "data"
+        ]
+      },
+      "DailyBattleRecordResponse": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/DailyBattleRecord"
+          }
+        },
+        "required": [
+          "data"
+        ]
+      },
+      "ConfirmedBattleResponse": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/ConfirmedBattle"
+          }
+        },
+        "required": [
+          "data"
+        ]
+      },
+      "ConsumptionResponse": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/Consumption"
+          }
+        },
+        "required": [
+          "data"
+        ]
+      },
+      "IngredientBatchResponse": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Ingredient"
+            }
+          }
+        },
+        "required": [
+          "data"
+        ]
+      },
+      "InventoryAdjustmentRecord": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "ingredient_id": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "reason": {
+            "type": "string",
+            "enum": [
+              "spoiled",
+              "damaged",
+              "other"
+            ]
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 255
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "stock_before_text": {
+            "type": "string",
+            "maxLength": 255
+          },
+          "stock_before_value": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 999999999.999,
+            "multipleOf": 0.001
+          },
+          "stock_before_unit": {
+            "type": "string",
+            "maxLength": 255
+          },
+          "stock_after_text": {
+            "type": "string",
+            "maxLength": 255
+          },
+          "stock_after_value": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 999999999.999,
+            "multipleOf": 0.001
+          },
+          "stock_after_unit": {
+            "type": "string",
+            "maxLength": 255
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "reversed"
+            ]
+          },
+          "reversed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "ingredient_name": {
+            "type": "string",
+            "maxLength": 255
+          },
+          "category": {
+            "type": "string",
+            "enum": [
+              "碳水",
+              "蔬菜",
+              "蛋白质",
+              "水果",
+              "其他"
+            ]
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "ingredient_id",
+          "reason",
+          "note",
+          "stock_before_text",
+          "stock_before_value",
+          "stock_before_unit",
+          "stock_after_text",
+          "stock_after_value",
+          "stock_after_unit",
+          "status",
+          "reversed_at",
+          "ingredient_name",
+          "category",
+          "created_at",
+          "updated_at"
+        ]
+      },
+      "InventoryAdjustmentList": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/InventoryAdjustmentRecord"
+            }
+          }
+        },
+        "required": [
+          "data"
+        ]
+      },
+      "InventoryAdjustmentPage": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/InventoryAdjustmentRecord"
+            }
+          },
+          "meta": {
+            "$ref": "#/components/schemas/PaginationMeta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ]
+      },
+      "InventoryWasteResponse": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "object",
+            "properties": {
+              "inventory": {
+                "$ref": "#/components/schemas/Ingredient"
+              },
+              "adjustment": {
+                "$ref": "#/components/schemas/InventoryAdjustment"
+              }
+            },
+            "required": [
+              "inventory",
+              "adjustment"
+            ]
+          }
+        },
+        "required": [
+          "data"
+        ]
+      },
+      "IngredientList": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Ingredient"
+            }
+          },
+          "meta": {
+            "$ref": "#/components/schemas/PaginationMeta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ]
+      },
+      "DishList": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Dish"
+            }
+          },
+          "meta": {
+            "$ref": "#/components/schemas/PaginationMeta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ]
+      },
+      "MealPlanList": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MealPlan"
+            }
+          },
+          "meta": {
+            "$ref": "#/components/schemas/PaginationMeta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ]
+      },
+      "DailyBattleList": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DailyBattle"
+            }
+          },
+          "meta": {
+            "$ref": "#/components/schemas/PaginationMeta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ]
+      },
+      "ConsumptionList": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Consumption"
+            }
+          },
+          "meta": {
+            "$ref": "#/components/schemas/PaginationMeta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ]
+      },
+      "DishMealPlanList": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DishMealPlan"
+            }
+          }
+        },
+        "required": [
+          "data"
+        ]
+      },
+      "BattleConsumptionList": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BattleConsumption"
+            }
+          }
+        },
+        "required": [
+          "data"
+        ]
+      },
+      "IngredientConsumptionList": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/IngredientConsumption"
+            }
+          }
+        },
+        "required": [
+          "data"
+        ]
+      }
+    }
+  }
+}

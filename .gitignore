@@ -1,5 +1,14 @@
+# Python 虚拟环境与缓存
+.venv/
+.backups/
+__pycache__/
+*.py[cod]
+
 # 依赖与构建产物
 node_modules/
+.npm-cache/
+.uv-cache/
+*.tsbuildinfo
 dist/
 build/
 
@@ -18,6 +27,7 @@ npm-debug.log*
 .DS_Store
 Thumbs.db
 
-# Claude 个人本地配置（不共享）
+# Claude 个人本地配置与隔离工作树（不共享）
 CLAUDE.local.md
 .claude/settings.local.json
+.claude/worktrees/

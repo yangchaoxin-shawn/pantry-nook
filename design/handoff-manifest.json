@@ -1,0 +1,74 @@
+{
+  "formatVersion": "1.0",
+  "designPackageVersion": "WB-V5-2026-09-09",
+  "designSystemVersion": "2.0",
+  "source": {
+    "agent": "WorkBuddy",
+    "workspace": "C:\\Users\\yangchaoxin\\WorkBuddy\\2026-09-07-00-58-51",
+    "canvas": {
+      "fileId": "723725203427240",
+      "url": "https://ardot.tencent.com/file/723725203427240?from=workbuddy"
+    }
+  },
+  "artifacts": {
+    "behaviorReference": "design/pantry-nook-prototype.html",
+    "designSystem": "design/design-system.md",
+    "visualBaselines": [
+      "design/今日三餐.png",
+      "design/共享反馈墙.png"
+    ],
+    "canvasReference": "design/ardot-canvas-link.txt",
+    "handoffDocument": "docs/frontend-design-handoff.md"
+  },
+  "visualBaselineStatus": "candidate",
+  "implementationStatus": {
+    "frontend": "React + TypeScript implementation exists; V5 visual redesign pending",
+    "backend": "FastAPI REST API exists for ingredients, dishes, meal-plans, daily-battles, consumptions",
+    "threeMealSlots": "not supported by current schema/API",
+    "sharedFeedbackWall": "not supported by current schema/API",
+    "analyticsCards": "not supported by current API"
+  },
+  "rules": {
+    "prototypeDataIsDemoOnly": true,
+    "doNotInventMissingApiFields": true,
+    "doNotChangeProductSemanticsWithoutUserApproval": true,
+    "doNotUseLocalStorageForSharedPersistence": true,
+    "productRulesSource": "docs/PRD.md",
+    "apiSource": "contracts/openapi.yaml"
+  },
+  "handoff": {
+    "executionModel": "single-agent-current",
+    "targetAgent": "ChatGPT",
+    "targetRole": "唯一全栈 coding、视觉打磨、测试和部署 agent",
+    "multiAgentResearchStatus": "not-active",
+    "futureCollaborationMode": "重新通过用户提供的绘画/视觉方案设计",
+    "workspace": "C:\\Users\\yangchaoxin\\Desktop\\pantry-nook",
+    "readFirst": [
+      "CHATGPT_HANDOFF.md",
+      "docs/frontend-design-handoff.md",
+      "design/design-system.md",
+      "design/今日三餐.png",
+      "design/共享反馈墙.png",
+      "design/pantry-nook-prototype.html",
+      "docs/PRD.md",
+      "contracts/openapi.yaml"
+    ],
+    "allowedPaths": [
+      "**"
+    ],
+    "protectedPaths": [],
+    "confirmationRequiredFor": [
+      "改变产品语义或 docs/PRD.md 的核心规则",
+      "清空、删除或重置用户已有数据",
+      "引入无登录公开写入或共享数据模型",
+      "修改 WorkBuddy 原始视觉基准并把它标为新的视觉事实源"
+    ],
+    "requiredChecks": [
+      "npm run typecheck",
+      "npm run lint",
+      "npm run build",
+      "desktop browser verification",
+      "mobile browser verification"
+    ]
+  }
+}

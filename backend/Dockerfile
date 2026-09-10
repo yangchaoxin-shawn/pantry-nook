@@ -1,7 +1,20 @@
-FROM node:20-alpine
+FROM python:3.13-slim
+
+COPY --from=ghcr.io/astral-sh/uv:0.12.10 /uv /uvx /bin/
+
 WORKDIR /app
-COPY package*.json ./
-RUN npm install --production
-COPY src ./src
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    UV_COMPILE_BYTECODE=1 \
+    UV_LINK_MODE=copy \
+    PATH="/app/.venv/bin:$PATH"
+
+COPY pyproject.toml uv.lock ./
+RUN uv sync --frozen --no-dev
+
+COPY app ./app
+COPY migrations ./migrations
+COPY scripts ./scripts
+
 EXPOSE 3000
-CMD ["node", "src/app.js"]
+CMD ["python", "scripts/start_server.py"]

@@ -15,6 +15,12 @@ server {
     # 前端静态文件
     root /var/www/pantry-nook;
     index index.html;
+    include /etc/nginx/mime.types;
+
+    # 不把不存在的脚本请求回退成 HTML。
+    location /assets/ {
+        try_files $uri =404;
+    }
 
     # SPA fallback
     location / {

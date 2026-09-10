@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>食隅记</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    :root {
+      --bg: #FEFEFE;
+      --text: #0A0A0A;
+      --text-secondary: #1A1A1A;
+      --text-muted: #8A8A8A;
+      --accent: #4A5443;
+      --border: #E8E8E8;
+      --active: #2D332A;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #0A0A0A;
+        --text: #FEFEFE;
+        --text-secondary: #E8E8E8;
+        --text-muted: #6A6A6A;
+        --accent: #8A9A7A;
+        --border: #2A2A2A;
+        --active: #A8B8A8;
+      }
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Helvetica Neue', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      -webkit-font-smoothing: antialiased;
+      font-feature-settings: 'tnum';
+      overflow-x: hidden;
+    }
+
+    /* 顶部导航 - 侧边滑动 */
+    .top-nav {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 56px;
+      background: var(--bg);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      padding: 0 20px;
+      z-index: 100;
+      overflow-x: auto;
+      overflow-y: hidden;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+    }
+
+    .top-nav::-webkit-scrollbar {
+      display: none;
+    }
+
+    .nav-tab {
+      flex-shrink: 0;
+      padding: 0 16px;
+      height: 40px;
+      display: flex;
+      align-items: center;
+      font-size: 15px;
+      font-weight: 400;
+      color: var(--text-muted);
+      border: none;
+      background: transparent;
+      cursor: pointer;
+      transition: color 150ms;
+      white-space: nowrap;
+      letter-spacing: -0.01em;
+    }
+
+    .nav-tab.active {
+      color: var(--text);
+      font-weight: 600;
+    }
+
+    .nav-tab:first-child {
+      padding-left: 0;
+    }
+
+    /* 内容区域 */
+    .view {
+      padding-top: 56px;
+      min-height: 100vh;
+      display: none;
+    }
+
+    .view.active {
+      display: block;
+    }
+
+    .container {
+      padding: 0 20px;
+    }
+
+    /* 库存页 - 超大数字展示 */
+    .hero-section {
+      padding: 60px 0 40px;
+    }
+
+    .hero-number {
+      font-size: 120px;
+      font-weight: 700;
+      line-height: 1;
+      letter-spacing: -0.04em;
+      color: var(--text);
+      margin-bottom: 8px;
+    }
+
+    .hero-label {
+      font-size: 14px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.15em;
+      font-weight: 500;
+    }
+
+    .secondary-stats {
+      display: flex;
+      gap: 48px;
+      margin-top: 48px;
+      padding-bottom: 40px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .stat {
+      flex: 1;
+    }
+
+    .stat-number {
+      font-size: 48px;
+      font-weight: 600;
+      line-height: 1;
+      margin-bottom: 8px;
+      color: var(--text-secondary);
+    }
+
+    .stat-label {
+      font-size: 12px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+    }
+
+    /* 分类标题 */
+    .section {
+      margin: 64px 0 32px;
+    }
+
+    .section-title {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.15em;
+      margin-bottom: 24px;
+    }
+
+    /* 食材列表 - 不对称布局 */
+    .ingredient-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+    }
+
+    .ingredient-row {
+      display: flex;
+      align-items: baseline;
+      padding: 20px 0;
+      border-bottom: 1px solid var(--border);
+      transition: background 120ms;
+    }
+
+    .ingredient-row:active {
+      background: rgba(0, 0, 0, 0.02);
+    }
+
+    @media (prefers-color-scheme: dark) {
+      .ingredient-row:active {
+        background: rgba(255, 255, 255, 0.02);
+      }
+    }
+
+    .ingredient-name {
+      font-size: 18px;
+      font-weight: 500;
+      flex: 1;
+      min-width: 0;
+    }
+
+    .ingredient-qty {
+      font-size: 32px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      margin-right: 16px;
+      color: var(--text-secondary);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .ingredient-qty.low {
+      color: var(--accent);
+    }
+
+    .ingredient-unit {
+      font-size: 14px;
+      font-weight: 400;
+      color: var(--text-muted);
+      min-width: 40px;
+      text-align: right;
+    }
+
+    /* 菜品页面 - 网格但不规则 */
+    .dish-section {
+      margin: 40px 0 64px;
+    }
+
+    .dish-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+    }
+
+    .dish-item {
+      padding: 24px 0;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .dish-name {
+      font-size: 20px;
+      font-weight: 500;
+      letter-spacing: -0.01em;
+    }
+
+    .dish-count {
+      font-size: 14px;
+      color: var(--text-muted);
+    }
+
+    /* 搭配方案 - 卡片式但极简 */
+    .plan-item {
+      margin-bottom: 48px;
+      padding-bottom: 48px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .plan-item:last-child {
+      border-bottom: none;
+    }
+
+    .plan-title {
+      font-size: 28px;
+      font-weight: 600;
+      margin-bottom: 16px;
+      letter-spacing: -0.02em;
+    }
+
+    .plan-meta {
+      font-size: 13px;
+      color: var(--text-muted);
+      margin-bottom: 24px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .plan-dishes {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .plan-dish {
+      font-size: 16px;
+      padding-left: 20px;
+      position: relative;
+    }
+
+    .plan-dish::before {
+      content: '·';
+      position: absolute;
+      left: 0;
+      font-size: 20px;
+      color: var(--accent);
+    }
+
+    /* 今日作战 - 时间线但更简洁 */
+    .battle-section {
+      margin: 40px 0;
+    }
+
+    .battle-item {
+      margin-bottom: 64px;
+    }
+
+    .battle-date {
+      font-size: 36px;
+      font-weight: 700;
+      margin-bottom: 8px;
+      letter-spacing: -0.02em;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .battle-status {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: var(--text-muted);
+      margin-bottom: 24px;
+    }
+
+    .battle-status.active {
+      color: var(--accent);
+    }
+
+    .battle-dishes {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-bottom: 32px;
+    }
+
+    .battle-dish {
+      font-size: 17px;
+      padding-left: 16px;
+      position: relative;
+    }
+
+    .battle-dish::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 10px;
+      width: 4px;
+      height: 4px;
+      background: var(--accent);
+      border-radius: 50%;
+    }
+
+    .battle-actions {
+      display: flex;
+      gap: 20px;
+    }
+
+    .btn {
+      padding: 0;
+      border: none;
+      background: transparent;
+      font-size: 15px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      cursor: pointer;
+      border-bottom: 1px solid currentColor;
+      font-family: inherit;
+    }
+
+    .btn-primary {
+      color: var(--active);
+      border-bottom-width: 2px;
+    }
+
+    /* FAB - 极简圆形 */
+    .fab {
+      position: fixed;
+      bottom: 40px;
+      right: 20px;
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      background: var(--active);
+      color: var(--bg);
+      border: none;
+      font-size: 28px;
+      font-weight: 300;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: transform 150ms;
+      z-index: 99;
+    }
+
+    .fab:active {
+      transform: scale(0.92);
+    }
+
+    /* 空状态 */
+    .empty {
+      padding: 120px 0;
+      text-align: center;
+    }
+
+    .empty-text {
+      font-size: 14px;
+      color: var(--text-muted);
+      line-height: 1.6;
+    }
+
+    .hidden {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <!-- 顶部导航 -->
+  <nav class="top-nav">
+    <button class="nav-tab active" onclick="switchView('inventory')">库存</button>
+    <button class="nav-tab" onclick="switchView('dishes')">菜品</button>
+    <button class="nav-tab" onclick="switchView('plans')">搭配方案</button>
+    <button class="nav-tab" onclick="switchView('battles')">今日作战</button>
+  </nav>
+
+  <!-- 库存页面 -->
+  <div id="view-inventory" class="view active">
+    <div class="container">
+      <div class="hero-section">
+        <div class="hero-number">8</div>
+        <div class="hero-label">活跃食材</div>
+
+        <div class="secondary-stats">
+          <div class="stat">
+            <div class="stat-number">12</div>
+            <div class="stat-label">已消耗</div>
+          </div>
+          <div class="stat">
+            <div class="stat-number">2</div>
+            <div class="stat-label">少量</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">蔬菜</div>
+        <div class="ingredient-list">
+          <div class="ingredient-row">
+            <div class="ingredient-name">西红柿</div>
+            <div class="ingredient-qty low">2</div>
+            <div class="ingredient-unit">个</div>
+          </div>
+          <div class="ingredient-row">
+            <div class="ingredient-name">菠菜</div>
+            <div class="ingredient-qty">1</div>
+            <div class="ingredient-unit">份</div>
+          </div>
+          <div class="ingredient-row">
+            <div class="ingredient-name">胡萝卜</div>
+            <div class="ingredient-qty">3</div>
+            <div class="ingredient-unit">根</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">蛋白质</div>
+        <div class="ingredient-list">
+          <div class="ingredient-row">
+            <div class="ingredient-name">鸡蛋</div>
+            <div class="ingredient-qty">6</div>
+            <div class="ingredient-unit">个</div>
+          </div>
+          <div class="ingredient-row">
+            <div class="ingredient-name">五花肉</div>
+            <div class="ingredient-qty">300</div>
+            <div class="ingredient-unit">克</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">碳水</div>
+        <div class="ingredient-list">
+          <div class="ingredient-row">
+            <div class="ingredient-name">大米</div>
+            <div class="ingredient-qty">—</div>
+            <div class="ingredient-unit">充足</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 菜品页面 -->
+  <div id="view-dishes" class="view">
+    <div class="container">
+      <div class="dish-section">
+        <div class="dish-list">
+          <div class="dish-item">
+            <div class="dish-name">西红柿炒鸡蛋</div>
+            <div class="dish-count">3 种食材</div>
+          </div>
+          <div class="dish-item">
+            <div class="dish-name">菠菜炒蛋</div>
+            <div class="dish-count">4 种食材</div>
+          </div>
+          <div class="dish-item">
+            <div class="dish-name">红烧肉</div>
+            <div class="dish-count">5 种食材</div>
+          </div>
+          <div class="dish-item">
+            <div class="dish-name">胡萝卜炒肉</div>
+            <div class="dish-count">3 种食材</div>
+          </div>
+          <div class="dish-item">
+            <div class="dish-name">米饭</div>
+            <div class="dish-count">1 种食材</div>
+          </div>
+          <div class="dish-item">
+            <div class="dish-name">蛋炒饭</div>
+            <div class="dish-count">4 种食材</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 搭配方案页面 -->
+  <div id="view-plans" class="view">
+    <div class="container">
+      <div class="section">
+        <div class="plan-item">
+          <div class="plan-title">工作日午餐</div>
+          <div class="plan-meta">3 道菜</div>
+          <div class="plan-dishes">
+            <div class="plan-dish">西红柿炒鸡蛋</div>
+            <div class="plan-dish">菠菜炒蛋</div>
+            <div class="plan-dish">米饭</div>
+          </div>
+        </div>
+
+        <div class="plan-item">
+          <div class="plan-title">周末大餐</div>
+          <div class="plan-meta">3 道菜</div>
+          <div class="plan-dishes">
+            <div class="plan-dish">红烧肉</div>
+            <div class="plan-dish">胡萝卜炒肉</div>
+            <div class="plan-dish">米饭</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 今日作战页面 -->
+  <div id="view-battles" class="view">
+    <div class="container">
+      <div class="battle-section">
+        <div class="battle-item">
+          <div class="battle-date">09.05</div>
+          <div class="battle-status active">计划中</div>
+          <div class="battle-dishes">
+            <div class="battle-dish">西红柿炒鸡蛋</div>
+            <div class="battle-dish">菠菜炒蛋</div>
+            <div class="battle-dish">米饭</div>
+          </div>
+          <div class="battle-actions">
+            <button class="btn btn-primary">确认完成</button>
+            <button class="btn">取消</button>
+          </div>
+        </div>
+
+        <div class="battle-item">
+          <div class="battle-date">09.04</div>
+          <div class="battle-status">已完成</div>
+          <div class="battle-dishes">
+            <div class="battle-dish">红烧肉</div>
+            <div class="battle-dish">米饭</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <button class="fab">+</button>
+
+  <script>
+    function switchView(viewName) {
+      document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+      document.getElementById('view-' + viewName).classList.add('active');
+
+      document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+      event.target.classList.add('active');
+    }
+  </script>
+</body>
+</html>

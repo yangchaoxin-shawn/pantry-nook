@@ -1,0 +1,650 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>食隅记</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    :root {
+      --bg: #F5F1E8;
+      --text: #2C2416;
+      --text-secondary: #5C5548;
+      --text-muted: #8C8578;
+      --accent: #D4622E;
+      --border: #DDD8CC;
+      --card-bg: rgba(255, 255, 255, 0.6);
+    }
+
+    body {
+      font-family: 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      -webkit-font-smoothing: antialiased;
+      position: relative;
+      overflow-x: hidden;
+    }
+
+    /* 背景纹理 */
+    body::before {
+      content: '';
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-image:
+        repeating-linear-gradient(
+          0deg,
+          transparent,
+          transparent 39px,
+          rgba(44, 36, 22, 0.03) 39px,
+          rgba(44, 36, 22, 0.03) 41px
+        ),
+        repeating-linear-gradient(
+          90deg,
+          transparent,
+          transparent 39px,
+          rgba(44, 36, 22, 0.03) 39px,
+          rgba(44, 36, 22, 0.03) 41px
+        );
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    .app {
+      position: relative;
+      z-index: 2;
+      min-height: 100vh;
+      padding-bottom: 100px;
+    }
+
+    /* 顶部栏 */
+    .top-bar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 60px;
+      background: var(--bg);
+      border-bottom: 2px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 20px;
+      z-index: 100;
+    }
+
+    .logo {
+      font-size: 24px;
+      font-weight: 900;
+      color: var(--text);
+      letter-spacing: 0.02em;
+    }
+
+    .nav-tabs {
+      display: flex;
+      gap: 4px;
+    }
+
+    .nav-tab {
+      padding: 8px 16px;
+      background: transparent;
+      border: none;
+      border-radius: 16px;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: all 150ms;
+      white-space: nowrap;
+    }
+
+    .nav-tab.active {
+      background: var(--accent);
+      color: white;
+    }
+
+    /* 内容区域 */
+    .view {
+      display: none;
+      padding-top: 60px;
+    }
+
+    .view.active {
+      display: block;
+    }
+
+    .container {
+      padding: 0 20px;
+    }
+
+    /* 分类筛选 */
+    .filter-section {
+      padding: 16px 20px;
+      background: var(--bg);
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 60px;
+      z-index: 50;
+    }
+
+    .filter-tabs {
+      display: flex;
+      gap: 8px;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+    }
+
+    .filter-tabs::-webkit-scrollbar {
+      display: none;
+    }
+
+    .filter-tab {
+      flex-shrink: 0;
+      padding: 8px 16px;
+      background: white;
+      border: 2px solid var(--border);
+      border-radius: 16px;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      cursor: pointer;
+      transition: all 150ms;
+      white-space: nowrap;
+    }
+
+    .filter-tab.active {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: white;
+    }
+
+    /* 库存网格 */
+    .inventory-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px;
+      padding: 16px 20px;
+    }
+
+    .ingredient-card {
+      background: var(--card-bg);
+      backdrop-filter: blur(10px);
+      border: 2px solid var(--border);
+      border-radius: 12px;
+      padding: 14px;
+      transition: all 150ms;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .ingredient-card:active {
+      transform: scale(0.97);
+    }
+
+    .ingredient-card[data-category] {
+      display: flex;
+    }
+
+    .ingredient-card.hidden {
+      display: none;
+    }
+
+    .ingredient-name {
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--text);
+      line-height: 1.3;
+    }
+
+    .ingredient-location {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-bottom: 4px;
+    }
+
+    .ingredient-amount {
+      display: flex;
+      align-items: baseline;
+      gap: 4px;
+    }
+
+    .amount-value {
+      font-size: 28px;
+      font-weight: 800;
+      line-height: 1;
+      color: var(--accent);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .amount-value.low {
+      color: #C44536;
+    }
+
+    .amount-unit {
+      font-size: 13px;
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+
+    /* 菜品页 */
+    .dish-cloud {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      padding: 20px;
+    }
+
+    .dish-tag {
+      padding: 12px 20px;
+      background: var(--card-bg);
+      backdrop-filter: blur(10px);
+      border: 2px solid var(--border);
+      border-radius: 20px;
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--text);
+      transition: all 150ms;
+      cursor: pointer;
+    }
+
+    .dish-tag:active {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: white;
+      transform: scale(0.95);
+    }
+
+    /* 搭配方案页 */
+    .plan-list {
+      padding: 20px;
+    }
+
+    .plan-card {
+      background: var(--card-bg);
+      backdrop-filter: blur(10px);
+      border: 2px solid var(--border);
+      border-radius: 16px;
+      padding: 20px;
+      margin-bottom: 16px;
+    }
+
+    .plan-name {
+      font-size: 20px;
+      font-weight: 700;
+      margin-bottom: 6px;
+      color: var(--text);
+    }
+
+    .plan-meta {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-bottom: 16px;
+    }
+
+    .plan-dishes {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .plan-dish-tag {
+      padding: 8px 14px;
+      background: white;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--text-secondary);
+    }
+
+    /* 作战页 */
+    .battle-list {
+      padding: 20px;
+    }
+
+    .battle-card {
+      background: var(--card-bg);
+      backdrop-filter: blur(10px);
+      border: 2px solid var(--border);
+      border-radius: 16px;
+      padding: 20px;
+      margin-bottom: 16px;
+    }
+
+    .battle-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+
+    .battle-date {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    .battle-time-tag {
+      padding: 4px 10px;
+      background: white;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-secondary);
+    }
+
+    .battle-status {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--accent);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 12px;
+    }
+
+    .battle-status.done {
+      color: #10B981;
+    }
+
+    .battle-dishes {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+
+    .battle-dish-tag {
+      padding: 6px 12px;
+      background: white;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-secondary);
+    }
+
+    .battle-actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 16px;
+    }
+
+    .btn {
+      flex: 1;
+      padding: 12px 16px;
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: 600;
+      border: 2px solid var(--border);
+      background: var(--card-bg);
+      backdrop-filter: blur(10px);
+      color: var(--text);
+      cursor: pointer;
+      transition: all 150ms;
+      font-family: inherit;
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: white;
+    }
+
+    .btn-primary:active {
+      transform: scale(0.96);
+    }
+
+    .btn-secondary:active {
+      background: white;
+    }
+
+    /* 添加按钮 */
+    .fab {
+      position: fixed;
+      bottom: 32px;
+      right: 20px;
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      background: var(--accent);
+      color: white;
+      border: none;
+      font-size: 28px;
+      font-weight: 300;
+      box-shadow: 0 6px 20px rgba(212, 98, 46, 0.3);
+      cursor: pointer;
+      transition: all 150ms;
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .fab:active {
+      transform: scale(0.9);
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <!-- 顶部栏 -->
+    <div class="top-bar">
+      <div class="logo">食隅记</div>
+      <nav class="nav-tabs">
+        <button class="nav-tab active" onclick="switchView('inventory')">库存</button>
+        <button class="nav-tab" onclick="switchView('dishes')">菜品</button>
+        <button class="nav-tab" onclick="switchView('plans')">搭配</button>
+        <button class="nav-tab" onclick="switchView('battles')">作战</button>
+      </nav>
+    </div>
+
+    <!-- 第1页：库存 -->
+    <div id="view-inventory" class="view active">
+      <!-- 分类筛选 -->
+      <div class="filter-section">
+        <div class="filter-tabs">
+          <button class="filter-tab active" onclick="filterCategory('all')">全部</button>
+          <button class="filter-tab" onclick="filterCategory('vegetable')">蔬菜</button>
+          <button class="filter-tab" onclick="filterCategory('protein')">蛋白质</button>
+          <button class="filter-tab" onclick="filterCategory('carb')">碳水</button>
+        </div>
+      </div>
+
+      <!-- 库存网格 -->
+      <div class="inventory-grid">
+        <div class="ingredient-card" data-category="vegetable">
+          <div class="ingredient-name">西红柿</div>
+          <div class="ingredient-location">冰箱冷藏</div>
+          <div class="ingredient-amount">
+            <span class="amount-value low">2</span>
+            <span class="amount-unit">个</span>
+          </div>
+        </div>
+
+        <div class="ingredient-card" data-category="vegetable">
+          <div class="ingredient-name">菠菜</div>
+          <div class="ingredient-location">冰箱冷藏</div>
+          <div class="ingredient-amount">
+            <span class="amount-value">1</span>
+            <span class="amount-unit">份</span>
+          </div>
+        </div>
+
+        <div class="ingredient-card" data-category="vegetable">
+          <div class="ingredient-name">胡萝卜</div>
+          <div class="ingredient-location">冰箱冷藏</div>
+          <div class="ingredient-amount">
+            <span class="amount-value">3</span>
+            <span class="amount-unit">根</span>
+          </div>
+        </div>
+
+        <div class="ingredient-card" data-category="protein">
+          <div class="ingredient-name">鸡蛋</div>
+          <div class="ingredient-location">冰箱冷藏</div>
+          <div class="ingredient-amount">
+            <span class="amount-value">6</span>
+            <span class="amount-unit">个</span>
+          </div>
+        </div>
+
+        <div class="ingredient-card" data-category="protein">
+          <div class="ingredient-name">五花肉</div>
+          <div class="ingredient-location">冰箱冷冻</div>
+          <div class="ingredient-amount">
+            <span class="amount-value">300</span>
+            <span class="amount-unit">克</span>
+          </div>
+        </div>
+
+        <div class="ingredient-card" data-category="carb">
+          <div class="ingredient-name">大米</div>
+          <div class="ingredient-location">室温</div>
+          <div class="ingredient-amount">
+            <span class="amount-value">∞</span>
+            <span class="amount-unit">充足</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 第2页：菜品 -->
+    <div id="view-dishes" class="view">
+      <div class="dish-cloud">
+        <div class="dish-tag">西红柿炒鸡蛋</div>
+        <div class="dish-tag">菠菜炒蛋</div>
+        <div class="dish-tag">红烧肉</div>
+        <div class="dish-tag">胡萝卜炒肉</div>
+        <div class="dish-tag">米饭</div>
+        <div class="dish-tag">蛋炒饭</div>
+      </div>
+    </div>
+
+    <!-- 第3页：搭配方案 -->
+    <div id="view-plans" class="view">
+      <div class="plan-list">
+        <div class="plan-card">
+          <div class="plan-name">工作日午餐</div>
+          <div class="plan-meta">3 道菜</div>
+          <div class="plan-dishes">
+            <div class="plan-dish-tag">西红柿炒鸡蛋</div>
+            <div class="plan-dish-tag">菠菜炒蛋</div>
+            <div class="plan-dish-tag">米饭</div>
+          </div>
+        </div>
+
+        <div class="plan-card">
+          <div class="plan-name">周末大餐</div>
+          <div class="plan-meta">3 道菜</div>
+          <div class="plan-dishes">
+            <div class="plan-dish-tag">红烧肉</div>
+            <div class="plan-dish-tag">胡萝卜炒肉</div>
+            <div class="plan-dish-tag">米饭</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 第4页：作战记录 -->
+    <div id="view-battles" class="view">
+      <div class="battle-list">
+        <div class="battle-card">
+          <div class="battle-header">
+            <div class="battle-date">2026-09-05</div>
+            <div class="battle-time-tag">晚餐</div>
+          </div>
+          <div class="battle-status">计划中</div>
+          <div class="battle-dishes">
+            <div class="battle-dish-tag">西红柿炒鸡蛋</div>
+            <div class="battle-dish-tag">菠菜炒蛋</div>
+            <div class="battle-dish-tag">米饭</div>
+          </div>
+          <div class="battle-actions">
+            <button class="btn btn-primary">确认完成</button>
+            <button class="btn btn-secondary">取消</button>
+          </div>
+        </div>
+
+        <div class="battle-card">
+          <div class="battle-header">
+            <div class="battle-date">2026-09-05</div>
+            <div class="battle-time-tag">午餐</div>
+          </div>
+          <div class="battle-status done">已完成</div>
+          <div class="battle-dishes">
+            <div class="battle-dish-tag">蛋炒饭</div>
+          </div>
+        </div>
+
+        <div class="battle-card">
+          <div class="battle-header">
+            <div class="battle-date">2026-09-04</div>
+            <div class="battle-time-tag">晚餐</div>
+          </div>
+          <div class="battle-status done">已完成</div>
+          <div class="battle-dishes">
+            <div class="battle-dish-tag">红烧肉</div>
+            <div class="battle-dish-tag">米饭</div>
+          </div>
+        </div>
+
+        <div class="battle-card">
+          <div class="battle-header">
+            <div class="battle-date">2026-09-04</div>
+            <div class="battle-time-tag">午餐</div>
+          </div>
+          <div class="battle-status done">已完成</div>
+          <div class="battle-dishes">
+            <div class="battle-dish-tag">西红柿炒鸡蛋</div>
+            <div class="battle-dish-tag">米饭</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <button class="fab">+</button>
+  </div>
+
+  <script>
+    // 切换页面
+    function switchView(viewName) {
+      document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+      document.getElementById('view-' + viewName).classList.add('active');
+
+      document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+      event.target.classList.add('active');
+    }
+
+    // 筛选分类
+    function filterCategory(category) {
+      // 更新标签状态
+      document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
+      event.target.classList.add('active');
+
+      // 筛选卡片
+      const cards = document.querySelectorAll('.ingredient-card');
+      cards.forEach(card => {
+        if (category === 'all') {
+          card.classList.remove('hidden');
+        } else {
+          if (card.dataset.category === category) {
+            card.classList.remove('hidden');
+          } else {
+            card.classList.add('hidden');
+          }
+        }
+      });
+    }
+  </script>
+</body>
+</html>

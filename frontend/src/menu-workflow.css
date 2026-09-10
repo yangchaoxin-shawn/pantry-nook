@@ -1,0 +1,63 @@
+.menu-timeline { width: 100%; max-width: 900px; margin: 0 auto; display: grid; gap: 40px; }
+.menu-timeline > section > .section-heading { margin-bottom: 16px; }
+.menu-order { padding: 20px 22px; margin-bottom: 12px; border: 1px solid var(--hairline); border-radius: 16px; background: var(--surface); }
+.menu-order .section-heading { margin-bottom: 8px; }
+.menu-order h3 { font-size: 17px; }
+.menu-order-dishes { font-size: 16px; color: var(--ink); }
+.menu-order-details { margin: 12px 0 16px; font-size: 13px; color: var(--ink-soft); }
+.menu-order-details summary { cursor: pointer; padding: 6px 0; color: var(--primary); }
+.menu-dish-prep, .menu-usage-line { padding: 8px 0; border-bottom: 1px solid var(--hairline); }
+.menu-plan-hint { margin: 6px 0; color: var(--ink-muted); font-size: 12px; }
+.menu-plan-hint { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
+.menu-plan-hint > strong { margin-right: 4px; }
+.menu-stock-hint { color: var(--ink-soft); margin-left: 8px; white-space: nowrap; }
+.menu-order .actions { flex-wrap: wrap; gap: 10px 16px; }
+.menu-empty { padding: 24px; color: var(--ink-muted); }
+.history-filter { display: flex; align-items: center; gap: 10px; }
+.history-filter label { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--ink-muted); }
+.history-filter input { width: 155px; height: 38px; }
+.inline-dish-add { display: flex; align-items: end; gap: 8px; margin-bottom: 16px; }
+.inline-dish-add .field { flex: 1; margin: 0; }
+.inline-dish-add button { white-space: nowrap; height: 48px; }
+.menu-secondary-option { margin: 0 0 16px; border: 1px solid var(--hairline); border-radius: 12px; padding: 0 14px; }
+.menu-secondary-option summary { cursor: pointer; color: var(--ink-soft); font-size: 14px; line-height: 46px; }
+.menu-secondary-option[open] { padding-bottom: 2px; }
+.menu-secondary-option[open] summary { margin-bottom: 8px; }
+.dish-choice-list { display: flex; flex-wrap: wrap; gap: 6px; max-height: 200px; overflow: auto; }
+.dish-choice-list .choice { margin: 0; }
+.prep-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(100px, 1fr) auto; align-items: center; gap: 8px; margin: 8px 0; font-size: 13px; }
+.prep-row > span { overflow-wrap: anywhere; }
+.prep-row input { height: 40px; padding: 8px; }
+.inventory-groups { max-width: 800px; display: grid; gap: 22px; }
+.inventory-group .section-heading { margin-bottom: 8px; }
+.inventory-group h2 { font-size: 16px; }
+.inventory-group .muted { font-size: 12px; }
+.inventory-group .ingredient-row { width: 100%; text-align: left; font: inherit; }
+.ingredient-name { font-weight: 600; font-size: 14px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.inventory-group .ingredient-quantity { max-width: min(32vw, 210px); }
+.inventory-list { box-shadow: none; }
+.detail-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.detail-grid > div { min-width: 0; }
+.confirm-usage-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(160px, 220px); align-items: end; gap: 16px; padding: 14px 0; border-bottom: 1px solid var(--hairline); }
+.confirm-usage-row:last-child { border-bottom: 0; }
+.confirm-usage-meta { display: grid; gap: 4px; min-width: 0; padding-bottom: 7px; }
+.confirm-usage-meta strong, .confirm-usage-meta .muted { overflow-wrap: anywhere; }
+.confirm-usage-input .field { margin: 0; }
+.confirm-usage-input input { width: 100%; height: 42px; padding: 8px 10px; }
+@media (max-width: 768px) {
+  .navigation { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .menu-order { padding: 16px; }
+  .menu-order h3 { font-size: 15px; }
+  .menu-timeline { gap: 28px; }
+  .history-filter label { font-size: 0; }
+  .history-filter input { font-size: 12px; width: 130px; }
+  .history-filter { gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+  .menu-order .actions .btn-primary { width: 100%; justify-content: center; }
+  .prep-row { grid-template-columns: minmax(0, 1fr) auto; }
+  .confirm-usage-row { grid-template-columns: 1fr; gap: 8px; }
+  .confirm-usage-meta { padding-bottom: 0; }
+  .prep-row input { grid-column: 1; grid-row: 2; }
+  .prep-row button { grid-column: 2; grid-row: 2; }
+  .inline-dish-add { flex-wrap: wrap; }
+  .inline-dish-add .field { flex-basis: 100%; }
+}

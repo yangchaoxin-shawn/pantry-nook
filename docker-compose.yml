@@ -5,12 +5,17 @@ services:
     environment:
       POSTGRES_DB: pantry_nook
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?请先在项目根目录 .env 中设置 DB_PASSWORD}
     ports:
-      - '5432:5432'
+      - '127.0.0.1:5432:5432'
     volumes:
       - db-data:/var/lib/postgresql/data
-      - ./backend/src/db/schema.sql:/docker-entrypoint-initdb.d/schema.sql
+      - ./backend/app/db/schema.sql:/docker-entrypoint-initdb.d/schema.sql
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres -d pantry_nook']
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
   backend:
     build: ./backend
@@ -20,13 +25,14 @@ services:
       DB_PORT: 5432
       DB_NAME: pantry_nook
       DB_USER: postgres
-      DB_PASSWORD: ${DB_PASSWORD}
+      DB_PASSWORD: ${DB_PASSWORD:?请先在项目根目录 .env 中设置 DB_PASSWORD}
       PORT: 3000
-      FRONTEND_ORIGIN: ${FRONTEND_ORIGIN}
+      FRONTEND_ORIGIN: ${FRONTEND_ORIGIN:?请先在项目根目录 .env 中设置 FRONTEND_ORIGIN}
     depends_on:
-      - db
+      db:
+        condition: service_healthy
     ports:
-      - '3000:3000'
+      - '127.0.0.1:3000:3000'
 
 volumes:
   db-data:
