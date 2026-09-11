@@ -95,6 +95,8 @@ export const api = {
   battle: (id: number, signal?: AbortSignal) => request<Battle>(`/api/daily-battles/${id}`, 'GET', undefined, signal),
   ingredients: (s?: AbortSignal) =>
     list<Ingredient>("/api/ingredients", s),
+  ingredientsAtLocation: (location: NonNullable<Ingredient["location"]>, s?: AbortSignal) =>
+    list<Ingredient>(`/api/ingredients?location=${encodeURIComponent(location)}`, s),
   dishes: (s?: AbortSignal) => list<Dish>("/api/dishes", s),
   plans: (s?: AbortSignal) => list<MealPlan>("/api/meal-plans", s),
   battles: (s?: AbortSignal) => list<Battle>("/api/daily-battles", s),

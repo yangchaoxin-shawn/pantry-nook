@@ -350,6 +350,9 @@ export default function App() {
     [search, setSearch] = useState("");
   const [category, setCategory] = useState("全部"),
     [consumptionStatus, setConsumptionStatus] = useState("all");
+  const [inventoryLocation, setInventoryLocation] = useState<Ingredient["location"]>(null),
+    [locationItems, setLocationItems] = useState<Ingredient[] | null>(null),
+    [locationError, setLocationError] = useState("");
   const [dark, setDark] = useState(
     () => window.matchMedia("(prefers-color-scheme: dark)").matches,
   );
@@ -383,6 +386,24 @@ export default function App() {
     return () => controller.abort();
   }, [revision]);
   useEffect(() => {
+    if (!inventoryLocation) return;
+    const controller = new AbortController();
+    api.ingredientsAtLocation(inventoryLocation, controller.signal)
+      .then((items) => {
+        if (!controller.signal.aborted) {
+          setLocationItems(items);
+          setLocationError("");
+        }
+      })
+      .catch((error) => {
+        if (!controller.signal.aborted) {
+          setLocationItems([]);
+          setLocationError(error instanceof Error ? error.message : "暂时无法读取这个位置的食材。");
+        }
+      });
+    return () => controller.abort();
+  }, [inventoryLocation, revision]);
+  useEffect(() => {
     if (!notice) return;
     const timer = setTimeout(() => setNotice(""), 4500);
     return () => clearTimeout(timer);
@@ -396,6 +417,11 @@ export default function App() {
     setPage(next);
     setSearch("");
     setNotice("");
+  }
+  function chooseInventoryLocation(location: Ingredient["location"]) {
+    setInventoryLocation(location);
+    setLocationError("");
+    setLocationItems(null);
   }
   function open(next: Modal) {
     setActionError("");
@@ -442,7 +468,7 @@ export default function App() {
     }
   }
   const inventories =
-    data?.ingredients.filter(
+    (inventoryLocation ? locationItems : data?.ingredients)?.filter(
       (i) =>
         (category === "全部" || i.category === category) &&
         `${i.name} ${i.location ?? ""}`.includes(search.trim()),
@@ -620,6 +646,20 @@ export default function App() {
                       </button>
                     ))}
                   </div>
+                  <div className="chips location-chips" aria-label="存放位置">
+                    {["全部位置", ...LOCATIONS].map((location) => {
+                      const selected = inventoryLocation === (location === "全部位置" ? null : location);
+                      return <button
+                        className={selected ? "chip active" : "chip"}
+                        aria-pressed={selected}
+                        key={location}
+                        onClick={() => chooseInventoryLocation((location === "全部位置" ? null : location) as Ingredient["location"])}
+                      >
+                        {location}
+                      </button>;
+                    })}
+                  </div>
+                  {locationError && <p className="form-error" role="alert">{locationError}</p>}
                   <div className="inventory-groups">
                     {CATEGORIES.map(group => {
                       const items = inventories.filter(i => i.category === group);
@@ -640,12 +680,12 @@ export default function App() {
                     <section className="card">
                       <Empty
                         title={
-                          search || category !== "全部"
+                          search || category !== "全部" || inventoryLocation
                             ? "没有找到这些食材"
                             : "这里还没有食材"
                         }
                       >
-                        {search || category !== "全部"
+                        {search || category !== "全部" || inventoryLocation
                           ? "试试其他名称，或切换分类。"
                           : "记下家里现有的食材，让下一顿有个着落。"}
                       </Empty>

@@ -635,6 +635,9 @@ svg {
   font-size: 13px;
   white-space: pre-wrap;
 }
+.location-chips {
+  margin-top: -12px;
+}
 .inventory-list {
   overflow: hidden;
   border: 1px solid var(--hairline);

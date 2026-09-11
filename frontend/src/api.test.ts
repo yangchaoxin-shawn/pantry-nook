@@ -34,6 +34,14 @@ describe('完整读取与读取失败', () => {
     expect(fetchMock).toHaveBeenCalledTimes(2)
   })
 
+  it('按存放位置读取时向真实筛选接口传递位置参数', async () => {
+    fetchMock.mockResolvedValueOnce(json({ data: [{ id: 1, name: '冻虾' }], meta: { total: 1, limit: 100, offset: 0 } }))
+    await api.ingredientsAtLocation('冰箱冷冻')
+    const url = new URL(String(fetchMock.mock.calls[0][0]), 'http://localhost')
+    expect(url.pathname).toBe('/api/ingredients')
+    expect(url.searchParams.get('location')).toBe('冰箱冷冻')
+  })
+
   it('第二页失败时拒绝整个读取，避免将不完整库存误认为完整结果', async () => {
     fetchMock.mockResolvedValueOnce(json({ data: Array.from({ length: 100 }, (_, id) => ({ id })), meta: { total: 120 } }))
       .mockRejectedValueOnce(new TypeError('fetch failed'))
