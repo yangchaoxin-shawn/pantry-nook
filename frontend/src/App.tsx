@@ -22,7 +22,7 @@ import {
 import "./App.css";
 import "./menu-workflow.css";
 import { MenuTimeline, MenuEditor, MenuConfirm } from "./MenuWorkflow";
-import { startedBatchRows } from "./batch-ingredient-logic";
+import { canConvertUnits, startedBatchRows } from "./batch-ingredient-logic";
 
 const NAV = [
   ["battles", "菜单", "sun"],
@@ -36,8 +36,6 @@ const isReadyForConfirmation = (battle: Battle) => battle.dishes.every((dish) =>
 const confirmationNotice = (battle: Battle) => battle.dishes.some((dish) => !battle.preparations.some((prep) => prep.daily_battle_dish_id === dish.id))
   ? "确认前先为每道菜添加耗材。"
   : "确认前请填写每项耗材的预计用量。";
-const UNIT_GROUP: Record<string, string> = { g: "mass", kg: "mass", 斤: "mass", ml: "volume", L: "volume" };
-const canConvert = (source: string | null | undefined, target: string | null | undefined) => source === target || (!!source && !!target && UNIT_GROUP[source] === UNIT_GROUP[target]);
 const stockLabel = (item: Ingredient) => {
   const text = item.stock_text;
   const unit = item.stock_unit;
@@ -1121,7 +1119,7 @@ function IngredientBatchEditor({
   if (conflicts.length) {
     const manualTotalMissing = conflicts.some(({ ingredient, incomingUnit }) => {
       const oldUnit = ingredient.stock_unit ?? ingredient.stock_unit ?? "";
-      return oldUnit !== incomingUnit && !canConvert(oldUnit, incomingUnit) && !manualTotals[ingredient.id]?.trim();
+      return oldUnit !== incomingUnit && !canConvertUnits(oldUnit, incomingUnit) && !manualTotals[ingredient.id]?.trim();
     });
     return <div className="batch-resolution">
     <p className="form-notice">发现已有同名食材。请确认分类和单位；保存后只会保留一条库存记录。</p>
@@ -1129,7 +1127,7 @@ function IngredientBatchEditor({
       const oldUnit = ingredient.stock_unit ?? ingredient.stock_unit ?? "";
       const hasCategoryConflict = ingredient.category !== incomingCategory;
       const hasUnitConflict = oldUnit !== incomingUnit;
-      const needsManualTotal = hasUnitConflict && !canConvert(oldUnit, incomingUnit);
+      const needsManualTotal = hasUnitConflict && !canConvertUnits(oldUnit, incomingUnit);
       return <fieldset key={ingredient.id}><legend>{ingredient.name}</legend><p className="muted">现有 {ingredient.category} · {stockLabel(ingredient)}；本次 {incomingCategory} · {draftIngredients.find(item => item.name.toLocaleLowerCase() === ingredient.name.toLocaleLowerCase())?.stock_text}{incomingUnit}</p>
         {hasCategoryConflict && <><p className="resolution-label">分类</p><div className="unit-choice"><button type="button" className={categories[ingredient.id] === ingredient.category ? "chip active" : "chip"} onClick={() => setCategories(current => ({...current, [ingredient.id]: ingredient.category}))}>保留为 {ingredient.category}</button><button type="button" className={categories[ingredient.id] === incomingCategory ? "chip active" : "chip"} onClick={() => setCategories(current => ({...current, [ingredient.id]: incomingCategory}))}>改为 {incomingCategory}</button></div></>}
         {hasUnitConflict && <><p className="resolution-label">单位</p><div className="unit-choice"><button type="button" className={units[ingredient.id] === oldUnit ? "chip active" : "chip"} onClick={() => setUnits(current => ({...current, [ingredient.id]: oldUnit}))}>统一为 {oldUnit}</button><button type="button" className={units[ingredient.id] === incomingUnit ? "chip active" : "chip"} onClick={() => setUnits(current => ({...current, [ingredient.id]: incomingUnit}))}>统一为 {incomingUnit}</button></div></>}
@@ -1142,7 +1140,7 @@ function IngredientBatchEditor({
       conflicts.filter(({ ingredient, incomingCategory }) => ingredient.category !== incomingCategory).map(({ ingredient }) => ({ ingredient_id: ingredient.id, category: categories[ingredient.id] })),
       conflicts.filter(({ ingredient, incomingUnit }) => {
         const oldUnit = ingredient.stock_unit ?? ingredient.stock_unit ?? "";
-        return oldUnit !== incomingUnit && !canConvert(oldUnit, incomingUnit);
+        return oldUnit !== incomingUnit && !canConvertUnits(oldUnit, incomingUnit);
       }).map(({ ingredient }) => ({ ingredient_id: ingredient.id, stock_text: manualTotals[ingredient.id].trim(), stock_value: Number(manualTotals[ingredient.id]), unit: units[ingredient.id], expected_updated_at: ingredient.updated_at })),
     )} disabled={busy || manualTotalMissing}>{busy ? "保存中…" : "按选择保存"}</button></div>
   </div>;
