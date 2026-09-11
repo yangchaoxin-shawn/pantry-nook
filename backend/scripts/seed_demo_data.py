@@ -80,12 +80,8 @@ def confirm_tomato_eggs(battle: dict, egg: dict, tomato: dict) -> None:
     payload = {
         "expected_updated_at": battle["updated_at"],
         "consumptions": [
-            {"ingredient_id": egg["id"], "daily_battle_dish_id": rows[battle["dishes"][0]["dish_id"]], "quantity_used_text": "2个"},
-            {"ingredient_id": tomato["id"], "daily_battle_dish_id": rows[battle["dishes"][0]["dish_id"]], "quantity_used_text": "2个"},
-        ],
-        "ingredient_totals": [
-            {"ingredient_id": egg["id"], "stock_text": "8", "stock_value": 8, "expected_updated_at": egg["updated_at"]},
-            {"ingredient_id": tomato["id"], "stock_text": "4", "stock_value": 4, "expected_updated_at": tomato["updated_at"]},
+            {"ingredient_id": egg["id"], "daily_battle_dish_id": rows[battle["dishes"][0]["dish_id"]], "quantity_used_text": "2", "expected_updated_at": egg["updated_at"]},
+            {"ingredient_id": tomato["id"], "daily_battle_dish_id": rows[battle["dishes"][0]["dish_id"]], "quantity_used_text": "2", "expected_updated_at": tomato["updated_at"]},
         ],
     }
     data("POST", f"/api/daily-battles/{battle['id']}/confirm", payload)

@@ -91,18 +91,13 @@ def main():
     payload = {
         "expected_updated_at": battle["updated_at"],
         "consumptions": [
-            {"ingredient_id": egg["id"], "daily_battle_dish_id": rows[one["id"]], "quantity_used_text": "两个"},
-            {"ingredient_id": tomato["id"], "daily_battle_dish_id": rows[one["id"]], "quantity_used_text": "两个"},
-            {"ingredient_id": spinach["id"], "daily_battle_dish_id": rows[two["id"]], "quantity_used_text": "一把"},
-        ],
-        "ingredient_totals": [
-            {"ingredient_id": egg["id"], "stock_text": "4", "stock_value": 4, "expected_updated_at": egg["updated_at"]},
-            {"ingredient_id": tomato["id"], "stock_text": "1", "stock_value": 1, "expected_updated_at": tomato["updated_at"]},
-            {"ingredient_id": spinach["id"], "stock_text": "0", "stock_value": 0, "expected_updated_at": spinach["updated_at"]},
+            {"ingredient_id": egg["id"], "daily_battle_dish_id": rows[one["id"]], "quantity_used_text": "2", "expected_updated_at": egg["updated_at"]},
+            {"ingredient_id": tomato["id"], "daily_battle_dish_id": rows[one["id"]], "quantity_used_text": "2", "expected_updated_at": tomato["updated_at"]},
+            {"ingredient_id": spinach["id"], "daily_battle_dish_id": rows[two["id"]], "quantity_used_text": "1", "expected_updated_at": spinach["updated_at"]},
         ],
     }
     invalid = copy.deepcopy(payload)
-    invalid["ingredient_totals"][0]["expected_updated_at"] = "2000-01-01T00:00:00Z"
+    invalid["consumptions"][0]["expected_updated_at"] = "2000-01-01T00:00:00Z"
     status, _ = request("POST", f"/api/daily-battles/{battle['id']}/confirm", invalid)
     check("库存版本冲突时确认整体回滚", status == 409)
     check("失败不扣库存", data("GET", f"/api/ingredients/{egg['id']}")["stock_value"] == 6)

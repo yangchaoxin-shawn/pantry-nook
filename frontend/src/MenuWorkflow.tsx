@@ -1,4 +1,4 @@
-import { initialUsage, inventoryVersion } from './menu-confirm-logic';
+import { initialUsage, inventoryVersion, usageValue } from './menu-confirm-logic';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { api, localDate, type Battle, type BattleInput, type BattleConfirm, type Dish, type Ingredient, type MealPlan, type Consumption } from './api';
 
@@ -138,8 +138,6 @@ const stockLabel = (ingredient?: Ingredient) => {
     ? `${text}${unit}`
     : text;
 };
-const rounded = (value: number) => Math.round((value + Number.EPSILON) * 1000) / 1000;
-const quantityText = (value: number, unit: string | null) => `${rounded(value)}${unit ?? ''}`;
 type ReviewSnapshot = { battle: Battle; ingredients: Ingredient[] };
 export function MenuConfirm({ battleId, busy, save, onPending }: { battleId: number; busy: boolean; onPending: (pending: boolean) => void; save: (payload: BattleConfirm) => Promise<void> }) {
   const [snapshot, setSnapshot] = useState<ReviewSnapshot | null>(null);
@@ -202,8 +200,8 @@ export function MenuConfirm({ battleId, busy, save, onPending }: { battleId: num
   for (const row of rows) {
     const ingredient = ingredients.find((item) => item.id === row.ingredient_id);
     const usedText = row.quantity_used_text.trim();
-    const used = Number(usedText);
-    if (!ingredient || !usedText || !Number.isFinite(used) || used < 0) {
+    const used = usageValue(usedText);
+    if (!ingredient || !usedText || used === null) {
       invalidUsage = true;
       continue;
     }
@@ -229,13 +227,9 @@ export function MenuConfirm({ battleId, busy, save, onPending }: { battleId: num
         expected_updated_at: battle.updated_at,
         consumptions: rows.map(row => ({
           ingredient_id: row.ingredient_id, daily_battle_dish_id: row.daily_battle_dish_id,
-          quantity_used_text: row.quantity_used_text.trim(), quantity_unit: row.unit,
+          quantity_used_text: row.quantity_used_text.trim(),
+          expected_updated_at: ingredients.find((ingredient) => ingredient.id === row.ingredient_id)?.updated_at ?? '',
         })),
-        ...(rows.length ? { ingredient_totals: [...totals.entries()].map(([ingredient_id, { ingredient, used }]) => {
-          const remaining = rounded((ingredient.stock_value ?? 0) - used);
-          return { ingredient_id, stock_text: quantityText(remaining, ingredient.stock_unit),
-            stock_value: remaining, expected_updated_at: ingredient.updated_at };
-        }) } : {}),
       });
     } catch (e) {
       // 响应丢失或并发冲突只重新读取，不自动重发扣库存请求。
@@ -282,7 +276,7 @@ export function MenuConfirm({ battleId, busy, save, onPending }: { battleId: num
                         required
                         maxLength={255}
                         inputMode="decimal"
-                        placeholder="例如 2"
+                        placeholder="例如 1/3"
                         value={r.quantity_used_text}
                         onChange={(e) =>
                           setRows((rs) =>
@@ -311,7 +305,7 @@ export function MenuConfirm({ battleId, busy, save, onPending }: { battleId: num
           这餐没有使用已记录的库存
         </label>
       )}
-      {invalidUsage && <p className="form-error" role="alert">实际用量请填写大于或等于 0 的数字。</p>}
+      {invalidUsage && <p className="form-error" role="alert">实际用量可填 1、0.5、1/2 或 1/3；单位已标在标题中。</p>}
       {nonCalculable.length > 0 && <p className="form-error" role="alert">{nonCalculable.map((i) => i.name).join('、')}缺少可计算的库存数量或单位，请先到库存详情补全后再确认。</p>}
       {insufficient && <p className="form-error" role="alert">实际用量超过当前库存，请核对后再确定。</p>}
       <button

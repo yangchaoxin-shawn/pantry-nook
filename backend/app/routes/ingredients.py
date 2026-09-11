@@ -6,6 +6,7 @@ from ..errors import conflict, not_found, validation_error
 from ..responses import created, ok
 from ..validation import enum_value, ensure_object_body, optional_number, optional_text, pagination, parse_id, required_text
 from ..menu_workflow import assert_version
+from ..quantity import render_stock
 router=APIRouter()
 CATEGORIES=["碳水","蔬菜","蛋白质","水果","其他"]; LOCATIONS=["冰箱冷藏","冰箱冷冻","室温","其他"]; REASONS=["spoiled","damaged","other"]
 FACTORS={"g":("m",Decimal(1)),"kg":("m",Decimal(1000)),"斤":("m",Decimal(500)),"ml":("v",Decimal(1)),"L":("v",Decimal(1000))}
@@ -24,7 +25,7 @@ def payload(b,partial=False):
  if has("note"):r["note"]=optional_text(b.get("note"),"note",5000)
  if partial and not r:raise validation_error("至少需要提供一个可修改字段")
  return r
-def render(v):return format(v.quantize(Decimal(".001")),"f").rstrip("0").rstrip(".") or "0"
+def render(v):return render_stock(v)
 def convert(v,a,b):
  if a==b:return v
  x,y=FACTORS.get(a),FACTORS.get(b)

@@ -131,12 +131,7 @@ if battle_id and ingredient_id:
         "consumptions": [{
             "ingredient_id": ingredient_id,
             "daily_battle_dish_id": battle["data"]["dishes"][0]["id"],
-            "quantity_used_text": "半个",
-        }],
-        "ingredient_totals": [{
-            "ingredient_id": ingredient_id,
-            "stock_text": "2.5个",
-            "stock_value": 2.5,
+            "quantity_used_text": "0.5",
             "expected_updated_at": latest_ingredient["data"]["updated_at"],
         }],
         "expected_updated_at": battle["data"]["updated_at"],

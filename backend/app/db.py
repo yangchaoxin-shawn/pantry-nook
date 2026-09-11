@@ -2,7 +2,7 @@
 
 API 对外行为：
 - DATE 型字段对外始终是 'YYYY-MM-DD' 字符串，避免时区偏移。
-- NUMERIC(12,3) 型字段对外是 float(number)，当前业务数量处于 JS 安全整数范围。
+- NUMERIC(15,6) 型字段对外是 float(number)，当前业务数量处于 JS 安全整数范围。
 - BIGINT(id) 对外是 int。
 所有值在写入响应前经 jsonable() 统一转成 JSON 安全类型。
 """

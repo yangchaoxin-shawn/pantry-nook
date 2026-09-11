@@ -19,13 +19,10 @@ def menu(ingredients, dishes):
 
 
 def confirmation(b, items, used=1):
-    ids = list(dict.fromkeys(i['id'] for i in items))
     return {'expected_updated_at': b['updated_at'],
-            'consumptions': [{'ingredient_id': i['id'], 'daily_battle_dish_id': d['id'], 'quantity_used_text': str(used)}
-                             for i, d in zip(items, b['dishes'])],
-            'ingredient_totals': [{'ingredient_id': iid, 'stock_value': (i := next(i for i in items if i['id'] == iid))['stock_value'] - used * sum(v['id'] == iid for v in items),
-                                   'stock_text': str(i['stock_value'] - used * sum(v['id'] == iid for v in items)),
-                                   'expected_updated_at': i['updated_at']} for iid in ids]}
+            'consumptions': [{'ingredient_id': i['id'], 'daily_battle_dish_id': d['id'],
+                              'quantity_used_text': str(used), 'expected_updated_at': i['updated_at']}
+                             for i, d in zip(items, b['dishes'])]}
 
 
 def confirm(b, payload):

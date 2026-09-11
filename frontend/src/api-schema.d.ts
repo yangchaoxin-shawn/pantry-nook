@@ -739,46 +739,21 @@ export interface components {
             /** Format: date-time */
             expected_updated_at?: string;
         };
-        ConsumptionInput: {
-            ingredient_id: number;
-            daily_battle_dish_id?: number | null;
-            /** @description 去除首尾空白后不能为空。 */
-            quantity_used_text: string;
-            quantity_value?: number | null;
-            quantity_unit?: string | null;
-            /** @description 必须填写确认后的实际剩余数量原文。 */
-            stock_text: string;
-            stock_value?: number | null;
-            note?: string | null;
-        };
         ActualUsage: {
             ingredient_id: number;
             daily_battle_dish_id?: number | null;
-            /** @description 去除首尾空白后不能为空。 */
+            /** @description 填写不带单位的实际用量；支持 1、0.5、1/2、1/3 等简单分数。 */
             quantity_used_text: string;
-            quantity_value?: number | null;
-            quantity_unit?: string | null;
+            /** Format: date-time */
+            expected_updated_at: string;
             note?: string | null;
         };
-        IngredientTotal: {
-            ingredient_id: number;
-            /** @description 去除首尾空白后不能为空。 */
-            stock_text: string;
-            stock_value?: number | null;
+        /** @description 后端在同一事务内按实际用量计算库存、写入消耗并校验菜单与库存版本；客户端不得提交剩余库存。 */
+        BattleConfirm: {
+            consumptions: components["schemas"]["ActualUsage"][];
             /** Format: date-time */
             expected_updated_at: string;
         };
-        /** @description 请求体必须为对象；缺省或 null consumptions 表示没有库存消耗。确认在同一事务保存消耗和调整库存。 */
-        BattleConfirm: {
-            consumptions?: (components["schemas"]["ConsumptionInput"] | components["schemas"]["ActualUsage"])[] | null;
-            ingredient_totals?: components["schemas"]["IngredientTotal"][];
-            /** Format: date-time */
-            expected_updated_at?: string;
-        } & ({
-            consumptions?: components["schemas"]["ActualUsage"][] | null;
-        } | {
-            consumptions?: components["schemas"]["ConsumptionInput"][] | null;
-        });
         BattleRevoke: {
             /**
              * @default planned

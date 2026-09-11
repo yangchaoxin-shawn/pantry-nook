@@ -230,7 +230,7 @@ function WasteEditor({ item, busy, save }: { item: Ingredient; busy: boolean; sa
   return <form onSubmit={(event) => { event.preventDefault(); if (!invalid) save({ stock_text: quantity, stock_value: amount, stock_unit: item.stock_unit, reason, note: String(new FormData(event.currentTarget).get("note") || "") || null, expected_updated_at: item.updated_at }); }}>
     <p className="dialog-description">当前库存 {stockLabel(item)}。处理后可在“变质/损坏记录”里查看。</p>
     <div className="unit-choice"><button type="button" className={all ? "chip active" : "chip"} onClick={() => { setAll(true); setQuantity(String(item.stock_value)); }}>全部处理</button><button type="button" className={!all ? "chip active" : "chip"} onClick={() => setAll(false)}>处理部分</button></div>
-    <Field label={`处理数量（${item.stock_unit}）`}><input required disabled={all} type="number" min="0.001" max={item.stock_value} step="0.001" inputMode="decimal" value={quantity} onChange={e => setQuantity(e.target.value)} /></Field>
+    <Field label={`处理数量（${item.stock_unit}）`}><input required disabled={all} type="number" min="0.000001" max={item.stock_value} step="0.000001" inputMode="decimal" value={quantity} onChange={e => setQuantity(e.target.value)} /></Field>
     <Field label="原因"><select value={reason} onChange={e => setReason(e.target.value as typeof reason)}>{Object.entries(wasteReasonText).map(([value, label]) => <option value={value} key={value}>{label}</option>)}</select></Field>
     <Field label="备注（选填）"><textarea name="note" rows={2} maxLength={5000} placeholder="例如：冷藏失温" /></Field>
     {invalid && <p className="form-error">处理数量应大于 0，且不能超过当前库存。</p>}
@@ -1131,7 +1131,7 @@ function IngredientBatchEditor({
       return <fieldset key={ingredient.id}><legend>{ingredient.name}</legend><p className="muted">现有 {ingredient.category} · {stockLabel(ingredient)}；本次 {incomingCategory} · {draftIngredients.find(item => item.name.toLocaleLowerCase() === ingredient.name.toLocaleLowerCase())?.stock_text}{incomingUnit}</p>
         {hasCategoryConflict && <><p className="resolution-label">分类</p><div className="unit-choice"><button type="button" className={categories[ingredient.id] === ingredient.category ? "chip active" : "chip"} onClick={() => setCategories(current => ({...current, [ingredient.id]: ingredient.category}))}>保留为 {ingredient.category}</button><button type="button" className={categories[ingredient.id] === incomingCategory ? "chip active" : "chip"} onClick={() => setCategories(current => ({...current, [ingredient.id]: incomingCategory}))}>改为 {incomingCategory}</button></div></>}
         {hasUnitConflict && <><p className="resolution-label">单位</p><div className="unit-choice"><button type="button" className={units[ingredient.id] === oldUnit ? "chip active" : "chip"} onClick={() => setUnits(current => ({...current, [ingredient.id]: oldUnit}))}>统一为 {oldUnit}</button><button type="button" className={units[ingredient.id] === incomingUnit ? "chip active" : "chip"} onClick={() => setUnits(current => ({...current, [ingredient.id]: incomingUnit}))}>统一为 {incomingUnit}</button></div></>}
-        {needsManualTotal && <div className="manual-total"><label htmlFor={`manual-total-${ingredient.id}`}>合并后的库存量（{units[ingredient.id]}）</label><input id={`manual-total-${ingredient.id}`} type="number" inputMode="decimal" min="0" step="0.001" placeholder="按实际库存填写" value={manualTotals[ingredient.id] ?? ""} onChange={(event) => setManualTotals(current => ({ ...current, [ingredient.id]: event.target.value }))} /><p className="form-hint">这两种单位无法自动换算，请按实际库存填写最终数量。</p></div>}
+        {needsManualTotal && <div className="manual-total"><label htmlFor={`manual-total-${ingredient.id}`}>合并后的库存量（{units[ingredient.id]}）</label><input id={`manual-total-${ingredient.id}`} type="number" inputMode="decimal" min="0" step="0.000001" placeholder="按实际库存填写" value={manualTotals[ingredient.id] ?? ""} onChange={(event) => setManualTotals(current => ({ ...current, [ingredient.id]: event.target.value }))} /><p className="form-hint">这两种单位无法自动换算，请按实际库存填写最终数量。</p></div>}
         </fieldset>;
     })}
     <div className="actions"><button type="button" className="btn-ghost" onClick={() => setConflicts([])}>返回修改</button><button type="button" className="btn-primary" onClick={() => save(
@@ -1173,7 +1173,7 @@ function IngredientBatchEditor({
               type="number"
               inputMode="decimal"
               min="0"
-              step="0.001"
+              step="0.000001"
               placeholder="数量"
               value={row.quantity}
               onChange={(event) => change(row.id, "quantity", event.target.value)}
@@ -1290,7 +1290,7 @@ function IngredientEditor({
               name="quantity"
               required
               min="0"
-              step="0.001"
+              step="0.000001"
               inputMode="decimal"
               defaultValue={currentQuantity}
               placeholder="例如：6"

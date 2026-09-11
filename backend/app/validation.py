@@ -58,7 +58,7 @@ def optional_text(value: Any, field_name: str, max_length: int = 255):
 
 
 def optional_number(value: Any, field_name: str, min_value: float = 0, exclusive_min: bool = False):
-    """可空十进制数量，与 NUMERIC(12,3) 精度一致，不允许静默舍入。"""
+    """可空十进制数量，与 NUMERIC(15,6) 精度一致，不允许静默舍入。"""
     if value is None or value == "":
         return None
     try:
@@ -73,8 +73,8 @@ def optional_number(value: Any, field_name: str, min_value: float = 0, exclusive
     if invalid_range:
         operator = "大于" if exclusive_min else "大于或等于"
         raise _validation_error(f"{field_name} 必须是{operator} {min_value:g} 的数字")
-    if number > Decimal("999999999.999") or number != number.quantize(Decimal("0.001")):
-        raise _validation_error(f"{field_name} 最多 9 位整数和 3 位小数")
+    if number > Decimal("999999999.999999") or number != number.quantize(Decimal("0.000001")):
+        raise _validation_error(f"{field_name} 最多 9 位整数和 6 位小数")
     return number
 
 

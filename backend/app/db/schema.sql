@@ -5,7 +5,7 @@ CREATE TABLE IF NOT EXISTS ingredients (
   name VARCHAR(255) NOT NULL,
   category VARCHAR(50) NOT NULL,
   stock_text VARCHAR(255) NOT NULL,
-  stock_value NUMERIC(12, 3),
+  stock_value NUMERIC(15, 6),
   stock_unit VARCHAR(50),
   location VARCHAR(50),
   status VARCHAR(20) NOT NULL DEFAULT 'active',
@@ -106,13 +106,13 @@ CREATE TABLE IF NOT EXISTS consumptions (
   daily_battle_dish_id BIGINT,
   ingredient_id BIGINT NOT NULL REFERENCES ingredients(id) ON DELETE RESTRICT,
   quantity_used_text VARCHAR(255) NOT NULL,
-  quantity_value NUMERIC(12, 3),
+  quantity_value NUMERIC(15, 6),
   quantity_unit VARCHAR(50),
   note TEXT,
   remaining_before_text VARCHAR(255),
-  remaining_before_value NUMERIC(12, 3),
+  remaining_before_value NUMERIC(15, 6),
   remaining_after_text VARCHAR(255),
-  remaining_after_value NUMERIC(12, 3),
+  remaining_after_value NUMERIC(15, 6),
   ingredient_status_before VARCHAR(20) NOT NULL,
   ingredient_ended_at_before TIMESTAMPTZ,
   ingredient_status_after VARCHAR(20) NOT NULL,
@@ -138,9 +138,9 @@ CREATE TABLE IF NOT EXISTS consumptions (
 
 ALTER TABLE consumptions
   ADD COLUMN IF NOT EXISTS remaining_before_text VARCHAR(255),
-  ADD COLUMN IF NOT EXISTS remaining_before_value NUMERIC(12, 3),
+  ADD COLUMN IF NOT EXISTS remaining_before_value NUMERIC(15, 6),
   ADD COLUMN IF NOT EXISTS remaining_after_text VARCHAR(255),
-  ADD COLUMN IF NOT EXISTS remaining_after_value NUMERIC(12, 3),
+  ADD COLUMN IF NOT EXISTS remaining_after_value NUMERIC(15, 6),
   ADD COLUMN IF NOT EXISTS ingredient_status_before VARCHAR(20) NOT NULL DEFAULT 'active',
   ADD COLUMN IF NOT EXISTS ingredient_ended_at_before TIMESTAMPTZ,
   ADD COLUMN IF NOT EXISTS ingredient_status_after VARCHAR(20) NOT NULL DEFAULT 'active',
@@ -217,5 +217,5 @@ BEFORE UPDATE OF status ON daily_battles
 FOR EACH ROW
 EXECUTE FUNCTION prevent_battle_unconfirmation_with_active_consumptions();
 
-CREATE TABLE IF NOT EXISTS inventory_adjustments (id BIGSERIAL PRIMARY KEY, ingredient_id BIGINT NOT NULL REFERENCES ingredients(id) ON DELETE RESTRICT, reason VARCHAR(20) NOT NULL CHECK (reason IN ('spoiled','damaged','other')), note TEXT, stock_before_text VARCHAR(255) NOT NULL, stock_before_value NUMERIC(12,3) NOT NULL, stock_before_unit VARCHAR(50) NOT NULL, stock_after_text VARCHAR(255) NOT NULL, stock_after_value NUMERIC(12,3) NOT NULL, stock_after_unit VARCHAR(50) NOT NULL, stock_after_updated_at TIMESTAMPTZ NOT NULL, ingredient_status_before VARCHAR(20) NOT NULL, ingredient_ended_at_before TIMESTAMPTZ, ingredient_status_after VARCHAR(20) NOT NULL, ingredient_ended_at_after TIMESTAMPTZ, status VARCHAR(20) NOT NULL DEFAULT 'active' CHECK(status IN ('active','reversed')), reversed_at TIMESTAMPTZ, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW());
+CREATE TABLE IF NOT EXISTS inventory_adjustments (id BIGSERIAL PRIMARY KEY, ingredient_id BIGINT NOT NULL REFERENCES ingredients(id) ON DELETE RESTRICT, reason VARCHAR(20) NOT NULL CHECK (reason IN ('spoiled','damaged','other')), note TEXT, stock_before_text VARCHAR(255) NOT NULL, stock_before_value NUMERIC(15,6) NOT NULL, stock_before_unit VARCHAR(50) NOT NULL, stock_after_text VARCHAR(255) NOT NULL, stock_after_value NUMERIC(15,6) NOT NULL, stock_after_unit VARCHAR(50) NOT NULL, stock_after_updated_at TIMESTAMPTZ NOT NULL, ingredient_status_before VARCHAR(20) NOT NULL, ingredient_ended_at_before TIMESTAMPTZ, ingredient_status_after VARCHAR(20) NOT NULL, ingredient_ended_at_after TIMESTAMPTZ, status VARCHAR(20) NOT NULL DEFAULT 'active' CHECK(status IN ('active','reversed')), reversed_at TIMESTAMPTZ, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW());
 CREATE INDEX IF NOT EXISTS inventory_adjustments_ingredient_idx ON inventory_adjustments(ingredient_id,created_at DESC);

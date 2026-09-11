@@ -38,7 +38,7 @@ TEXT = {"type": "string", "maxLength": 255}
 REQUIRED_TEXT = {**TEXT, "minLength": 1, "description": "去除首尾空白后不能为空。"}
 DATE = {"type": "string", "format": "date"}
 TIME = {"type": "string", "format": "date-time"}
-NUMBER = {"type": "number", "minimum": 0, "maximum": 999999999.999, "multipleOf": 0.001}
+NUMBER = {"type": "number", "minimum": 0, "maximum": 999999999.999999, "multipleOf": 0.000001}
 CATEGORY = {"type": "string", "enum": ["碳水", "蔬菜", "蛋白质", "水果", "其他"]}
 LOCATION = {"type": "string", "enum": ["冰箱冷藏", "冰箱冷冻", "室温", "其他"]}
 INGREDIENT_STATUS = {"type": "string", "enum": ["active", "consumed", "discarded"]}
@@ -82,13 +82,10 @@ def build_schemas() -> dict:
         "battle_date": DATE, "battle_status": BATTLE_STATUS,
         "daily_battle_dish_name": nullable(TEXT),
     }
-    consumption_input = {
+    actual_usage = {
         "ingredient_id": ID, "daily_battle_dish_id": nullable(ID),
-        "quantity_used_text": REQUIRED_TEXT,
-        "quantity_value": nullable({**NUMBER, "exclusiveMinimum": 0}),
-        "quantity_unit": nullable({"type": "string", "maxLength": 50}),
-        "stock_text": {**REQUIRED_TEXT, "description": "必须填写确认后的实际剩余数量原文。"},
-        "stock_value": nullable(NUMBER), "note": nullable({"type": "string", "maxLength": 5000}),
+        "quantity_used_text": {**REQUIRED_TEXT, "description": "填写不带单位的实际用量；支持 1、0.5、1/2、1/3 等简单分数。"},
+        "expected_updated_at": TIME, "note": nullable({"type": "string", "maxLength": 5000}),
     }
     schemas = {
         "Ingredient": obj(ingredient), "Dish": obj(dish),
@@ -150,17 +147,9 @@ def build_schemas() -> dict:
                                  ], description="meal_plan_id 与 dish_ids 必须二选一；从方案创建时复制菜品。保存前每道菜必须贴至少一项耗材；预计用量可在草稿阶段补全，确认库存前必须完整。"),
         "DailyBattleUpdate": obj({"dish_ids": DISH_IDS, 'battle_date': DATE, 'meal_slot': nullable(MEAL_SLOT),
                                    'preparations': array(ref('PreparationInput'), minItems=1, maxItems=500), 'expected_updated_at': TIME}, ['dish_ids', 'preparations']),
-        "ConsumptionInput": obj(consumption_input, ["ingredient_id", "quantity_used_text", "stock_text"]),
-        "ActualUsage": obj({k: v for k, v in consumption_input.items() if k not in ('stock_text', 'stock_value')}, ['ingredient_id', 'quantity_used_text']),
-        "IngredientTotal": obj({'ingredient_id': ID, 'stock_text': REQUIRED_TEXT,
-                                 'stock_value': nullable(NUMBER), 'expected_updated_at': TIME}, ['ingredient_id', 'stock_text', 'expected_updated_at']),
-        "BattleConfirm": obj({"consumptions": nullable(array({'anyOf': [ref('ConsumptionInput'), ref('ActualUsage')]}, maxItems=500)),
-                               'ingredient_totals': array(ref('IngredientTotal'), maxItems=500), 'expected_updated_at': TIME}, [],
-                             oneOf=[{'required': ['ingredient_totals', 'expected_updated_at'],
-                                     'properties': {'consumptions': nullable(array(ref('ActualUsage'), maxItems=500))}},
-                                    {'not': {'required': ['ingredient_totals']},
-                                     'properties': {'consumptions': nullable(array(ref('ConsumptionInput'), maxItems=500))}}],
-                             description="请求体必须为对象；缺省或 null consumptions 表示没有库存消耗。确认在同一事务保存消耗和调整库存。"),
+        "ActualUsage": obj(actual_usage, ["ingredient_id", "quantity_used_text", "expected_updated_at"]),
+        "BattleConfirm": obj({"consumptions": array(ref('ActualUsage'), maxItems=500), 'expected_updated_at': TIME}, ["consumptions", "expected_updated_at"],
+                             description="后端在同一事务内按实际用量计算库存、写入消耗并校验菜单与库存版本；客户端不得提交剩余库存。"),
         "BattleRevoke": obj({"target_status": {"type": "string", "enum": ["planned", "cancelled"], "default": "planned"}}, []),
         "PaginationMeta": obj({"total": {"type": "integer", "minimum": 0},
                                "limit": {"type": "integer", "minimum": 1, "maximum": 100},

@@ -1,7 +1,7 @@
 """菜单的备餐关联、乐观并发校验与整餐剩余量整理。"""
 from datetime import datetime
 from .errors import conflict, validation_error, not_found
-from .validation import ensure_object_body, parse_id, optional_text, optional_number, required_text
+from .validation import ensure_object_body, parse_id, optional_text
 
 
 def assert_version(value, actual):
@@ -60,44 +60,4 @@ async def save_preparations(conn, battle_id, raw):
     if values:
         await conn.executemany('''INSERT INTO daily_battle_preparations
             (daily_battle_dish_id,ingredient_id,planned_quantity_text,position) VALUES ($1,$2,$3,$4)''', values)
-
-
-def apply_totals(body, inputs, ingredients):
-    """新客户端每条库存只核对一次余量，分菜保留实际用量，不推测文字单位。
-
-    前几道菜的账面快照保持原量，最后一条记整餐变化；所有行同事务提交，
-    逆序撤销可靠复原。中间快照只是记账边界，不宣称逐菜测量过余量。
-    """
-    if 'ingredient_totals' not in body:
-        return
-    raw = body['ingredient_totals']
-    if not isinstance(raw, list) or len(raw) > 500:
-        raise validation_error('实际剩余必须是数组，最多500项')
-    totals = {}
-    for row in raw:
-        row = ensure_object_body(row)
-        iid = parse_id(row.get('ingredient_id'))
-        if iid in totals:
-            raise validation_error('每条库存只填写一次整餐剩余量')
-        totals[iid] = {
-            'remaining_text': required_text(row.get('stock_text'), 'stock_text'),
-            'remaining_value': optional_number(row.get('stock_value'), 'stock_value'),
-        }
-        if iid not in ingredients:
-            raise validation_error('实际剩余必须对应本次使用的食材')
-        if not row.get('expected_updated_at'):
-            raise validation_error('请刷新库存后核对用料')
-        assert_version(row['expected_updated_at'], ingredients[iid]['row']['updated_at'])
-    if set(totals) != set(ingredients):
-        raise validation_error('请为每条实际使用的库存填写整餐剩余量')
-    last = {inp['ingredient_id']: pos for pos, inp in enumerate(inputs)}
-    for pos, inp in enumerate(inputs):
-        iid = inp['ingredient_id']
-        if pos == last[iid]:
-            inp.update(totals[iid])
-        else:
-            original = ingredients[iid]['row']
-            inp['remaining_text'] = original['stock_text']
-            inp['remaining_value'] = original['stock_value']
-        # 这个模式实际量为原文，计算字段由整餐剩余唯一决定。
-        inp.pop('quantity_value', None)
+    return None

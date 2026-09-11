@@ -2486,8 +2486,8 @@
           "stock_value": {
             "type": "number",
             "minimum": 0,
-            "maximum": 999999999.999,
-            "multipleOf": 0.001
+            "maximum": 999999999.999999,
+            "multipleOf": 1e-06
           },
           "stock_unit": {
             "type": "string",
@@ -3195,8 +3195,8 @@
               {
                 "type": "number",
                 "minimum": 0,
-                "maximum": 999999999.999,
-                "multipleOf": 0.001
+                "maximum": 999999999.999999,
+                "multipleOf": 1e-06
               },
               {
                 "type": "null"
@@ -3240,8 +3240,8 @@
               {
                 "type": "number",
                 "minimum": 0,
-                "maximum": 999999999.999,
-                "multipleOf": 0.001
+                "maximum": 999999999.999999,
+                "multipleOf": 1e-06
               },
               {
                 "type": "null"
@@ -3264,8 +3264,8 @@
               {
                 "type": "number",
                 "minimum": 0,
-                "maximum": 999999999.999,
-                "multipleOf": 0.001
+                "maximum": 999999999.999999,
+                "multipleOf": 1e-06
               },
               {
                 "type": "null"
@@ -3427,8 +3427,8 @@
               {
                 "type": "number",
                 "minimum": 0,
-                "maximum": 999999999.999,
-                "multipleOf": 0.001
+                "maximum": 999999999.999999,
+                "multipleOf": 1e-06
               },
               {
                 "type": "null"
@@ -3472,8 +3472,8 @@
               {
                 "type": "number",
                 "minimum": 0,
-                "maximum": 999999999.999,
-                "multipleOf": 0.001
+                "maximum": 999999999.999999,
+                "multipleOf": 1e-06
               },
               {
                 "type": "null"
@@ -3496,8 +3496,8 @@
               {
                 "type": "number",
                 "minimum": 0,
-                "maximum": 999999999.999,
-                "multipleOf": 0.001
+                "maximum": 999999999.999999,
+                "multipleOf": 1e-06
               },
               {
                 "type": "null"
@@ -3657,8 +3657,8 @@
               {
                 "type": "number",
                 "minimum": 0,
-                "maximum": 999999999.999,
-                "multipleOf": 0.001
+                "maximum": 999999999.999999,
+                "multipleOf": 1e-06
               },
               {
                 "type": "null"
@@ -3702,8 +3702,8 @@
               {
                 "type": "number",
                 "minimum": 0,
-                "maximum": 999999999.999,
-                "multipleOf": 0.001
+                "maximum": 999999999.999999,
+                "multipleOf": 1e-06
               },
               {
                 "type": "null"
@@ -3726,8 +3726,8 @@
               {
                 "type": "number",
                 "minimum": 0,
-                "maximum": 999999999.999,
-                "multipleOf": 0.001
+                "maximum": 999999999.999999,
+                "multipleOf": 1e-06
               },
               {
                 "type": "null"
@@ -3892,8 +3892,8 @@
           "stock_value": {
             "type": "number",
             "minimum": 0,
-            "maximum": 999999999.999,
-            "multipleOf": 0.001
+            "maximum": 999999999.999999,
+            "multipleOf": 1e-06
           },
           "stock_unit": {
             "type": "string",
@@ -3966,8 +3966,8 @@
           "final_stock_value": {
             "type": "number",
             "minimum": 0,
-            "maximum": 999999999.999,
-            "multipleOf": 0.001
+            "maximum": 999999999.999999,
+            "multipleOf": 1e-06
           },
           "expected_updated_at": {
             "type": "string",
@@ -4031,8 +4031,8 @@
           "stock_value": {
             "type": "number",
             "minimum": 0,
-            "maximum": 999999999.999,
-            "multipleOf": 0.001
+            "maximum": 999999999.999999,
+            "multipleOf": 1e-06
           },
           "stock_unit": {
             "type": "string",
@@ -4125,8 +4125,8 @@
           "stock_value": {
             "type": "number",
             "minimum": 0,
-            "maximum": 999999999.999,
-            "multipleOf": 0.001,
+            "maximum": 999999999.999999,
+            "multipleOf": 1e-06,
             "exclusiveMinimum": 0
           },
           "stock_unit": {
@@ -4204,8 +4204,8 @@
           "stock_before_value": {
             "type": "number",
             "minimum": 0,
-            "maximum": 999999999.999,
-            "multipleOf": 0.001
+            "maximum": 999999999.999999,
+            "multipleOf": 1e-06
           },
           "stock_before_unit": {
             "type": "string",
@@ -4218,8 +4218,8 @@
           "stock_after_value": {
             "type": "number",
             "minimum": 0,
-            "maximum": 999999999.999,
-            "multipleOf": 0.001
+            "maximum": 999999999.999999,
+            "multipleOf": 1e-06
           },
           "stock_after_unit": {
             "type": "string",
@@ -4500,94 +4500,6 @@
           "preparations"
         ]
       },
-      "ConsumptionInput": {
-        "type": "object",
-        "properties": {
-          "ingredient_id": {
-            "type": "integer",
-            "minimum": 1,
-            "maximum": 9007199254740991
-          },
-          "daily_battle_dish_id": {
-            "anyOf": [
-              {
-                "type": "integer",
-                "minimum": 1,
-                "maximum": 9007199254740991
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "quantity_used_text": {
-            "type": "string",
-            "maxLength": 255,
-            "minLength": 1,
-            "description": "去除首尾空白后不能为空。"
-          },
-          "quantity_value": {
-            "anyOf": [
-              {
-                "type": "number",
-                "minimum": 0,
-                "maximum": 999999999.999,
-                "multipleOf": 0.001,
-                "exclusiveMinimum": 0
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "quantity_unit": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 50
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "stock_text": {
-            "type": "string",
-            "maxLength": 255,
-            "minLength": 1,
-            "description": "必须填写确认后的实际剩余数量原文。"
-          },
-          "stock_value": {
-            "anyOf": [
-              {
-                "type": "number",
-                "minimum": 0,
-                "maximum": 999999999.999,
-                "multipleOf": 0.001
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "note": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 5000
-              },
-              {
-                "type": "null"
-              }
-            ]
-          }
-        },
-        "required": [
-          "ingredient_id",
-          "quantity_used_text",
-          "stock_text"
-        ]
-      },
       "ActualUsage": {
         "type": "object",
         "properties": {
@@ -4612,32 +4524,11 @@
             "type": "string",
             "maxLength": 255,
             "minLength": 1,
-            "description": "去除首尾空白后不能为空。"
+            "description": "填写不带单位的实际用量；支持 1、0.5、1/2、1/3 等简单分数。"
           },
-          "quantity_value": {
-            "anyOf": [
-              {
-                "type": "number",
-                "minimum": 0,
-                "maximum": 999999999.999,
-                "multipleOf": 0.001,
-                "exclusiveMinimum": 0
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "quantity_unit": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 50
-              },
-              {
-                "type": "null"
-              }
-            ]
+          "expected_updated_at": {
+            "type": "string",
+            "format": "date-time"
           },
           "note": {
             "anyOf": [
@@ -4653,44 +4544,7 @@
         },
         "required": [
           "ingredient_id",
-          "quantity_used_text"
-        ]
-      },
-      "IngredientTotal": {
-        "type": "object",
-        "properties": {
-          "ingredient_id": {
-            "type": "integer",
-            "minimum": 1,
-            "maximum": 9007199254740991
-          },
-          "stock_text": {
-            "type": "string",
-            "maxLength": 255,
-            "minLength": 1,
-            "description": "去除首尾空白后不能为空。"
-          },
-          "stock_value": {
-            "anyOf": [
-              {
-                "type": "number",
-                "minimum": 0,
-                "maximum": 999999999.999,
-                "multipleOf": 0.001
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "expected_updated_at": {
-            "type": "string",
-            "format": "date-time"
-          }
-        },
-        "required": [
-          "ingredient_id",
-          "stock_text",
+          "quantity_used_text",
           "expected_updated_at"
         ]
       },
@@ -4698,30 +4552,9 @@
         "type": "object",
         "properties": {
           "consumptions": {
-            "anyOf": [
-              {
-                "type": "array",
-                "items": {
-                  "anyOf": [
-                    {
-                      "$ref": "#/components/schemas/ConsumptionInput"
-                    },
-                    {
-                      "$ref": "#/components/schemas/ActualUsage"
-                    }
-                  ]
-                },
-                "maxItems": 500
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "ingredient_totals": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/IngredientTotal"
+              "$ref": "#/components/schemas/ActualUsage"
             },
             "maxItems": 500
           },
@@ -4730,55 +4563,11 @@
             "format": "date-time"
           }
         },
-        "required": [],
-        "oneOf": [
-          {
-            "required": [
-              "ingredient_totals",
-              "expected_updated_at"
-            ],
-            "properties": {
-              "consumptions": {
-                "anyOf": [
-                  {
-                    "type": "array",
-                    "items": {
-                      "$ref": "#/components/schemas/ActualUsage"
-                    },
-                    "maxItems": 500
-                  },
-                  {
-                    "type": "null"
-                  }
-                ]
-              }
-            }
-          },
-          {
-            "not": {
-              "required": [
-                "ingredient_totals"
-              ]
-            },
-            "properties": {
-              "consumptions": {
-                "anyOf": [
-                  {
-                    "type": "array",
-                    "items": {
-                      "$ref": "#/components/schemas/ConsumptionInput"
-                    },
-                    "maxItems": 500
-                  },
-                  {
-                    "type": "null"
-                  }
-                ]
-              }
-            }
-          }
+        "required": [
+          "consumptions",
+          "expected_updated_at"
         ],
-        "description": "请求体必须为对象；缺省或 null consumptions 表示没有库存消耗。确认在同一事务保存消耗和调整库存。"
+        "description": "后端在同一事务内按实际用量计算库存、写入消耗并校验菜单与库存版本；客户端不得提交剩余库存。"
       },
       "BattleRevoke": {
         "type": "object",
@@ -5003,8 +4792,8 @@
           "stock_before_value": {
             "type": "number",
             "minimum": 0,
-            "maximum": 999999999.999,
-            "multipleOf": 0.001
+            "maximum": 999999999.999999,
+            "multipleOf": 1e-06
           },
           "stock_before_unit": {
             "type": "string",
@@ -5017,8 +4806,8 @@
           "stock_after_value": {
             "type": "number",
             "minimum": 0,
-            "maximum": 999999999.999,
-            "multipleOf": 0.001
+            "maximum": 999999999.999999,
+            "multipleOf": 1e-06
           },
           "stock_after_unit": {
             "type": "string",

@@ -9,6 +9,7 @@ SQL 与事务边界保持一致，业务规则：
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from decimal import Decimal
 from typing import Any
 
 import asyncpg
@@ -17,12 +18,12 @@ from fastapi import APIRouter, Request
 from ..db import get_pool, lock_inventory_workflow
 from ..errors import conflict, not_found, validation_error
 from ..responses import created, ok
-from ..menu_workflow import attach_preparations, save_preparations, assert_version, apply_totals
+from ..menu_workflow import attach_preparations, save_preparations, assert_version
+from ..quantity import normalize_stock, parse_usage_quantity, render_stock
 from ..validation import (
     enum_value,
     ensure_object_body,
     optional_date,
-    optional_number,
     optional_text,
     pagination,
     parse_id,
@@ -114,22 +115,14 @@ def consumption_input(body: dict) -> dict:
     input_: dict[str, Any] = {
         "ingredient_id": parse_id(body.get("ingredient_id"), "ingredient_id"),
         "quantity_used_text": required_text(body.get("quantity_used_text"), "quantity_used_text"),
+        "expected_updated_at": required_text(body.get("expected_updated_at"), "expected_updated_at", 64),
     }
-    has = lambda f: f in body
+    input_["usage_value"] = parse_usage_quantity(input_["quantity_used_text"])
 
-    if has("daily_battle_dish_id"):
+    if "daily_battle_dish_id" in body:
         val = body.get("daily_battle_dish_id")
         input_["daily_battle_dish_id"] = None if val in (None, "") else parse_id(val, "daily_battle_dish_id")
-    if has("quantity_value"):
-        input_["quantity_value"] = optional_number(body.get("quantity_value"), "quantity_value", min_value=0, exclusive_min=True)
-    if has("quantity_unit"):
-        input_["quantity_unit"] = optional_text(body.get("quantity_unit"), "quantity_unit", 50)
-    # 对外契约统一使用 stock_*；写入 consumptions 时再映射为历史快照 remaining_*。
-    if has("stock_text"):
-        input_["remaining_text"] = optional_text(body.get("stock_text"), "stock_text")
-    if has("stock_value"):
-        input_["remaining_value"] = optional_number(body.get("stock_value"), "stock_value")
-    if has("note"):
+    if "note" in body:
         input_["note"] = optional_text(body.get("note"), "note", 5000)
     return input_
 
@@ -143,6 +136,45 @@ def confirm_input(body: dict) -> list[dict]:
     if len(consumptions) > 500:
         raise validation_error("一次确认最多包含 500 条消耗记录")
     return [consumption_input(ensure_object_body(item)) for item in consumptions]
+
+
+def prepare_inventory_changes(inputs: list[dict], ingredients: dict[int, dict]) -> None:
+    """Calculate final stock in the transaction instead of accepting client totals."""
+    totals: dict[int, Decimal] = {}
+    last: dict[int, int] = {}
+    for pos, input_ in enumerate(inputs):
+        ingredient_id = int(input_["ingredient_id"])
+        entry = ingredients[ingredient_id]
+        assert_version(input_["expected_updated_at"], entry["row"]["updated_at"])
+        totals[ingredient_id] = totals.get(ingredient_id, Decimal(0)) + input_["usage_value"]
+        last[ingredient_id] = pos
+
+    for ingredient_id, total in totals.items():
+        entry = ingredients[ingredient_id]
+        row = entry["row"]
+        if entry["status"] != "active":
+            raise conflict(f"食材“{row['name']}”当前不可消耗")
+        if row["stock_value"] is None or not row["stock_unit"]:
+            raise validation_error(f"食材“{row['name']}”缺少可计算的库存数量或单位")
+        used = normalize_stock(total)
+        remaining = normalize_stock(Decimal(row["stock_value"]) - used)
+        # Three separately confirmed 1/3 usages can leave one rounding micro-unit.
+        # Treat that residual as empty only after a positive actual usage.
+        if total > 0 and abs(remaining) <= Decimal("0.000001"):
+            remaining = Decimal(0)
+        if remaining < 0:
+            raise validation_error(f"食材“{row['name']}”库存不足，请重新核对实际用量")
+        entry.update(used_value=used, final_text=render_stock(remaining), final_value=remaining)
+
+    for pos, input_ in enumerate(inputs):
+        ingredient_id = int(input_["ingredient_id"])
+        entry = ingredients[ingredient_id]
+        row = entry["row"]
+        input_["quantity_value"] = normalize_stock(input_["usage_value"]) or None
+        input_["quantity_unit"] = row["stock_unit"]
+        input_["updates_inventory"] = last[ingredient_id] == pos
+        input_["remaining_text"] = entry["final_text"] if last[ingredient_id] == pos else row["stock_text"]
+        input_["remaining_value"] = entry["final_value"] if last[ingredient_id] == pos else row["stock_value"]
 
 
 # ---------- 查询 / 事务辅助 ----------
@@ -423,9 +455,7 @@ async def confirm_battle(battle_id: int, request: Request):
                 raise not_found("今日作战")
             if battle["status"] != "planned":
                 raise conflict("只有计划中的今日作战可以确认")
-            if 'ingredient_totals' in body and not body.get('expected_updated_at'):
-                raise validation_error('请刷新菜单后核对用料')
-            assert_version(body.get('expected_updated_at'), battle['updated_at'])
+            assert_version(required_text(body.get('expected_updated_at'), 'expected_updated_at', 64), battle['updated_at'])
 
             battle_dishes = await conn.fetch("SELECT id FROM daily_battle_dishes WHERE daily_battle_id = $1", pid)
             battle_dish_ids = {int(r["id"]) for r in battle_dishes}
@@ -456,50 +486,31 @@ async def confirm_battle(battle_id: int, request: Request):
                     "status": ing["status"],
                     "ended_at": ing["ended_at"],
                 }
-            apply_totals(body, inputs, ingredients)
+            prepare_inventory_changes(inputs, ingredients)
             prepared = []
 
             for inp in inputs:
                 key = int(inp["ingredient_id"])
                 entry = ingredients[key]
                 ing_row = entry["row"]
-                if entry["status"] != "active":
-                    raise conflict(f"食材“{ing_row['name']}”当前不可消耗")
-
                 before = {
                     "remaining_text": entry["remaining_text"],
                     "remaining_value": entry["remaining_value"],
                     "status": entry["status"],
                     "ended_at": entry["ended_at"],
                 }
-                if "remaining_text" not in inp or not inp["remaining_text"]:
-                    raise validation_error(f"食材“{ing_row['name']}”需要填写确认后的剩余数量")
                 remaining_after_text = inp["remaining_text"]
-                if "remaining_value" in inp:
-                    remaining_after_value = inp["remaining_value"]
-                elif inp.get("quantity_value") is not None and entry["remaining_value"] is not None:
-                    if inp.get("quantity_unit") and inp["quantity_unit"] != (ing_row["stock_unit"]):
-                        raise validation_error(f"食材“{ing_row['name']}”单位不一致，请手动填写确认后的剩余数值")
-                    remaining_after_value = entry["remaining_value"] - inp["quantity_value"]
-                else:
-                    remaining_after_value = None
-                if remaining_after_value is not None and remaining_after_value < 0:
-                    raise conflict(f"食材“{ing_row['name']}”剩余数量不足")
-                if (
-                    remaining_after_value is not None
-                    and before["remaining_value"] is not None
-                    and remaining_after_value > before["remaining_value"]
-                ):
-                    raise conflict(f"食材“{ing_row['name']}”确认后的剩余数量不能大于确认前数量")
+                remaining_after_value = inp["remaining_value"]
 
                 status_after = "consumed" if remaining_after_value == 0 else "active"
                 ended_at_after = datetime.now(timezone.utc) if status_after == "consumed" else None
-                await conn.execute(
-                    """UPDATE ingredients
-                       SET stock_text = $1, stock_value = $2, status = $3, ended_at = $4, updated_at = NOW()
-                       WHERE id = $5""",
-                    remaining_after_text, remaining_after_value, status_after, ended_at_after, ing_row["id"],
-                )
+                if inp["updates_inventory"]:
+                    await conn.execute(
+                        """UPDATE ingredients
+                           SET stock_text = $1, stock_value = $2, status = $3, ended_at = $4, updated_at = NOW()
+                           WHERE id = $5""",
+                        remaining_after_text, remaining_after_value, status_after, ended_at_after, ing_row["id"],
+                    )
 
                 prepared.append({
                     "input": inp,
@@ -540,7 +551,7 @@ async def confirm_battle(battle_id: int, request: Request):
                          $8, $9, $10, $11, $12, $13, $14, $15
                        )""",
                     pid, inp.get("daily_battle_dish_id"), item["ingredient_id"],
-                    inp["quantity_used_text"], inp.get("quantity_value"), inp.get("quantity_unit") or ingredients[item["ingredient_id"]]["row"]["stock_unit"], inp.get("note"),
+                    inp["quantity_used_text"], inp.get("quantity_value"), inp["quantity_unit"], inp.get("note"),
                     item["remaining_before_text"], item["remaining_before_value"],
                     item["remaining_after_text"], item["remaining_after_value"],
                     item["ingredient_status_before"], item["ingredient_ended_at_before"],

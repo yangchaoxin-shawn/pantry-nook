@@ -98,18 +98,17 @@ def main():
     check("待完成菜单允许新增库存", status == 201)
 
     status, _ = request("POST", f"/api/daily-battles/{battle['id']}/confirm", {
-        "expected_updated_at": battle["updated_at"], "consumptions": [], "ingredient_totals": [],
+        "expected_updated_at": battle["updated_at"], "consumptions": [],
     })
     check("确认必须核对每项耗材", status == 400)
     before = data("GET", f"/api/ingredients/{stock['id']}")
     payload = {
         "expected_updated_at": battle["updated_at"],
-        "consumptions": [{"ingredient_id": stock["id"], "daily_battle_dish_id": battle["dishes"][0]["id"], "quantity_used_text": "实际一份"}],
-        "ingredient_totals": [{"ingredient_id": stock["id"], "stock_text": "4", "stock_value": 4, "expected_updated_at": before["updated_at"]}],
+        "consumptions": [{"ingredient_id": stock["id"], "daily_battle_dish_id": battle["dishes"][0]["id"], "quantity_used_text": "4", "expected_updated_at": before["updated_at"]}],
     }
     confirmed = data("POST", f"/api/daily-battles/{battle['id']}/confirm", payload)
     check("确认原子写入消耗", confirmed["status"] == "confirmed" and len(confirmed["consumptions"]) == 1)
-    check("确认按核对结果调整库存", data("GET", f"/api/ingredients/{stock['id']}")["stock_value"] == 4)
+    check("确认按实际用量调整库存", data("GET", f"/api/ingredients/{stock['id']}")["stock_value"] == 4)
     with ThreadPoolExecutor(max_workers=2) as executor:
         codes = list(executor.map(lambda _: request("POST", f"/api/daily-battles/{battle['id']}/confirm", payload)[0], range(2)))
     check("重复确认不重复扣库存", codes == [409, 409])
