@@ -953,6 +953,7 @@ legend {
 }
 .batch-category-picker {
   display: flex;
+  flex-wrap: wrap;
   align-items: flex-end;
   gap: 12px;
 }
@@ -961,6 +962,7 @@ legend {
   margin-bottom: 8px;
 }
 .batch-category-picker .form-hint {
+  flex-basis: 100%;
   margin-bottom: 16px;
 }
 .batch-ingredient-rows {

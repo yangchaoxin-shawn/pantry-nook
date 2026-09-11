@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, expectTypeOf, it, vi } from 'vitest'
 import { api, type Ingredient, type IngredientUpdate } from './api'
 import { startedBatchRows } from './batch-ingredient-logic'
+import { applyDefaultUnit, orderedUnits, recommendedUnits } from './inventory-units'
 
 const fetchMock = vi.fn<typeof fetch>()
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } })
@@ -70,6 +71,23 @@ describe('完整读取与读取失败', () => {
 })
 
 describe('写入结果与库存原文', () => {
+  it('库存类别只调整单位建议，不排除其他真实单位', () => {
+    expect(recommendedUnits('蔬菜')).toEqual(['个', 'g', 'kg', '斤', '把', '颗', '份'])
+    expect(orderedUnits('蔬菜').slice(0, 7)).toEqual(['个', 'g', 'kg', '斤', '把', '颗', '份'])
+    expect(orderedUnits('蔬菜')).toContain('ml')
+    expect(orderedUnits('其他').slice(0, 7)).toEqual(['ml', 'L', '瓶', '包', '盒', '袋', '份'])
+  })
+
+  it('批量默认单位只补空值，不覆盖每项已经填写的单位', () => {
+    expect(applyDefaultUnit([
+      { name: '菠菜', unit: '' },
+      { name: '西兰花', unit: '个' },
+    ], 'g')).toEqual([
+      { name: '菠菜', unit: 'g' },
+      { name: '西兰花', unit: '个' },
+    ])
+  })
+
   it('批量录入仅填写一行时，带默认单位的空白行不进入校验', () => {
     const rows = [
       { name: '大米', quantity: '5', unit: 'kg' },

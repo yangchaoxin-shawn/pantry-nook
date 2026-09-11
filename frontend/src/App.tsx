@@ -23,6 +23,7 @@ import "./App.css";
 import "./menu-workflow.css";
 import { MenuTimeline, MenuEditor, MenuConfirm } from "./MenuWorkflow";
 import { canConvertUnits, startedBatchRows } from "./batch-ingredient-logic";
+import { applyDefaultUnit, orderedUnits, recommendedUnits } from "./inventory-units";
 
 const NAV = [
   ["battles", "菜单", "sun"],
@@ -1059,11 +1060,11 @@ type InventoryConflict = {
   incomingCategory: IngredientCreate["category"];
 };
 
-const blankBatchIngredient = (id: number): BatchIngredientRow => ({
+const blankBatchIngredient = (id: number, unit = ""): BatchIngredientRow => ({
   id,
   name: "",
   quantity: "",
-  unit: "个",
+  unit,
 });
 
 function IngredientBatchEditor({
@@ -1090,6 +1091,7 @@ function IngredientBatchEditor({
   );
   const [batchCategory, setBatchCategory] = useState<IngredientCreate["category"]>("蔬菜");
   const [batchLocation, setBatchLocation] = useState<IngredientCreate["location"]>(null);
+  const [batchDefaultUnit, setBatchDefaultUnit] = useState("");
   const [error, setError] = useState("");
   const [conflicts, setConflicts] = useState<InventoryConflict[]>([]);
   const [units, setUnits] = useState<Record<number, string>>({});
@@ -1172,7 +1174,10 @@ function IngredientBatchEditor({
     <form className="batch-ingredient-editor" onSubmit={submit}>
       <div className="batch-category-picker">
         <Field label={single ? "这一项食材属于" : "这一批食材属于"}>
-          <select value={batchCategory} onChange={(event) => setBatchCategory(event.target.value as IngredientCreate["category"])}>
+          <select value={batchCategory} onChange={(event) => {
+            setBatchCategory(event.target.value as IngredientCreate["category"]);
+            setBatchDefaultUnit("");
+          }}>
             {CATEGORIES.map((category) => <option key={category}>{category}</option>)}
           </select>
         </Field>
@@ -1182,9 +1187,24 @@ function IngredientBatchEditor({
             {LOCATIONS.map((location) => <option key={location} value={location}>{location}</option>)}
           </select>
         </Field>
+        {!single && <Field label="本批默认单位（选填）">
+          <select
+            value={batchDefaultUnit}
+            onChange={(event) => {
+              const unit = event.target.value;
+              setBatchDefaultUnit(unit);
+              setRows((current) => applyDefaultUnit(current, unit));
+            }}
+          >
+            <option value="">每项单独选择</option>
+            {recommendedUnits(batchCategory).map((unit) => <option key={unit} value={unit}>{unit}</option>)}
+          </select>
+        </Field>}
         <p className="form-hint">{single ? `这一项食材会归到“${batchCategory}”${batchLocation ? `，存放在“${batchLocation}”` : ""}。` : `下面填写的食材都会归到“${batchCategory}”${batchLocation ? `，存放在“${batchLocation}”` : ""}。`}</p>
       </div>
-      <p className="form-hint">{single ? "填写名称、数量和单位后保存。" : "连续填写即可，空白行会自动忽略；保存时整批一起入库。"}</p>
+      <p className="form-hint">{single
+        ? `${batchCategory}常用单位：${recommendedUnits(batchCategory).join("、")}；也可以填写其他单位。`
+        : `${batchCategory}常用单位：${recommendedUnits(batchCategory).join("、")}；每项可以单独修改，空白行会自动忽略。`}</p>
       {error && <p className="form-error" role="alert">{error}</p>}
       <div className="batch-ingredient-rows">
         {rows.map((row, index) => (
@@ -1209,7 +1229,7 @@ function IngredientBatchEditor({
             />
             <input
               aria-label={`第 ${index + 1} 项单位`}
-              list="batch-ingredient-units"
+              list={`batch-ingredient-units-${batchCategory}`}
               maxLength={50}
               placeholder="单位"
               value={row.unit}
@@ -1220,21 +1240,21 @@ function IngredientBatchEditor({
               className="text-button batch-row-remove"
               aria-label={`清空第 ${index + 1} 项`}
               disabled={busy}
-              onClick={() => setRows((current) => current.length === 1 ? [blankBatchIngredient(row.id + 1)] : current.filter((entry) => entry.id !== row.id))}
+              onClick={() => setRows((current) => current.length === 1 ? [blankBatchIngredient(row.id + 1, batchDefaultUnit)] : current.filter((entry) => entry.id !== row.id))}
             >
               清空
             </button>
           </div>
         ))}
       </div>
-      <datalist id="batch-ingredient-units">
-        {['个', 'g', 'kg', 'ml', 'L', '包', '盒', '袋', '份', '把'].map((unit) => <option key={unit} value={unit} />)}
+      <datalist id={`batch-ingredient-units-${batchCategory}`}>
+        {orderedUnits(batchCategory).map((unit) => <option key={unit} value={unit} />)}
       </datalist>
       {!single && <button
         type="button"
         className="btn-ghost batch-add-row"
         disabled={busy || rows.length >= 30}
-        onClick={() => setRows((current) => [...current, blankBatchIngredient(Math.max(...current.map((row) => row.id)) + 1)])}
+        onClick={() => setRows((current) => [...current, blankBatchIngredient(Math.max(...current.map((row) => row.id)) + 1, batchDefaultUnit)])}
       >
         再加一行
       </button>}
@@ -1256,6 +1276,7 @@ function IngredientEditor({
 }) {
   const currentQuantity = item.stock_value;
   const currentUnit = item.stock_unit;
+  const [category, setCategory] = useState<IngredientCreate["category"]>(item.category);
   function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const f = new FormData(e.currentTarget);
@@ -1295,7 +1316,7 @@ function IngredientEditor({
           />
         </Field>
         <Field label="分类">
-          <select name="category" defaultValue={item?.category ?? "蔬菜"}>
+          <select name="category" value={category} onChange={(event) => setCategory(event.target.value as IngredientCreate["category"])}>
             {CATEGORIES.map((c) => (
               <option key={c}>{c}</option>
             ))}
@@ -1329,15 +1350,16 @@ function IngredientEditor({
             <input
               name="stock_unit"
               required
-              list="ingredient-units"
+              list={`ingredient-units-${category}`}
               maxLength={50}
               defaultValue={currentUnit}
               placeholder="例如：个"
             />
           </Field>
         </div>
-        <datalist id="ingredient-units">
-          {['个', 'g', 'kg', 'ml', 'L', '包', '盒', '袋', '份', '把'].map((unit) => <option key={unit} value={unit} />)}
+        <p className="form-hint">{category}常用单位：{recommendedUnits(category).join("、")}；也可以填写其他单位。</p>
+        <datalist id={`ingredient-units-${category}`}>
+          {orderedUnits(category).map((unit) => <option key={unit} value={unit} />)}
         </datalist>
       </fieldset>
       <Field label="备注（选填）">
