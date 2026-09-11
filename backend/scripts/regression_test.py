@@ -110,6 +110,7 @@ def main():
     })
     check("确认必须核对每项耗材", status == 400)
     before = data("GET", f"/api/ingredients/{stock['id']}")
+    data("POST", f"/api/daily-battles/{battle['id']}/review-reservation")
     payload = {
         "expected_updated_at": battle["updated_at"],
         "consumptions": [{"ingredient_id": stock["id"], "daily_battle_dish_id": battle["dishes"][0]["id"], "quantity_used_text": "4", "expected_updated_at": before["updated_at"]}],

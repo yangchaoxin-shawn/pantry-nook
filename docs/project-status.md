@@ -6,7 +6,7 @@
 ## 当前授权与阶段
 
 用户已开始反馈库存/核对场景问题；尚未给出各模块的最终验收结论。
-本轮批准并实施：备餐与核对期间允许库存变更，最终确认短事务校验；核对实时检查、保留输入、并发冲突恢复及带单位初值修复。
+本轮批准并实施：菜单保存不占库存；点击“核对用料”后建立短时可用库存锁定，确认时再扣真实库存。锁定期间允许补货，但不允许报废、减库存或换单位破坏其他菜单的锁定量。
 未新增角色、公开访问或部署；未重置用户数据。测试使用独立端口 3017 / 数据库，浏览器前端 localhost:5174。
 代码在原工作目录更新，会被原热重载服务读取；本轮隔离了测试端口和数据，未建立独立代码 worktree，不能称为完整双环境。
 
@@ -18,7 +18,7 @@
 | 报废与撤销 | 已确认 | 全量/部分、全局记录、撤销已实现 | 本轮 smoke + concurrent 验证待餐报废/撤销 | 待验收 | 全量消失后从全局找回 |
 | 菜品与搭配 | 已确认 | CRUD、引用保护、复制已实现 | 菜品搭配审计及前次 API/browser 记录 | 待验收 | 复用、改名、引用删除 |
 | 菜单备餐 | 已确认 | 每餐菜品/耗材、草稿、编辑已实现 | 菜单审计及前次 workflow 记录 | 待验收 | 耗材与预计量的保存/确认边界 |
-| 确认、历史与撤销 | 已确认 | 事务、版本保护、同屏历史已实现 | 本轮 workflow/concurrent + 双窗口浏览器 | 待验收 | 实际量调整、扣除、恢复和冲突 |
+| 确认、历史与撤销 | 已确认 | 核对锁定、确认事务、版本保护、同屏历史已实现 | review_reservation、workflow、concurrent API；浏览器异常路径 | 待验收 | 实际量调整、扣除、恢复和冲突 |
 | 响应式与亮暗 | 已有实现 | 现有界面可供验收，整体重构后置 | 历史报告曾记录多尺寸；不是本轮复测 | 待验收 | 结合本次实际任务发现可用性问题 |
 | 迁移与契约 | 已有实现 | migration、OpenAPI 导出、前端生成类型 | 前次迁移/契约检查；本轮未重跑 | 不等同产品验收 | 改动时定向验证 |
 
@@ -42,7 +42,7 @@
 - 双窗口闭环：第二窗口入库 100g，第一窗口库存 500g → 600g、输入 150 不变；确认后真实 API 库存 450g；第二窗口自动显示已确认并禁用提交。
 - 断线保留 125，禁用确认；恢复后输入仍为 125。单位 g → kg 后禁用，按新单位改为 0.125 后确认成功，API 余量为 0.475kg。
 - 正常流程两窗口 error 控制台日志为空；故意关闭隔离后端时显示预期连接失败提示，恢复后所查 error 日志仍为空。未观察到 React runtime error。
-- 当前表结构/migration 无变化；PATCH 库存和不可换算人工合并增加版本要求，OpenAPI/生成类型同步。
+- 005_review_reservations 迁移新增核对锁定表；OpenAPI、生成类型与本地开发数据库已同步。
 - 本轮未做全站视觉回归、全部尺寸主题交叉组合、公开链接或跨真实设备网络验收，未改 WorkBuddy 视觉基准。
 - 相关库存确认后有后续更新时保守拒绝自动撤销，详细业务边界见 PRD。当前为 agent 验证通过、待用户验收。
 
@@ -89,7 +89,7 @@
 ## 本轮文件范围
 
 - 修改（前端）：frontend/src/App.tsx、MenuWorkflow.tsx、api.ts、api-schema.d.ts。
-- 修改（后端）：backend/app/routes/ingredients.py、daily_battles.py；backend/app/menu_workflow.py、db.py、api_contract.py；backend/scripts/regression_test.py、smoke_test.py。
-- 修改（契约与文档）：contracts/openapi.yaml、AGENTS.md、CHATGPT_HANDOFF.md、docs/PRD.md、docs/project-status.md、backend/TESTING.md。
-- 新增：backend/scripts/concurrent_inventory_test.py、frontend/src/menu-confirm-logic.ts、frontend/src/menu-confirm-logic.test.ts。
-- 删除：无。无表结构、migration、依赖或用户测试数据变更。
+- 修改（后端）：backend/app/routes/ingredients.py、daily_battles.py、quantity.py、migrations.py、api_contract.py；backend/scripts/regression_test.py、smoke_test.py、menu_workflow_test.py、fractional_quantity_test.py、concurrent_inventory_test.py、seed_demo_data.py。
+- 修改（契约与文档）：contracts/openapi.yaml、docs/PRD.md、docs/project-status.md、backend/TESTING.md。
+- 新增：backend/app/review_locks.py、backend/migrations/005_review_reservations.sql、backend/scripts/review_reservation_test.py。
+- 删除：无。已新增表结构/migration；依赖和用户测试数据不变。

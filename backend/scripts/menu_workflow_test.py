@@ -98,6 +98,7 @@ def main():
     }
     invalid = copy.deepcopy(payload)
     invalid["consumptions"][0]["expected_updated_at"] = "2000-01-01T00:00:00Z"
+    data("POST", f"/api/daily-battles/{battle['id']}/review-reservation")
     status, _ = request("POST", f"/api/daily-battles/{battle['id']}/confirm", invalid)
     check("库存版本冲突时确认整体回滚", status == 409)
     check("失败不扣库存", data("GET", f"/api/ingredients/{egg['id']}")["stock_value"] == 6)

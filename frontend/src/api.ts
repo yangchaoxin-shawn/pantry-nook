@@ -151,6 +151,10 @@ export const api = {
       id ? "PATCH" : "POST",
       p,
     ),
+  startBattleReview: (id: number) =>
+    request<Battle>(`/api/daily-battles/${id}/review-reservation`, "POST"),
+  releaseBattleReview: (id: number) =>
+    request<Battle>(`/api/daily-battles/${id}/review-reservation`, "DELETE"),
   deleteBattle: (id: number) => request<components['schemas']['DailyBattleRecord']>(`/api/daily-battles/${id}`, 'DELETE'),
   battleAction: (...[id, action, p]: BattleActionArgs) =>
     request<Battle>(`/api/daily-battles/${id}/${action}`, "POST", p),

@@ -19,7 +19,8 @@ from ..db import get_pool, lock_inventory_workflow
 from ..errors import conflict, not_found, validation_error
 from ..responses import created, ok
 from ..menu_workflow import attach_preparations, save_preparations, assert_version
-from ..quantity import normalize_stock, parse_usage_quantity, render_stock
+from ..quantity import normalize_stock, parse_planned_quantity, parse_usage_quantity, render_stock
+from ..review_locks import release_expired, reserved_by_ingredient
 from ..validation import (
     enum_value,
     ensure_object_body,
@@ -35,6 +36,7 @@ router = APIRouter()
 BATTLE_STATUSES = ["planned", "confirmed", "cancelled"]
 REVOCATION_STATUSES = ["planned", "cancelled"]
 MEAL_SLOTS = ['breakfast', 'lunch', 'dinner']
+REVIEW_LOCK_MINUTES = 15
 
 
 # ---------- 输入构造 ----------
@@ -138,7 +140,7 @@ def confirm_input(body: dict) -> list[dict]:
     return [consumption_input(ensure_object_body(item)) for item in consumptions]
 
 
-def prepare_inventory_changes(inputs: list[dict], ingredients: dict[int, dict]) -> None:
+def prepare_inventory_changes(inputs: list[dict], ingredients: dict[int, dict], other_reservations: dict[int, Decimal]) -> None:
     """Calculate final stock in the transaction instead of accepting client totals."""
     totals: dict[int, Decimal] = {}
     last: dict[int, int] = {}
@@ -162,8 +164,9 @@ def prepare_inventory_changes(inputs: list[dict], ingredients: dict[int, dict]) 
         # Treat that residual as empty only after a positive actual usage.
         if total > 0 and abs(remaining) <= Decimal("0.000001"):
             remaining = Decimal(0)
-        if remaining < 0:
-            raise validation_error(f"食材“{row['name']}”库存不足，请重新核对实际用量")
+        available = Decimal(row["stock_value"]) - other_reservations.get(ingredient_id, Decimal(0))
+        if used > available:
+            raise conflict(f"食材“{row['name']}”的可用库存不足，请重新核对实际用量")
         entry.update(used_value=used, final_text=render_stock(remaining), final_value=remaining)
 
     for pos, input_ in enumerate(inputs):
@@ -385,12 +388,14 @@ async def update_battle(battle_id: int, request: Request):
     async with pool.acquire() as conn:
         async with conn.transaction():
             await lock_inventory_workflow(conn)
+            await release_expired(conn)
             current = await conn.fetchrow("SELECT * FROM daily_battles WHERE id = $1 FOR UPDATE", pid)
             if current is None:
                 raise not_found("今日作战")
             if current["status"] != "planned":
                 raise conflict("只有计划中的今日作战可以调整菜品")
             assert_version(body.get('expected_updated_at'), current['updated_at'])
+            await conn.execute("DELETE FROM daily_battle_review_locks WHERE daily_battle_id = $1", pid)
             dishes = await _source_dishes(conn, input_)
             validate_preparations_cover_dishes(dishes, body["preparations"])
             existing = await conn.fetch("SELECT id, dish_id FROM daily_battle_dishes WHERE daily_battle_id = $1", pid)
@@ -425,17 +430,101 @@ async def cancel_battle(battle_id: int):
     async with pool.acquire() as conn:
         async with conn.transaction():
             await lock_inventory_workflow(conn)
+            await release_expired(conn)
             current = await conn.fetchrow("SELECT status FROM daily_battles WHERE id = $1 FOR UPDATE", pid)
             if current is None:
                 raise not_found("今日作战")
             if current["status"] != "planned":
                 raise conflict("只有计划中的今日作战可以取消")
+            await conn.execute("DELETE FROM daily_battle_review_locks WHERE daily_battle_id = $1", pid)
             await conn.execute(
                 """UPDATE daily_battles
                    SET status = 'cancelled', cancelled_at = NOW(), updated_at = NOW()
                    WHERE id = $1""",
                 pid,
             )
+            result = await _get_battle(conn, pid)
+    return ok(result)
+
+
+async def _lock_review_quantities(conn, battle_id: int) -> None:
+    """Reserve the menu's planned amounts without deducting physical stock."""
+    rows = await conn.fetch(
+        """SELECT p.daily_battle_dish_id, p.ingredient_id, p.planned_quantity_text,
+                  i.name, i.status, i.stock_value, i.stock_unit
+             FROM daily_battle_preparations p
+             JOIN daily_battle_dishes bd ON bd.id = p.daily_battle_dish_id
+             JOIN ingredients i ON i.id = p.ingredient_id
+            WHERE bd.daily_battle_id = $1
+            ORDER BY bd.position, p.position, p.id
+            FOR UPDATE OF i""",
+        battle_id,
+    )
+    if not rows:
+        raise validation_error("请先为每道菜填写耗材和预计用量，再核对用料")
+
+    locks: list[tuple[int, int, Decimal, str]] = []
+    totals: dict[int, Decimal] = {}
+    for row in rows:
+        text = row["planned_quantity_text"]
+        if not text or not text.strip():
+            raise validation_error(f"食材“{row['name']}”缺少预计用量，请先编辑菜单")
+        if row["status"] != "active" or row["stock_value"] is None or not row["stock_unit"]:
+            raise conflict(f"食材“{row['name']}”当前不在库，请先编辑菜单")
+        quantity = parse_planned_quantity(text, row["stock_unit"])
+        ingredient_id = int(row["ingredient_id"])
+        totals[ingredient_id] = totals.get(ingredient_id, Decimal(0)) + quantity
+        locks.append((int(row["daily_battle_dish_id"]), ingredient_id, quantity, row["stock_unit"]))
+
+    other = await reserved_by_ingredient(conn, list(totals), excluding_battle_id=battle_id)
+    stock_by_id = {int(row["ingredient_id"]): Decimal(row["stock_value"]) for row in rows}
+    for ingredient_id, quantity in totals.items():
+        if quantity > stock_by_id[ingredient_id] - other.get(ingredient_id, Decimal(0)):
+            name = next(row["name"] for row in rows if int(row["ingredient_id"]) == ingredient_id)
+            raise conflict(f"食材“{name}”的可用库存不足，请先补货或编辑菜单")
+
+    await conn.execute("DELETE FROM daily_battle_review_locks WHERE daily_battle_id = $1", battle_id)
+    for dish_id, ingredient_id, quantity, unit in locks:
+        await conn.execute(
+            """INSERT INTO daily_battle_review_locks
+                 (daily_battle_id, daily_battle_dish_id, ingredient_id, quantity_value, stock_unit, expires_at)
+               VALUES ($1, $2, $3, $4, $5, NOW() + ($6::text || ' minutes')::interval)""",
+            battle_id, dish_id, ingredient_id, quantity, unit, str(REVIEW_LOCK_MINUTES),
+        )
+
+
+@router.post("/{battle_id}/review-reservation")
+async def start_review(battle_id: int):
+    """Start or renew a short review lock. It never deducts stock."""
+    pid = parse_id(battle_id)
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        async with conn.transaction():
+            await lock_inventory_workflow(conn)
+            await release_expired(conn)
+            battle = await conn.fetchrow("SELECT * FROM daily_battles WHERE id = $1 FOR UPDATE", pid)
+            if battle is None:
+                raise not_found("今日作战")
+            if battle["status"] != "planned":
+                raise conflict("只有待完成菜单可以核对用料")
+            await _lock_review_quantities(conn, pid)
+            result = await _get_battle(conn, pid)
+    return ok(result)
+
+
+@router.delete("/{battle_id}/review-reservation")
+async def release_review(battle_id: int):
+    """Release a review lock when the user exits editing; safe to call repeatedly."""
+    pid = parse_id(battle_id)
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        async with conn.transaction():
+            await lock_inventory_workflow(conn)
+            await release_expired(conn)
+            battle = await conn.fetchrow("SELECT * FROM daily_battles WHERE id = $1 FOR UPDATE", pid)
+            if battle is None:
+                raise not_found("今日作战")
+            await conn.execute("DELETE FROM daily_battle_review_locks WHERE daily_battle_id = $1", pid)
             result = await _get_battle(conn, pid)
     return ok(result)
 
@@ -450,6 +539,7 @@ async def confirm_battle(battle_id: int, request: Request):
     async with pool.acquire() as conn:
         async with conn.transaction():
             await lock_inventory_workflow(conn)
+            await release_expired(conn)
             battle = await conn.fetchrow("SELECT * FROM daily_battles WHERE id = $1 FOR UPDATE", pid)
             if battle is None:
                 raise not_found("今日作战")
@@ -464,6 +554,18 @@ async def confirm_battle(battle_id: int, request: Request):
                 if did is not None and int(did) not in battle_dish_ids:
                     raise not_found("今日作战菜品")
             await assert_ready_for_confirmation(conn, pid, inputs)
+
+            lock_rows = await conn.fetch(
+                """SELECT daily_battle_dish_id, ingredient_id
+                     FROM daily_battle_review_locks
+                    WHERE daily_battle_id = $1 AND expires_at > NOW()
+                    FOR UPDATE""",
+                pid,
+            )
+            locked_pairs = {(int(row["daily_battle_dish_id"]), int(row["ingredient_id"])) for row in lock_rows}
+            input_pairs = {(int(item["daily_battle_dish_id"]), int(item["ingredient_id"])) for item in inputs}
+            if locked_pairs != input_pairs:
+                raise conflict("核对锁定已失效或菜单已变化，请重新打开核对用料")
 
             ingredient_ids = list({inp["ingredient_id"] for inp in inputs})
             ingredient_rows = []
@@ -486,7 +588,8 @@ async def confirm_battle(battle_id: int, request: Request):
                     "status": ing["status"],
                     "ended_at": ing["ended_at"],
                 }
-            prepare_inventory_changes(inputs, ingredients)
+            other_reservations = await reserved_by_ingredient(conn, ingredient_ids, excluding_battle_id=pid)
+            prepare_inventory_changes(inputs, ingredients, other_reservations)
             prepared = []
 
             for inp in inputs:
@@ -535,6 +638,7 @@ async def confirm_battle(battle_id: int, request: Request):
                    WHERE id = $1""",
                 pid,
             )
+            await conn.execute("DELETE FROM daily_battle_review_locks WHERE daily_battle_id = $1", pid)
 
             for item in prepared:
                 inp = item["input"]

@@ -7,10 +7,16 @@ from ..responses import created, ok
 from ..validation import enum_value, ensure_object_body, optional_number, optional_text, pagination, parse_id, required_text
 from ..menu_workflow import assert_version
 from ..quantity import render_stock
+from ..review_locks import assert_remaining_after_change, release_expired, reserved_by_ingredient
 router=APIRouter()
 CATEGORIES=["碳水","蔬菜","蛋白质","水果","其他"]; LOCATIONS=["冰箱冷藏","冰箱冷冻","室温","其他"]; REASONS=["spoiled","damaged","other"]
 FACTORS={"g":("m",Decimal(1)),"kg":("m",Decimal(1000)),"斤":("m",Decimal(500)),"ml":("v",Decimal(1)),"L":("v",Decimal(1000))}
-def dto(x):return {k:x[k] for k in ("id","name","category","stock_text","stock_value","stock_unit","location","note","created_at","updated_at")}
+def dto(x):
+ r={k:x[k] for k in ("id","name","category","stock_text","stock_value","stock_unit","location","note","created_at","updated_at")}
+ reserved=Decimal(x["reserved_value"]) if "reserved_value" in x else Decimal(0)
+ r["reserved_value"]=reserved
+ r["available_value"]=max(Decimal(x["stock_value"])-reserved,Decimal(0))
+ return r
 def payload(b,partial=False):
  r={};has=lambda k:k in b
  if not partial or has("name"):r["name"]=required_text(b.get("name"),"name")
@@ -46,12 +52,12 @@ async def listed(request:Request):
  if "location" in q:vals.append(enum_value(q["location"],"location",LOCATIONS));where.append("i.location=$"+str(len(vals)))
  if "q" in q:vals.append("%"+required_text(q["q"],"q",100)+"%");where.append("(i.name ILIKE $"+str(len(vals))+" OR COALESCE(i.note,'') ILIKE $"+str(len(vals))+")")
  clause="WHERE "+" AND ".join(where);vals.extend([limit,offset]);pool=await get_pool()
- rows=await pool.fetch("SELECT i.*,COUNT(*) OVER()::int total FROM ingredients i "+clause+" ORDER BY i.category,LOWER(i.name) LIMIT $"+str(len(vals)-1)+" OFFSET $"+str(len(vals)),*vals)
+ rows=await pool.fetch("SELECT i.*,COALESCE((SELECT SUM(l.quantity_value) FROM daily_battle_review_locks l WHERE l.ingredient_id=i.id AND l.expires_at>NOW()),0) AS reserved_value,COUNT(*) OVER()::int total FROM ingredients i "+clause+" ORDER BY i.category,LOWER(i.name) LIMIT $"+str(len(vals)-1)+" OFFSET $"+str(len(vals)),*vals)
  total=rows[0]["total"] if rows else 0
  return ok([dto(x) for x in rows],{"total":int(total),"limit":limit,"offset":offset})
 @router.get("/{ingredient_id}")
 async def one(ingredient_id:int):
- row=await (await get_pool()).fetchrow("SELECT * FROM ingredients WHERE id=$1 AND status='active'",parse_id(ingredient_id))
+ row=await (await get_pool()).fetchrow("SELECT i.*,COALESCE((SELECT SUM(l.quantity_value) FROM daily_battle_review_locks l WHERE l.ingredient_id=i.id AND l.expires_at>NOW()),0) AS reserved_value FROM ingredients i WHERE i.id=$1 AND i.status='active'",parse_id(ingredient_id))
  if row is None:raise not_found("食材")
  return ok(dto(row))
 @router.post("/batch")
@@ -66,6 +72,7 @@ async def batch(request:Request):
  async with pool.acquire() as c:
   async with c.transaction():
    await lock_inventory_workflow(c)
+   await release_expired(c)
    for x in rows:
     old=await c.fetchrow("SELECT * FROM ingredients WHERE status='active' AND LOWER(btrim(name))=LOWER(btrim($1)) FOR UPDATE",x["name"])
     if old is None:row=await c.fetchrow("INSERT INTO ingredients(name,category,stock_text,stock_value,stock_unit,location,note) VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING *",x["name"],x["category"],x["stock_text"],x["stock_value"],x["stock_unit"],x.get("location"),x.get("note"))
@@ -74,6 +81,8 @@ async def batch(request:Request):
      if old["category"]!=x["category"] and not choice.get("category"):raise conflict("同名食材分类不同，请在弹窗中选择保留的分类")
      if old["stock_unit"]!=x["stock_unit"] and not choice.get("stock_unit"):raise conflict("同名食材单位不同，请在弹窗中选择统一单位")
      category=choice.get("category") or old["category"];unit=choice.get("stock_unit") or old["stock_unit"];location=x.get("location") if x.get("location") is not None else old["location"]
+     if unit != old["stock_unit"] and await reserved_by_ingredient(c, [int(old["id"])]):
+      raise conflict("该食材已有正在核对的菜单锁定用量，暂时不能修改单位")
      before=convert(Decimal(old["stock_value"]),old["stock_unit"],unit);incoming=convert(Decimal(x["stock_value"]),x["stock_unit"],unit)
      if before is None or incoming is None:
       if choice.get("final_stock_value") is None:raise conflict("这两个单位不能自动换算，请在弹窗填写合并后的实际库存")
@@ -91,11 +100,16 @@ async def patch(ingredient_id:int,request:Request):
  async with pool.acquire() as c:
   async with c.transaction():
    await lock_inventory_workflow(c)
+   await release_expired(c)
    old=await c.fetchrow("SELECT * FROM ingredients WHERE id=$1 AND status='active' FOR UPDATE",pid)
    if old is None:raise not_found("食材")
    if any(k.startswith("stock_") for k in keys):
     version=required_text(b.get("expected_updated_at"),"expected_updated_at",64)
     assert_version(version,old["updated_at"])
+   if "stock_unit" in x and x["stock_unit"] != old["stock_unit"] and await reserved_by_ingredient(c, [pid]):
+    raise conflict("该食材已有正在核对的菜单锁定用量，暂时不能修改单位")
+   if "stock_value" in x:
+    await assert_remaining_after_change(c, pid, Decimal(x["stock_value"]))
    row=await c.fetchrow("UPDATE ingredients SET "+", ".join(k+"=$"+str(i+1) for i,k in enumerate(keys))+",updated_at=NOW() WHERE id=$"+str(len(keys)+1)+" AND status='active' RETURNING *",*[x[k] for k in keys],pid)
  if row is None:raise not_found("食材")
  return ok(dto(row))
@@ -107,12 +121,14 @@ async def waste(ingredient_id:int,request:Request):
  async with pool.acquire() as c:
   async with c.transaction():
    await lock_inventory_workflow(c);old=await c.fetchrow("SELECT * FROM ingredients WHERE id=$1 AND status='active' FOR UPDATE",pid)
+   await release_expired(c)
    if old is None:raise not_found("食材")
    assert_version(version,old["updated_at"])
    if unit!=old["stock_unit"]:raise validation_error("处理单位必须与当前库存单位一致")
    before,used=Decimal(old["stock_value"]),Decimal(v)
    if used>before:raise conflict("处理数量不能超过当前库存")
    after=before-used;status="discarded" if after==0 else "active";text="0" if after==0 else render(after)
+   await assert_remaining_after_change(c, pid, after)
    row=await c.fetchrow("UPDATE ingredients SET stock_text=$1,stock_value=$2,status=$3,ended_at=CASE WHEN $3::varchar='discarded' THEN NOW() ELSE NULL END,updated_at=NOW() WHERE id=$4 RETURNING *",text,after,status,pid)
    a=await c.fetchrow("INSERT INTO inventory_adjustments(ingredient_id,reason,note,stock_before_text,stock_before_value,stock_before_unit,stock_after_text,stock_after_value,stock_after_unit,stock_after_updated_at,ingredient_status_before,ingredient_ended_at_before,ingredient_status_after,ingredient_ended_at_after) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) RETURNING *",pid,reason,note,old["stock_text"],before,old["stock_unit"],text,after,old["stock_unit"],row["updated_at"],old["status"],old["ended_at"],row["status"],row["ended_at"])
  return created({"inventory":dto(row),"adjustment":dict(a)})
@@ -127,11 +143,13 @@ async def revoke(adjustment_id:int):
  async with pool.acquire() as c:
   async with c.transaction():
    await lock_inventory_workflow(c);a=await c.fetchrow("SELECT * FROM inventory_adjustments WHERE id=$1 FOR UPDATE",aid)
+   await release_expired(c)
    if a is None:raise not_found("库存处理记录")
    if a["status"]!="active":raise conflict("这条库存处理已撤销")
    old=await c.fetchrow("SELECT * FROM ingredients WHERE id=$1 FOR UPDATE",a["ingredient_id"])
    if old is None:raise not_found("食材")
    if old["updated_at"]!=a["stock_after_updated_at"]:raise conflict("该食材已有后续库存变更，不能安全撤销")
+   if old["stock_unit"] != a["stock_before_unit"] and await reserved_by_ingredient(c, [int(old["id"])]):raise conflict("该食材已有正在核对的菜单锁定用量，暂时不能恢复不同单位")
    row=await c.fetchrow("UPDATE ingredients SET stock_text=$1,stock_value=$2,stock_unit=$3,status=$4,ended_at=$5,updated_at=NOW() WHERE id=$6 RETURNING *",a["stock_before_text"],a["stock_before_value"],a["stock_before_unit"],a["ingredient_status_before"],a["ingredient_ended_at_before"],old["id"])
    a=await c.fetchrow("UPDATE inventory_adjustments SET status='reversed',reversed_at=NOW(),updated_at=NOW() WHERE id=$1 RETURNING *",aid)
  return ok({"inventory":dto(row),"adjustment":dict(a)})

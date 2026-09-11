@@ -10,7 +10,7 @@ from __future__ import annotations
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP, localcontext
 import re
 
-from .errors import validation_error
+from .errors import AppError, validation_error
 
 SCALE = Decimal("0.000001")
 MAX_VALUE = Decimal("999999999.999999")
@@ -42,6 +42,17 @@ def parse_usage_quantity(value: str) -> Decimal:
     if quantity > 0 and normalize_stock(quantity) == 0:
         raise validation_error("实际用量过小，最小支持 0.000001")
     return quantity
+
+
+def parse_planned_quantity(value: str, unit: str | None) -> Decimal:
+    """Parse a menu's planned quantity, accepting the inventory unit once at its end."""
+    text = value.strip()
+    if unit and text.casefold().endswith(unit.casefold()):
+        text = text[: -len(unit)].strip()
+    try:
+        return parse_usage_quantity(text)
+    except AppError:
+        raise validation_error("预计用量请填写数字或分数，例如 1、0.5、1/2、1/3；单位会自动带上")
 
 
 def normalize_stock(value: Decimal) -> Decimal:

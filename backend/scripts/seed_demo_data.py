@@ -84,6 +84,7 @@ def confirm_tomato_eggs(battle: dict, egg: dict, tomato: dict) -> None:
             {"ingredient_id": tomato["id"], "daily_battle_dish_id": rows[battle["dishes"][0]["dish_id"]], "quantity_used_text": "2", "expected_updated_at": tomato["updated_at"]},
         ],
     }
+    data("POST", f"/api/daily-battles/{battle['id']}/review-reservation", {})
     data("POST", f"/api/daily-battles/{battle['id']}/confirm", payload)
 
 

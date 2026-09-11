@@ -114,7 +114,7 @@ results.append(check("被搭配引用的菜品不能直接删除 409", s == 409,
 s, _ = req("POST", "/api/daily-battles", {"battle_date": "2026-09-08", "dish_ids": [dish_id], "preparations": []})
 results.append(check("未贴耗材的菜单不能保存 400", s == 400, f"status={s}"))
 s, battle = req("POST", "/api/daily-battles", {"battle_date": "2026-09-08", "dish_ids": [dish_id], "preparations": [{
-    "dish_id": dish_id, "ingredient_id": ingredient_id, "planned_quantity_text": "半个",
+    "dish_id": dish_id, "ingredient_id": ingredient_id, "planned_quantity_text": "0.5",
 }]})
 results.append(check("创建今日作战 201", s == 201, f"status={s}"))
 battle_id = battle["data"]["id"] if s == 201 else None
@@ -126,6 +126,8 @@ if battle_id and ingredient_id:
 
 # --- 4. 确认作战 -> 数量扣减 ---
 if battle_id and ingredient_id:
+    s, _ = req("POST", f"/api/daily-battles/{battle_id}/review-reservation")
+    results.append(check("核对前锁定预计用量 200", s == 200, f"status={s}"))
     s, latest_ingredient = req("GET", f"/api/ingredients/{ingredient_id}")
     s, resp = req("POST", f"/api/daily-battles/{battle_id}/confirm", {
         "consumptions": [{

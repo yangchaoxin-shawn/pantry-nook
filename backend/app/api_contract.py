@@ -56,7 +56,8 @@ def build_schemas() -> dict:
         "stock_value": NUMBER, "stock_unit": {"type": "string", "maxLength": 50},
         "location": nullable(LOCATION), "note": nullable({"type": "string", "maxLength": 5000}),
     }
-    ingredient = {"id": ID, **inventory_input, "note": nullable({"type": "string"}), **TIMESTAMPS}
+    ingredient = {"id": ID, **inventory_input, "note": nullable({"type": "string"}),
+                  "reserved_value": NUMBER, "available_value": NUMBER, **TIMESTAMPS}
     dish = {"id": ID, "name": TEXT, "deleted_at": nullable(TIME), **TIMESTAMPS}
     plan = {"id": ID, "name": nullable(TEXT), **TIMESTAMPS}
     battle = {
@@ -149,7 +150,7 @@ def build_schemas() -> dict:
                                    'preparations': array(ref('PreparationInput'), minItems=1, maxItems=500), 'expected_updated_at': TIME}, ['dish_ids', 'preparations']),
         "ActualUsage": obj(actual_usage, ["ingredient_id", "quantity_used_text", "expected_updated_at"]),
         "BattleConfirm": obj({"consumptions": array(ref('ActualUsage'), maxItems=500), 'expected_updated_at': TIME}, ["consumptions", "expected_updated_at"],
-                             description="后端在同一事务内按实际用量计算库存、写入消耗并校验菜单与库存版本；客户端不得提交剩余库存。"),
+                             description="仅可确认已建立核对锁定的菜单。后端在同一事务内按实际用量计算库存、写入消耗、释放锁定并校验菜单与库存版本；客户端不得提交剩余库存。"),
         "BattleRevoke": obj({"target_status": {"type": "string", "enum": ["planned", "cancelled"], "default": "planned"}}, []),
         "PaginationMeta": obj({"total": {"type": "integer", "minimum": 0},
                                "limit": {"type": "integer", "minimum": 1, "maximum": 100},
@@ -220,6 +221,8 @@ def install_openapi(app: FastAPI) -> None:
         ("/api/daily-battles/{battle_id}", "patch", "DailyBattleResponse", "DailyBattleUpdate", True, 200),
         ("/api/daily-battles/{battle_id}", "delete", "DailyBattleRecordResponse", None, False, 200),
         ("/api/daily-battles/{battle_id}/consumptions", "get", "BattleConsumptionList", None, False, 200),
+        ("/api/daily-battles/{battle_id}/review-reservation", "post", "DailyBattleResponse", None, False, 200),
+        ("/api/daily-battles/{battle_id}/review-reservation", "delete", "DailyBattleResponse", None, False, 200),
         ("/api/daily-battles/{battle_id}/cancel", "post", "DailyBattleResponse", None, False, 200),
         ("/api/daily-battles/{battle_id}/confirm", "post", "ConfirmedBattleResponse", "BattleConfirm", True, 200),
         ("/api/daily-battles/{battle_id}/revoke-confirmation", "post", "DailyBattleResponse", "BattleRevoke", False, 200),

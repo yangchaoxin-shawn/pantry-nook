@@ -1998,6 +1998,152 @@
         }
       }
     },
+    "/api/daily-battles/{battle_id}/review-reservation": {
+      "post": {
+        "tags": [
+          "daily-battles"
+        ],
+        "summary": "Start Review",
+        "description": "Start or renew a short review lock. It never deducts stock.",
+        "operationId": "start_review_api_daily_battles__battle_id__review_reservation_post",
+        "parameters": [
+          {
+            "name": "battle_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9007199254740991
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "请求成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DailyBattleResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "请求参数或 JSON 格式不正确",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "资源不存在",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "当前业务状态不允许该操作",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "服务器内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "daily-battles"
+        ],
+        "summary": "Release Review",
+        "description": "Release a review lock when the user exits editing; safe to call repeatedly.",
+        "operationId": "release_review_api_daily_battles__battle_id__review_reservation_delete",
+        "parameters": [
+          {
+            "name": "battle_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9007199254740991
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "请求成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DailyBattleResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "请求参数或 JSON 格式不正确",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "资源不存在",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "当前业务状态不允许该操作",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "服务器内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/daily-battles/{battle_id}/confirm": {
       "post": {
         "tags": [
@@ -2519,6 +2665,18 @@
               }
             ]
           },
+          "reserved_value": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 999999999.999999,
+            "multipleOf": 1e-06
+          },
+          "available_value": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 999999999.999999,
+            "multipleOf": 1e-06
+          },
           "created_at": {
             "type": "string",
             "format": "date-time"
@@ -2537,6 +2695,8 @@
           "stock_unit",
           "location",
           "note",
+          "reserved_value",
+          "available_value",
           "created_at",
           "updated_at"
         ]
@@ -4567,7 +4727,7 @@
           "consumptions",
           "expected_updated_at"
         ],
-        "description": "后端在同一事务内按实际用量计算库存、写入消耗并校验菜单与库存版本；客户端不得提交剩余库存。"
+        "description": "仅可确认已建立核对锁定的菜单。后端在同一事务内按实际用量计算库存、写入消耗、释放锁定并校验菜单与库存版本；客户端不得提交剩余库存。"
       },
       "BattleRevoke": {
         "type": "object",

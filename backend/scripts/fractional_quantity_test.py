@@ -25,6 +25,7 @@ def main() -> None:
         "consumptions": [{"ingredient_id": ingredient["id"], "daily_battle_dish_id": rows[dishes[0]["id"]],
                           "quantity_used_text": "1/3个", "expected_updated_at": ingredient["updated_at"]}],
     }
+    t.data("POST", f"/api/daily-battles/{battle['id']}/review-reservation")
     t.check("带单位的分数输入被拒", t.request("POST", f"/api/daily-battles/{battle['id']}/confirm", bad)[0] == 400)
     result = t.data("POST", f"/api/daily-battles/{battle['id']}/confirm", {
         "expected_updated_at": battle["updated_at"],

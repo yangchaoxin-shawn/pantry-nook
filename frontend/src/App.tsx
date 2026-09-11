@@ -896,7 +896,12 @@ export default function App() {
                         ? "编辑菜单"
                         : "安排一餐"
           }
-          onClose={() => { setModal(null); if (modal.kind === "confirm") reload(); }}
+          onClose={() => {
+            if (modal.kind === "confirm") {
+              void api.releaseBattleReview(modal.item.id).finally(reload);
+            }
+            setModal(null);
+          }}
           busy={busy}
         >
           {actionError && (
@@ -1003,6 +1008,10 @@ export default function App() {
           )}
           {modal.kind === "confirm" && (
             <MenuConfirm battleId={modal.item.id} busy={busy} onPending={setBusy}
+              onEdit={() => {
+                const battle = modal.item;
+                void api.releaseBattleReview(battle.id).finally(() => open({ kind: "battle", item: battle }));
+              }}
               save={async payload => {
                 await api.battleAction(modal.item.id, "confirm", payload);
                 setModal(null);

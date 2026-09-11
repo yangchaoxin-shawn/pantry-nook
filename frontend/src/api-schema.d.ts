@@ -286,6 +286,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/daily-battles/{battle_id}/review-reservation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start Review
+         * @description Start or renew a short review lock. It never deducts stock.
+         */
+        post: operations["start_review_api_daily_battles__battle_id__review_reservation_post"];
+        /**
+         * Release Review
+         * @description Release a review lock when the user exits editing; safe to call repeatedly.
+         */
+        delete: operations["release_review_api_daily_battles__battle_id__review_reservation_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/daily-battles/{battle_id}/confirm": {
         parameters: {
             query?: never;
@@ -405,6 +429,8 @@ export interface components {
             stock_unit: string;
             location: ("冰箱冷藏" | "冰箱冷冻" | "室温" | "其他") | null;
             note: string | null;
+            reserved_value: number;
+            available_value: number;
             /** Format: date-time */
             created_at: string;
             /** Format: date-time */
@@ -748,7 +774,7 @@ export interface components {
             expected_updated_at: string;
             note?: string | null;
         };
-        /** @description 后端在同一事务内按实际用量计算库存、写入消耗并校验菜单与库存版本；客户端不得提交剩余库存。 */
+        /** @description 仅可确认已建立核对锁定的菜单。后端在同一事务内按实际用量计算库存、写入消耗、释放锁定并校验菜单与库存版本；客户端不得提交剩余库存。 */
         BattleConfirm: {
             consumptions: components["schemas"]["ActualUsage"][];
             /** Format: date-time */
@@ -2266,6 +2292,122 @@ export interface operations {
         };
     };
     cancel_battle_api_daily_battles__battle_id__cancel_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                battle_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 请求成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DailyBattleResponse"];
+                };
+            };
+            /** @description 请求参数或 JSON 格式不正确 */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description 当前业务状态不允许该操作 */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description 服务器内部错误 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    start_review_api_daily_battles__battle_id__review_reservation_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                battle_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 请求成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DailyBattleResponse"];
+                };
+            };
+            /** @description 请求参数或 JSON 格式不正确 */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description 当前业务状态不允许该操作 */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description 服务器内部错误 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    release_review_api_daily_battles__battle_id__review_reservation_delete: {
         parameters: {
             query?: never;
             header?: never;
