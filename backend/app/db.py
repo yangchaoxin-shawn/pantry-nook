@@ -62,6 +62,23 @@ async def lock_inventory_workflow(conn) -> None:
     await conn.execute("SELECT pg_advisory_xact_lock($1)", 726140901)
 
 
+async def lock_catalog_workflow(conn) -> None:
+    """搭配引用写入和菜品删除先取同一事务锁，避免检查与写入之间引用失效。"""
+    await conn.execute("SELECT pg_advisory_xact_lock($1)", 726140902)
+
+
+async def assert_stock_name_available(conn, name: str, ingredient_id: int) -> None:
+    """调用者已持有库存事务锁；恢复历史库存时也不能制造同名在库记录。"""
+    from .errors import conflict
+
+    exists = await conn.fetchval(
+        "SELECT EXISTS(SELECT 1 FROM ingredients WHERE status='active' "
+        "AND LOWER(btrim(name))=LOWER(btrim($1)) AND id<>$2)", name, ingredient_id,
+    )
+    if exists:
+        raise conflict(f'库存中已有“{name}”，请先到库存核对同名食材；本次操作未保存')
+
+
 def jsonable(value):
     """把 asyncpg 返回的数据库值转成 JSON 安全类型。
 

@@ -8,7 +8,7 @@ from __future__ import annotations
 import asyncpg
 from fastapi import APIRouter, Request
 
-from ..db import get_pool
+from ..db import get_pool, lock_catalog_workflow
 from ..errors import conflict, not_found, validation_error
 from ..responses import created, ok
 from ..validation import ensure_object_body, pagination, parse_id, required_text
@@ -109,6 +109,7 @@ async def delete_dish(dish_id: int):
     pool = await get_pool()
     async with pool.acquire() as conn:
         async with conn.transaction():
+            await lock_catalog_workflow(conn)
             dish = await conn.fetchrow(
                 "SELECT id FROM dishes WHERE id = $1 AND deleted_at IS NULL FOR UPDATE", pid,
             )

@@ -105,6 +105,7 @@ describe('写入结果与库存原文', () => {
     }))
     const saving = api.saveBattle(undefined, {
       battle_date: '2026-09-09',
+      meal_slot: 'dinner',
       dish_ids: [1],
       preparations: [{ dish_id: 1, ingredient_id: 1 }],
     })

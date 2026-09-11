@@ -78,6 +78,9 @@ uv run python scripts/seed_demo_data.py
 - `regression_test.py`：同名入库合并与分类冲突选择、批量原子性、搭配内容/名称唯一及并发保存、搭配引用、待完成菜单的库存保护、确认事务、重复确认和撤销历史。
 - `menu_workflow_test.py`：每道菜先贴库存耗材或待购买食材、草稿允许稍后补预计量、待购买项补货后关联库存、菜单版本校验、实际用量核对、库存版本冲突整体回滚、确认和撤销恢复。
 - `tests/test_api_contract.py`：统一错误结构与已归档 OpenAPI 契约。
+- `boundary_audit_test.py`：改名冲突、分页越界、合并溢出/超精度、同名重新入库后的两类撤销、菜单缺失版本、搭配引用与删除并发。使用独立服务执行 `python scripts/boundary_audit_test.py <端口>`。
+
+多个脚本使用固定的菜单日期，即使之前菜单已取消，也会与另一脚本发生日期/餐次冲突。出现此情况应为该脚本新建独立测试库，或使用未运行过该日期场景的独立库；不要删除测试记录绕过唯一规则。2026-09-12 审查：regression/smoke/fractional 使用 3032，menu_workflow/concurrent 使用 3033。
 
 迁移演练在需要验证旧数据库升级时单独运行：
 

@@ -752,7 +752,7 @@ export interface components {
             meal_slot?: "breakfast" | "lunch" | "dinner";
             preparations: components["schemas"]["PreparationInput"][];
             /** Format: date-time */
-            expected_updated_at?: string;
+            expected_updated_at: string;
         };
         ActualUsage: {
             ingredient_id: number;

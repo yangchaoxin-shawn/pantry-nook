@@ -1,7 +1,7 @@
 from __future__ import annotations
 from decimal import Decimal
 from fastapi import APIRouter, Request
-from ..db import get_pool, lock_inventory_workflow
+from ..db import get_pool, lock_inventory_workflow, assert_stock_name_available
 from ..errors import conflict, not_found, validation_error
 from ..responses import created, ok
 from ..validation import enum_value, ensure_object_body, optional_number, optional_text, pagination, parse_id, required_text
@@ -49,6 +49,7 @@ async def listed(request:Request):
  clause="WHERE "+" AND ".join(where);vals.extend([limit,offset]);pool=await get_pool()
  rows=await pool.fetch("SELECT i.*,COUNT(*) OVER()::int total FROM ingredients i "+clause+" ORDER BY i.category,LOWER(i.name) LIMIT $"+str(len(vals)-1)+" OFFSET $"+str(len(vals)),*vals)
  total=rows[0]["total"] if rows else 0
+ if not rows and offset:total=await pool.fetchval("SELECT COUNT(*) FROM ingredients i "+clause,*vals[:-2])
  return ok([dto(x) for x in rows],{"total":int(total),"limit":limit,"offset":offset})
 @router.get("/{ingredient_id}")
 async def one(ingredient_id:int):
@@ -81,6 +82,7 @@ async def batch(request:Request):
       assert_version(required_text(choice.get("expected_updated_at"),"expected_updated_at",64),old["updated_at"])
       v=Decimal(choice["final_stock_value"]);text=choice["final_stock_text"]
      else:v=before+incoming;text=render(v)
+     optional_number(v,"合并后的库存量",min_value=0)
      row=await c.fetchrow("UPDATE ingredients SET category=$1,stock_text=$2,stock_value=$3,stock_unit=$4,location=$5,updated_at=NOW() WHERE id=$6 RETURNING *",category,text,v,unit,location,old["id"])
     out.append(dto(row))
  return created(out)
@@ -94,6 +96,7 @@ async def patch(ingredient_id:int,request:Request):
    await lock_inventory_workflow(c)
    old=await c.fetchrow("SELECT * FROM ingredients WHERE id=$1 AND status='active' FOR UPDATE",pid)
    if old is None:raise not_found("食材")
+   if "name" in x:await assert_stock_name_available(c,x["name"],pid)
    if any(k.startswith("stock_") for k in keys):
     version=required_text(b.get("expected_updated_at"),"expected_updated_at",64)
     assert_version(version,old["updated_at"])
@@ -133,6 +136,7 @@ async def revoke(adjustment_id:int):
    old=await c.fetchrow("SELECT * FROM ingredients WHERE id=$1 FOR UPDATE",a["ingredient_id"])
    if old is None:raise not_found("食材")
    if old["updated_at"]!=a["stock_after_updated_at"]:raise conflict("该食材已有后续库存变更，不能安全撤销")
+   if a["ingredient_status_before"]=="active":await assert_stock_name_available(c,old["name"],old["id"])
    row=await c.fetchrow("UPDATE ingredients SET stock_text=$1,stock_value=$2,stock_unit=$3,status=$4,ended_at=$5,updated_at=NOW() WHERE id=$6 RETURNING *",a["stock_before_text"],a["stock_before_value"],a["stock_before_unit"],a["ingredient_status_before"],a["ingredient_ended_at_before"],old["id"])
    a=await c.fetchrow("UPDATE inventory_adjustments SET status='reversed',reversed_at=NOW(),updated_at=NOW() WHERE id=$1 RETURNING *",aid)
  return ok({"inventory":dto(row),"adjustment":dict(a)})

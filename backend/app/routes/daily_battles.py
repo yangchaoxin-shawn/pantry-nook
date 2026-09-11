@@ -15,7 +15,7 @@ from typing import Any
 import asyncpg
 from fastapi import APIRouter, Request
 
-from ..db import get_pool, lock_inventory_workflow
+from ..db import get_pool, lock_inventory_workflow, assert_stock_name_available
 from ..errors import conflict, not_found, validation_error
 from ..responses import created, ok
 from ..menu_workflow import attach_preparations, save_preparations, assert_version
@@ -656,6 +656,8 @@ async def revoke_confirmation(battle_id: int, request: Request):
                     name = ing["name"] if ing else str(consumption["ingredient_id"])
                     raise conflict(f"食材“{name}”状态已变化，无法可靠恢复，请手动确认剩余数量")
 
+                if consumption["ingredient_status_before"] == "active":
+                    await assert_stock_name_available(conn, ing["name"], cid)
                 await conn.execute(
                     """UPDATE ingredients
                        SET stock_text = $1, stock_value = $2, status = $3, ended_at = $4, updated_at = NOW()

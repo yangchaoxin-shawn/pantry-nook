@@ -10,7 +10,7 @@ from typing import Any
 import asyncpg
 from fastapi import APIRouter, Request
 
-from ..db import get_pool
+from ..db import get_pool, lock_catalog_workflow
 from ..errors import conflict, not_found, validation_error
 from ..responses import created, ok
 from ..validation import ensure_object_body, optional_text, pagination, parse_id
@@ -161,6 +161,7 @@ async def create_plan(request: Request):
     try:
         async with pool.acquire() as conn:
             async with conn.transaction():
+                await lock_catalog_workflow(conn)
                 await _find_dishes(conn, input_["dish_ids"])
                 await _assert_unique(conn, input_.get("name"), signature)
                 plan = await conn.fetchrow(
@@ -188,6 +189,7 @@ async def update_plan(plan_id: int, request: Request):
     try:
         async with pool.acquire() as conn:
             async with conn.transaction():
+                await lock_catalog_workflow(conn)
                 current = await _get_plan(conn, pid, lock=True)
                 final_ids = input_.get("dish_ids", [dish["id"] for dish in current["dishes"]])
                 final_name = input_.get("name", current["name"])

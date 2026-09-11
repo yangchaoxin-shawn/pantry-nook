@@ -4548,7 +4548,8 @@
         },
         "required": [
           "dish_ids",
-          "preparations"
+          "preparations",
+          "expected_updated_at"
         ]
       },
       "ActualUsage": {

@@ -6,7 +6,7 @@ from .validation import ensure_object_body, parse_id, optional_text
 
 def assert_version(value, actual):
     if value is None:
-        return  # 兼容旧客户端；新确认流程必传库存版本和菜单版本。
+        raise validation_error('请提供记录版本，读取最新数据后再保存')
     try:
         parsed = datetime.fromisoformat(value.replace('Z', '+00:00'))
     except (ValueError, TypeError, AttributeError):

@@ -152,7 +152,7 @@ def build_schemas() -> dict:
                                      {"required": ["dish_ids"], "properties": {"dish_ids": DISH_IDS, "meal_plan_id": {"type": "null"}}},
                                  ], description="meal_plan_id 与 dish_ids 必须二选一；从方案创建时复制菜品。每道菜至少关联一项库存耗材或待购买食材；同一日期和餐次只能有一份菜单；预计用量可在草稿阶段补全，确认库存前必须完整。"),
         "DailyBattleUpdate": obj({"dish_ids": DISH_IDS, 'battle_date': DATE, 'meal_slot': MEAL_SLOT,
-                                   'preparations': array(ref('PreparationInput'), minItems=1, maxItems=500), 'expected_updated_at': TIME}, ['dish_ids', 'preparations']),
+                                   'preparations': array(ref('PreparationInput'), minItems=1, maxItems=500), 'expected_updated_at': TIME}, ['dish_ids', 'preparations', 'expected_updated_at']),
         "ActualUsage": obj(actual_usage, ["ingredient_id", "quantity_used_text", "expected_updated_at"]),
         "BattleConfirm": obj({"consumptions": array(ref('ActualUsage'), maxItems=500), 'expected_updated_at': TIME}, ["consumptions", "expected_updated_at"],
                              description="后端只在最终确认的同一事务内校验实际库存、写入消耗、调整库存并校验菜单与库存版本；客户端不得提交剩余库存。待购买食材必须先入库并关联为库存耗材。"),
