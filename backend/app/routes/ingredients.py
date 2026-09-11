@@ -73,14 +73,14 @@ async def batch(request:Request):
      choice=selected.get(int(old["id"]),{})
      if old["category"]!=x["category"] and not choice.get("category"):raise conflict("同名食材分类不同，请在弹窗中选择保留的分类")
      if old["stock_unit"]!=x["stock_unit"] and not choice.get("stock_unit"):raise conflict("同名食材单位不同，请在弹窗中选择统一单位")
-     category=choice.get("category") or old["category"];unit=choice.get("stock_unit") or old["stock_unit"]
+     category=choice.get("category") or old["category"];unit=choice.get("stock_unit") or old["stock_unit"];location=x.get("location") if x.get("location") is not None else old["location"]
      before=convert(Decimal(old["stock_value"]),old["stock_unit"],unit);incoming=convert(Decimal(x["stock_value"]),x["stock_unit"],unit)
      if before is None or incoming is None:
       if choice.get("final_stock_value") is None:raise conflict("这两个单位不能自动换算，请在弹窗填写合并后的实际库存")
       assert_version(required_text(choice.get("expected_updated_at"),"expected_updated_at",64),old["updated_at"])
       v=Decimal(choice["final_stock_value"]);text=choice["final_stock_text"]
      else:v=before+incoming;text=render(v)
-     row=await c.fetchrow("UPDATE ingredients SET category=$1,stock_text=$2,stock_value=$3,stock_unit=$4,updated_at=NOW() WHERE id=$5 RETURNING *",category,text,v,unit,old["id"])
+     row=await c.fetchrow("UPDATE ingredients SET category=$1,stock_text=$2,stock_value=$3,stock_unit=$4,location=$5,updated_at=NOW() WHERE id=$6 RETURNING *",category,text,v,unit,location,old["id"])
     out.append(dto(row))
  return created(out)
 @router.patch("/{ingredient_id}")

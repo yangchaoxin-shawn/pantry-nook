@@ -106,7 +106,7 @@ describe('写入结果与库存原文', () => {
   it('批量录入只发送一次，并按原样提交整批食材', async () => {
     const ingredients = [
       { name: '鸡蛋', category: '蛋白质' as const, stock_text: '6', stock_value: 6, stock_unit: '个' },
-      { name: '菠菜', category: '蔬菜' as const, stock_text: '300', stock_value: 300, stock_unit: 'g' },
+      { name: '菠菜', category: '蔬菜' as const, stock_text: '300', stock_value: 300, stock_unit: 'g', location: '冰箱冷藏' as const },
     ]
     fetchMock.mockResolvedValueOnce(json({ data: ingredients }, 201))
     await api.saveIngredientsBatch(ingredients)

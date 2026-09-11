@@ -64,6 +64,14 @@ def main():
     merged = ingredient(f"回归菠菜-{STAMP}", value=2)
     check("同名同单位自动累加", merged["id"] == stock["id"] and merged["stock_value"] == 5)
 
+    located = data("POST", "/api/ingredients/batch", {"items": [{
+        "name": f"位置菠菜-{STAMP}", "category": "蔬菜", "stock_text": "2", "stock_value": 2, "stock_unit": "把", "location": "冰箱冷藏",
+    }]}, 201)[0]
+    relocated = data("POST", "/api/ingredients/batch", {"items": [{
+        "name": located["name"], "category": "蔬菜", "stock_text": "1", "stock_value": 1, "stock_unit": "把", "location": "冰箱冷冻",
+    }]}, 201)[0]
+    check("批量存放位置写入且同名补货可更新", relocated["id"] == located["id"] and relocated["location"] == "冰箱冷冻")
+
     status, _ = request("POST", "/api/ingredients/batch", {"items": [{
         "name": stock["name"], "category": "碳水", "stock_text": "1", "stock_value": 1, "stock_unit": "个",
     }]})

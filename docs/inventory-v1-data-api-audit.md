@@ -104,7 +104,7 @@ InventoryItem
 
 1. Migration 先检测重复的 `active` 标准化名称；有重复即停止，不自动合并或删除。
 2. 在通过预检后创建唯一部分索引，并将旧库存字段收敛为 `stock_*`。
-3. `POST /api/ingredients/batch` 使用 `{ items, resolutions }`；单个记录复用这个 API。
+3. `POST /api/ingredients/batch` 使用 `{ items, resolutions }`；单个记录复用这个 API。批量页面将 `category`、`location` 作为整批共用选择，避免逐行重复填写。
 4. `POST /api/ingredients/{id}/waste` 记录变质/损坏；`GET /api/ingredients/{id}/adjustments` 读取记录；`POST /api/ingredients/adjustments/{adjustment_id}/revoke` 安全撤销。
 5. 菜单确认只提交每条实际用量和版本；后端在事务内计算 `stock_*`，并在消费历史中保存 `remaining_*` 快照。
 

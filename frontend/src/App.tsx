@@ -1068,6 +1068,7 @@ function IngredientBatchEditor({
     Array.from({ length: single ? 1 : 5 }, (_, index) => blankBatchIngredient(index + 1)),
   );
   const [batchCategory, setBatchCategory] = useState<IngredientCreate["category"]>("蔬菜");
+  const [batchLocation, setBatchLocation] = useState<IngredientCreate["location"]>(null);
   const [error, setError] = useState("");
   const [conflicts, setConflicts] = useState<InventoryConflict[]>([]);
   const [units, setUnits] = useState<Record<number, string>>({});
@@ -1096,6 +1097,7 @@ function IngredientBatchEditor({
       stock_text: row.quantity.trim(),
       stock_value: Number(row.quantity),
       stock_unit: row.unit.trim(),
+      location: batchLocation,
     }));
     const matches = ingredients.flatMap((item) => {
       const existing = existingIngredients.find((candidate) => candidate.name.trim().toLocaleLowerCase() === item.name.toLocaleLowerCase());
@@ -1115,7 +1117,7 @@ function IngredientBatchEditor({
     }
     save(ingredients, [], [], []);
   }
-  const draftIngredients = startedBatchRows(rows).map((row) => ({ name: row.name.trim(), category: batchCategory, stock_text: row.quantity.trim(), stock_value: Number(row.quantity), stock_unit: row.unit.trim() }));
+  const draftIngredients = startedBatchRows(rows).map((row) => ({ name: row.name.trim(), category: batchCategory, stock_text: row.quantity.trim(), stock_value: Number(row.quantity), stock_unit: row.unit.trim(), location: batchLocation }));
   if (conflicts.length) {
     const manualTotalMissing = conflicts.some(({ ingredient, incomingUnit }) => {
       const oldUnit = ingredient.stock_unit ?? ingredient.stock_unit ?? "";
@@ -1153,7 +1155,13 @@ function IngredientBatchEditor({
             {CATEGORIES.map((category) => <option key={category}>{category}</option>)}
           </select>
         </Field>
-        <p className="form-hint">{single ? `这一项食材会归到“${batchCategory}”。` : `下面填写的食材都会归到“${batchCategory}”。`}</p>
+        <Field label={single ? "这一项食材存放在" : "这一批食材存放在"}>
+          <select value={batchLocation ?? ""} onChange={(event) => setBatchLocation((event.target.value || null) as IngredientCreate["location"])}>
+            <option value="">暂不填写</option>
+            {LOCATIONS.map((location) => <option key={location} value={location}>{location}</option>)}
+          </select>
+        </Field>
+        <p className="form-hint">{single ? `这一项食材会归到“${batchCategory}”${batchLocation ? `，存放在“${batchLocation}”` : ""}。` : `下面填写的食材都会归到“${batchCategory}”${batchLocation ? `，存放在“${batchLocation}”` : ""}。`}</p>
       </div>
       <p className="form-hint">{single ? "填写名称、数量和单位后保存。" : "连续填写即可，空白行会自动忽略；保存时整批一起入库。"}</p>
       {error && <p className="form-error" role="alert">{error}</p>}
