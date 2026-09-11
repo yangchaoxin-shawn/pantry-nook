@@ -21,17 +21,16 @@ BASE = (sys.argv[1] if len(sys.argv) > 1 else "http://127.0.0.1:3000").rstrip("/
 
 INGREDIENTS = [
     {"name": "大米", "category": "碳水", "stock_text": "2", "stock_value": 2, "stock_unit": "kg", "location": "室温"},
-    {"name": "挂面", "category": "碳水", "stock_text": "3", "stock_value": 3, "stock_unit": "把", "location": "室温"},
     {"name": "鸡蛋", "category": "蛋白质", "stock_text": "10", "stock_value": 10, "stock_unit": "个", "location": "冰箱冷藏"},
     {"name": "鸡胸肉", "category": "蛋白质", "stock_text": "500", "stock_value": 500, "stock_unit": "g", "location": "冰箱冷藏"},
     {"name": "嫩豆腐", "category": "蛋白质", "stock_text": "2", "stock_value": 2, "stock_unit": "盒", "location": "冰箱冷藏"},
     {"name": "番茄", "category": "蔬菜", "stock_text": "6", "stock_value": 6, "stock_unit": "个", "location": "室温"},
-    {"name": "菠菜", "category": "蔬菜", "stock_text": "2", "stock_value": 2, "stock_unit": "把", "location": "冰箱冷藏"},
     {"name": "西兰花", "category": "蔬菜", "stock_text": "1", "stock_value": 1, "stock_unit": "个", "location": "冰箱冷藏"},
+    {"name": "胡萝卜", "category": "蔬菜", "stock_text": "3", "stock_value": 3, "stock_unit": "个", "location": "冰箱冷藏"},
     {"name": "苹果", "category": "水果", "stock_text": "4", "stock_value": 4, "stock_unit": "个", "location": "室温"},
 ]
 
-DISH_NAMES = ["番茄炒鸡蛋", "清炒菠菜", "香煎鸡胸肉", "白灼西兰花", "番茄豆腐汤"]
+DISH_NAMES = ["番茄炒鸡蛋", "香煎鸡胸肉", "白灼西兰花", "番茄豆腐汤", "菠萝炒饭", "胡萝卜炒鸡蛋"]
 
 
 def request(method: str, path: str, payload=None) -> tuple[int, dict]:
@@ -95,9 +94,8 @@ def main() -> None:
     ingredients = create_ingredients()
     dishes = create_dishes()
     plans = {
-        "快手晚餐": create_plan("快手晚餐", [dishes["番茄炒鸡蛋"], dishes["清炒菠菜"]]),
+        "家常晚餐": create_plan("家常晚餐", [dishes["番茄炒鸡蛋"], dishes["番茄豆腐汤"]]),
         "轻食组合": create_plan("轻食组合", [dishes["香煎鸡胸肉"], dishes["白灼西兰花"]]),
-        "家常汤菜": create_plan("家常汤菜", [dishes["番茄豆腐汤"], dishes["清炒菠菜"]]),
     }
 
     today = date.today()
@@ -118,12 +116,24 @@ def main() -> None:
         {"dish_id": dishes["白灼西兰花"]["id"], "ingredient_id": ingredients["西兰花"]["id"], "planned_quantity_text": "1个"},
     ])
 
+    shopping = create_battle(today + timedelta(days=1), "lunch", [dishes["菠萝炒饭"]["id"]], [
+        {"dish_id": dishes["菠萝炒饭"]["id"], "ingredient_id": ingredients["大米"]["id"], "planned_quantity_text": "0.3kg"},
+        {"dish_id": dishes["菠萝炒饭"]["id"], "pending_ingredient_name": "菠萝", "planned_quantity_text": "1个"},
+    ])
+
+    shortage = create_battle(today + timedelta(days=2), "dinner", [dishes["胡萝卜炒鸡蛋"]["id"]], [
+        {"dish_id": dishes["胡萝卜炒鸡蛋"]["id"], "ingredient_id": ingredients["胡萝卜"]["id"], "planned_quantity_text": "4个"},
+        {"dish_id": dishes["胡萝卜炒鸡蛋"]["id"], "ingredient_id": ingredients["鸡蛋"]["id"], "planned_quantity_text": "2个"},
+    ])
+
     print("已写入本地测试数据：")
-    print("- 库存：9 种食材；鸡蛋剩 8 个，番茄剩 4 个。")
-    print("- 菜品：5 道；常用搭配：3 个。")
+    print("- 库存：8 种食材；鸡蛋剩 8 个，番茄剩 4 个，胡萝卜 3 个。")
+    print("- 菜品：6 道；常用搭配：2 个。")
     print(f"- 历史：{(today - timedelta(days=2)).isoformat()} 晚餐已完成；{(today - timedelta(days=1)).isoformat()} 午餐已取消。")
-    print(f"- 待完成：{today.isoformat()} 晚餐“香煎鸡胸肉 + 白灼西兰花”，可直接进入核对并确认。")
-    print(f"- 记录 ID：已完成 {completed['id']}，已取消 {cancelled['id']}，待完成 {pending['id']}。")
+    print(f"- 正常核对：{today.isoformat()} 晚餐“香煎鸡胸肉 + 白灼西兰花”。")
+    print(f"- 待购买：{(today + timedelta(days=1)).isoformat()} 午餐“菠萝炒饭”，菠萝尚未入库。")
+    print(f"- 库存不足：{(today + timedelta(days=2)).isoformat()} 晚餐“胡萝卜炒鸡蛋”，计划 4 个胡萝卜、库存 3 个。")
+    print(f"- 记录 ID：已完成 {completed['id']}，已取消 {cancelled['id']}，正常 {pending['id']}，待购买 {shopping['id']}，库存不足 {shortage['id']}。")
     print(f"- 搭配 ID：" + "，".join(f"{name} {plan['id']}" for name, plan in plans.items()))
 
 
