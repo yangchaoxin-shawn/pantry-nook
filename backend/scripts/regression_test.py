@@ -90,9 +90,25 @@ def main():
 
     dish = data("POST", "/api/dishes", {"name": f"回归菜-{STAMP}"}, 201)
     plan = data("POST", "/api/meal-plans", {"name": f"回归搭配-{STAMP}", "dish_ids": [dish["id"]]}, 201)
+    status, body = request("POST", "/api/meal-plans", {"name": f"重复内容-{STAMP}", "dish_ids": [dish["id"]]})
+    check("相同菜品集合不能重复创建", status == 409 and body["error"]["code"] == "CONFLICT")
+    other_dish = data("POST", "/api/dishes", {"name": f"回归副菜-{STAMP}"}, 201)
+    status, body = request("POST", "/api/meal-plans", {"name": f"回归搭配-{STAMP}", "dish_ids": [other_dish["id"]]})
+    check("相同搭配名称不能重复创建", status == 409 and body["error"]["code"] == "CONFLICT")
+    other_plan = data("POST", "/api/meal-plans", {"name": f"另一搭配-{STAMP}", "dish_ids": [other_dish["id"]]}, 201)
+    status, body = request("PATCH", f"/api/meal-plans/{other_plan['id']}", {"dish_ids": [dish["id"]]})
+    check("编辑后不能与其他搭配相同", status == 409 and body["error"]["code"] == "CONFLICT")
+    concurrent_payloads = [
+        {"name": f"并发搭配甲-{STAMP}", "dish_ids": [dish["id"], other_dish["id"]]},
+        {"name": f"并发搭配乙-{STAMP}", "dish_ids": [other_dish["id"], dish["id"]]},
+    ]
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        concurrent_codes = sorted(executor.map(lambda payload: request("POST", "/api/meal-plans", payload)[0], concurrent_payloads))
+    check("同时保存相同菜品集合只有一次成功", concurrent_codes == [201, 409])
     status, _ = request("DELETE", f"/api/dishes/{dish['id']}")
     check("搭配引用菜品不能删除", status == 409)
-    check("菜品可查询引用搭配", data("GET", f"/api/dishes/{dish['id']}/meal-plans")[0]["id"] == plan["id"])
+    referenced_plans = data("GET", f"/api/dishes/{dish['id']}/meal-plans")
+    check("菜品可查询引用搭配", any(item["id"] == plan["id"] for item in referenced_plans))
 
     battle = data("POST", "/api/daily-battles", {
         "battle_date": "2026-09-10", "meal_slot": "dinner", "dish_ids": [dish["id"]],

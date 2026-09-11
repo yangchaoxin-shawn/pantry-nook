@@ -4373,7 +4373,8 @@
         },
         "required": [
           "dish_ids"
-        ]
+        ],
+        "description": "菜品集合与已有搭配相同时返回 409，菜品顺序不影响重复判断；非空名称同样保持唯一。"
       },
       "MealPlanUpdate": {
         "type": "object",
@@ -4403,6 +4404,7 @@
         },
         "required": [],
         "minProperties": 1,
+        "description": "更新后不得与其他搭配拥有相同菜品集合或相同非空名称。",
         "not": {
           "properties": {
             "name": false,

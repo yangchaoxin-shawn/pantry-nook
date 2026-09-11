@@ -75,7 +75,7 @@ uv run python scripts/seed_demo_data.py
 ## 当前覆盖范围
 
 - `smoke_test.py`：库存报废与安全撤销、搭配引用保护、菜单确认/撤销的最短真实链路。
-- `regression_test.py`：同名入库合并与分类冲突选择、批量原子性、搭配引用、待完成菜单的库存保护、确认事务、重复确认和撤销历史。
+- `regression_test.py`：同名入库合并与分类冲突选择、批量原子性、搭配内容/名称唯一及并发保存、搭配引用、待完成菜单的库存保护、确认事务、重复确认和撤销历史。
 - `menu_workflow_test.py`：每道菜先贴库存耗材或待购买食材、草稿允许稍后补预计量、待购买项补货后关联库存、菜单版本校验、实际用量核对、库存版本冲突整体回滚、确认和撤销恢复。
 - `tests/test_api_contract.py`：统一错误结构与已归档 OpenAPI 契约。
 
@@ -84,6 +84,8 @@ uv run python scripts/seed_demo_data.py
 ```powershell
 uv run python scripts/migration_rehearsal.py .backups/<升级前备份>.dump
 ```
+
+验证 008 对历史重复搭配的合并时增加 `--expect-plan-deduplication`；该模式同时检查菜单引用转移、无关业务数据保持及迁移重复执行。
 
 ## 实现边界
 

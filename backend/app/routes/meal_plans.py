@@ -7,14 +7,32 @@ from __future__ import annotations
 
 from typing import Any
 
+import asyncpg
 from fastapi import APIRouter, Request
 
 from ..db import get_pool
-from ..errors import not_found, validation_error
+from ..errors import conflict, not_found, validation_error
 from ..responses import created, ok
 from ..validation import ensure_object_body, optional_text, pagination, parse_id
 
 router = APIRouter()
+
+
+def plan_signature(ids: list[int]) -> str:
+    """菜品集合决定搭配身份；显示顺序不参与重复判断。"""
+    return ",".join(str(id_) for id_ in sorted(ids))
+
+
+def public_plan(row: dict) -> dict:
+    result = dict(row)
+    result.pop("dish_signature", None)
+    return result
+
+
+def duplicate_conflict(exc: asyncpg.UniqueViolationError):
+    if exc.constraint_name == "meal_plans_normalized_name_unique":
+        return conflict("搭配名称已经存在，请编辑原搭配或换一个名称")
+    return conflict("已经存在相同菜品组合，请直接使用或编辑原搭配")
 
 
 def dish_ids(value: Any) -> list[int]:
@@ -47,6 +65,26 @@ async def _find_dishes(pool, ids: list[int]) -> None:
         raise not_found("菜品")
 
 
+async def _assert_unique(pool, name: str | None, signature: str, exclude_id: int | None = None) -> None:
+    same_dishes = await pool.fetchrow(
+        "SELECT id, name FROM meal_plans WHERE dish_signature = $1 AND ($2::bigint IS NULL OR id <> $2) LIMIT 1",
+        signature,
+        exclude_id,
+    )
+    if same_dishes is not None:
+        label = same_dishes["name"] or "未命名搭配"
+        raise conflict(f"已经存在相同搭配“{label}”，请直接使用或编辑")
+    if name is None:
+        return
+    same_name = await pool.fetchrow(
+        "SELECT id FROM meal_plans WHERE LOWER(btrim(name)) = LOWER(btrim($1)) AND ($2::bigint IS NULL OR id <> $2) LIMIT 1",
+        name,
+        exclude_id,
+    )
+    if same_name is not None:
+        raise conflict(f"搭配名称“{name}”已经存在，请编辑原搭配或换一个名称")
+
+
 async def _get_plan(pool, id_: int, lock: bool = False) -> dict:
     if lock:
         locked = await pool.fetchrow("SELECT id FROM meal_plans WHERE id = $1 FOR UPDATE", id_)
@@ -71,7 +109,7 @@ async def _get_plan(pool, id_: int, lock: bool = False) -> dict:
     )
     if len(rows) == 0:
         raise not_found("搭配方案")
-    return dict(rows[0])
+    return public_plan(dict(rows[0]))
 
 
 @router.get("")
@@ -103,6 +141,7 @@ async def list_plans(request: Request):
     items = [dict(r) for r in rows]
     for item in items:
         item.pop("total_count", None)
+        item.pop("dish_signature", None)
     return ok(items, {"total": int(total), "limit": limit, "offset": offset})
 
 
@@ -118,16 +157,25 @@ async def create_plan(request: Request):
     body = ensure_object_body(await request.json())
     input_ = plan_input(body)
     pool = await get_pool()
-    async with pool.acquire() as conn:
-        async with conn.transaction():
-            await _find_dishes(conn, input_["dish_ids"])
-            plan = await conn.fetchrow("INSERT INTO meal_plans (name) VALUES ($1) RETURNING id", input_.get("name"))
-            for position, dish_id in enumerate(input_["dish_ids"]):
-                await conn.execute(
-                    "INSERT INTO meal_plan_dishes (meal_plan_id, dish_id, position) VALUES ($1, $2, $3)",
-                    plan["id"], dish_id, position,
+    signature = plan_signature(input_["dish_ids"])
+    try:
+        async with pool.acquire() as conn:
+            async with conn.transaction():
+                await _find_dishes(conn, input_["dish_ids"])
+                await _assert_unique(conn, input_.get("name"), signature)
+                plan = await conn.fetchrow(
+                    "INSERT INTO meal_plans (name, dish_signature) VALUES ($1, $2) RETURNING id",
+                    input_.get("name"),
+                    signature,
                 )
-            result = await _get_plan(conn, plan["id"])
+                for position, dish_id in enumerate(input_["dish_ids"]):
+                    await conn.execute(
+                        "INSERT INTO meal_plan_dishes (meal_plan_id, dish_id, position) VALUES ($1, $2, $3)",
+                        plan["id"], dish_id, position,
+                    )
+                result = await _get_plan(conn, plan["id"])
+    except asyncpg.UniqueViolationError as exc:
+        raise duplicate_conflict(exc) from exc
     return created(result)
 
 
@@ -137,25 +185,32 @@ async def update_plan(plan_id: int, request: Request):
     body = ensure_object_body(await request.json())
     input_ = plan_input(body, partial=True)
     pool = await get_pool()
-    async with pool.acquire() as conn:
-        async with conn.transaction():
-            await _get_plan(conn, pid, lock=True)
-            if "dish_ids" in input_:
-                await _find_dishes(conn, input_["dish_ids"])
-                await conn.execute("DELETE FROM meal_plan_dishes WHERE meal_plan_id = $1", pid)
-                for position, dish_id in enumerate(input_["dish_ids"]):
-                    await conn.execute(
-                        "INSERT INTO meal_plan_dishes (meal_plan_id, dish_id, position) VALUES ($1, $2, $3)",
-                        pid, dish_id, position,
-                    )
-            if "name" in input_:
+    try:
+        async with pool.acquire() as conn:
+            async with conn.transaction():
+                current = await _get_plan(conn, pid, lock=True)
+                final_ids = input_.get("dish_ids", [dish["id"] for dish in current["dishes"]])
+                final_name = input_.get("name", current["name"])
+                signature = plan_signature(final_ids)
+                if "dish_ids" in input_:
+                    await _find_dishes(conn, final_ids)
+                await _assert_unique(conn, final_name, signature, pid)
+                if "dish_ids" in input_:
+                    await conn.execute("DELETE FROM meal_plan_dishes WHERE meal_plan_id = $1", pid)
+                    for position, dish_id in enumerate(final_ids):
+                        await conn.execute(
+                            "INSERT INTO meal_plan_dishes (meal_plan_id, dish_id, position) VALUES ($1, $2, $3)",
+                            pid, dish_id, position,
+                        )
                 await conn.execute(
-                    "UPDATE meal_plans SET name = $1, updated_at = NOW() WHERE id = $2",
-                    input_["name"], pid,
+                    "UPDATE meal_plans SET name = $1, dish_signature = $2, updated_at = NOW() WHERE id = $3",
+                    final_name,
+                    signature,
+                    pid,
                 )
-            elif "dish_ids" in input_:
-                await conn.execute("UPDATE meal_plans SET updated_at = NOW() WHERE id = $1", pid)
-            result = await _get_plan(conn, pid)
+                result = await _get_plan(conn, pid)
+    except asyncpg.UniqueViolationError as exc:
+        raise duplicate_conflict(exc) from exc
     return ok(result)
 
 
@@ -166,4 +221,4 @@ async def delete_plan(plan_id: int):
     result = await pool.fetchrow("DELETE FROM meal_plans WHERE id = $1 RETURNING *", pid)
     if result is None:
         raise not_found("搭配方案")
-    return ok(result)
+    return ok(public_plan(dict(result)))

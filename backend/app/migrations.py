@@ -33,13 +33,14 @@ async def _is_current_schema(conn) -> bool:
              FROM information_schema.columns
             WHERE table_schema = 'public'
               AND table_name = ANY($1::text[])""",
-        ["ingredients", "daily_battles", "daily_battle_preparations"],
+        ["ingredients", "meal_plans", "daily_battles", "daily_battle_preparations"],
     )
     present = {(row["table_name"], row["column_name"]) for row in columns}
     required = {
         ("ingredients", "stock_text"),
         ("ingredients", "stock_value"),
         ("ingredients", "stock_unit"),
+        ("meal_plans", "dish_signature"),
         ("daily_battles", "meal_slot"),
         ("daily_battle_preparations", "pending_ingredient_name"),
     }

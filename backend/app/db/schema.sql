@@ -40,9 +40,11 @@ ALTER TABLE ingredients
 CREATE TABLE IF NOT EXISTS meal_plans (
   id BIGSERIAL PRIMARY KEY,
   name VARCHAR(255),
+  dish_signature TEXT NOT NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  CONSTRAINT meal_plans_name_check CHECK (name IS NULL OR btrim(name) <> '')
+  CONSTRAINT meal_plans_name_check CHECK (name IS NULL OR btrim(name) <> ''),
+  CONSTRAINT meal_plans_dish_signature_check CHECK (btrim(dish_signature) <> '')
 );
 
 CREATE TABLE IF NOT EXISTS meal_plan_dishes (
@@ -153,6 +155,8 @@ ALTER TABLE consumptions
 CREATE UNIQUE INDEX IF NOT EXISTS dishes_active_name_idx
   ON dishes (LOWER(btrim(name)))
   WHERE deleted_at IS NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS meal_plans_dish_signature_unique ON meal_plans (dish_signature);
+CREATE UNIQUE INDEX IF NOT EXISTS meal_plans_normalized_name_unique ON meal_plans (LOWER(btrim(name))) WHERE name IS NOT NULL;
 
 CREATE INDEX IF NOT EXISTS ingredients_status_idx ON ingredients(status);
 CREATE INDEX IF NOT EXISTS ingredients_category_idx ON ingredients(category);

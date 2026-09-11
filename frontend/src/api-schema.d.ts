@@ -718,10 +718,12 @@ export interface components {
             /** @description 去除首尾空白后不能为空。 */
             name: string;
         };
+        /** @description 菜品集合与已有搭配相同时返回 409，菜品顺序不影响重复判断；非空名称同样保持唯一。 */
         MealPlanCreate: {
             name?: string | null;
             dish_ids: number[];
         };
+        /** @description 更新后不得与其他搭配拥有相同菜品集合或相同非空名称。 */
         MealPlanUpdate: {
             name?: string | null;
             dish_ids?: number[];
