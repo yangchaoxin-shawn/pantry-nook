@@ -140,15 +140,18 @@ const stockLabel = (ingredient?: Ingredient) => {
     ? `${text}${unit}`
     : text;
 };
+const quantityLabel = (value: number, unit: string | null | undefined) => `${value}${unit ?? ''}`;
 type ReviewSnapshot = { battle: Battle; ingredients: Ingredient[] };
 export function MenuConfirm({ battleId, busy, save, onPending, onEdit }: { battleId: number; busy: boolean; onPending: (pending: boolean) => void; save: (payload: BattleConfirm) => Promise<void>; onEdit: () => void }) {
   const [snapshot, setSnapshot] = useState<ReviewSnapshot | null>(null);
   const latest = useRef<ReviewSnapshot | null>(null);
   const lastReservationAt = useRef(0);
+  const reservationState = useRef<'idle' | 'locked' | 'blocked'>('idle');
   const [originalMenuVersion, setOriginalMenuVersion] = useState<string | null>(null);
   const submitting = useRef(false);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState('');
+  const [reviewIssue, setReviewIssue] = useState('');
   const [notice, setNotice] = useState('');
   const [retry, setRetry] = useState(0);
   const [rows, setRows] = useState<Usage[]>([]);
@@ -156,15 +159,13 @@ export function MenuConfirm({ battleId, busy, save, onPending, onEdit }: { battl
   useEffect(() => {
     const controller = new AbortController();
     let reading = false;
+    latest.current = null;
+    lastReservationAt.current = 0;
+    reservationState.current = 'idle';
     async function refresh() {
       if (reading || submitting.current || document.visibilityState === 'hidden') return;
       reading = true;
       try {
-        // 锁定只占用可用量。打开时创建，停留较久时续期，避免核对中途过期。
-        if (!latest.current || Date.now() - lastReservationAt.current > 5 * 60_000) {
-          await api.startBattleReview(battleId);
-          lastReservationAt.current = Date.now();
-        }
         const [result, ingredients] = await Promise.all([api.battle(battleId, controller.signal), api.ingredients(controller.signal)]);
         if (controller.signal.aborted || submitting.current) return;
         const battle = result.data;
@@ -183,6 +184,25 @@ export function MenuConfirm({ battleId, busy, save, onPending, onEdit }: { battl
         latest.current = { battle, ingredients };
         setSnapshot(latest.current);
         setError('');
+
+        // 先展示最新库存，再尝试锁定。锁定失败时，用户仍能看见是哪种食材、
+        // 菜单填了多少，以及目前还能用多少，而不是只得到一句抽象报错。
+        const needsReservation = reservationState.current !== 'locked' || Date.now() - lastReservationAt.current > 5 * 60_000;
+        if (needsReservation && reservationState.current !== 'blocked') {
+          try {
+            await api.startBattleReview(battleId);
+            if (!controller.signal.aborted) {
+              reservationState.current = 'locked';
+              lastReservationAt.current = Date.now();
+              setReviewIssue('');
+            }
+          } catch (lockError) {
+            if (!controller.signal.aborted) {
+              reservationState.current = 'blocked';
+              setReviewIssue(message(lockError));
+            }
+          }
+        }
       } catch (e) {
         if (!controller.signal.aborted && !submitting.current) setError(message(e));
       } finally { reading = false; }
@@ -222,9 +242,20 @@ export function MenuConfirm({ battleId, busy, save, onPending, onEdit }: { battl
     totals.set(row.ingredient_id, { ingredient, used: (total?.used ?? 0) + used });
   }
   const insufficient = [...totals.values()].some(({ ingredient, used }) => ingredient.stock_value !== null && used > ingredient.stock_value);
+  const plannedTotals = new Map<number, number>();
+  for (const row of rows) {
+    const ingredient = ingredients.find((item) => item.id === row.ingredient_id);
+    const planned = usageValue(initialUsage(row.planned_quantity_text, ingredient?.stock_unit ?? row.unit));
+    if (planned !== null) plannedTotals.set(row.ingredient_id, (plannedTotals.get(row.ingredient_id) ?? 0) + planned);
+  }
+  const reviewShortages = ingredients.filter((ingredient) => {
+    const planned = plannedTotals.get(ingredient.id);
+    return planned !== undefined && planned > ingredient.available_value;
+  });
+  const cannotConfirm = !!reviewIssue || unavailable || invalidUsage || nonCalculable.length > 0 || insufficient || menuChanged || unitChanged;
   async function submit(e: FormEvent) {
     e.preventDefault();
-    if (submitting.current || processed || menuChanged || unitChanged || unavailable || invalidUsage || nonCalculable.length || insufficient || (!rows.length && !without)) return;
+    if (submitting.current || processed || cannotConfirm || (!rows.length && !without)) return;
     submitting.current = true; setSending(true); onPending(true); setError('');
     try {
       // 提交前再读一次；这里的检查不能代替后端事务内的版本校验。
@@ -266,23 +297,33 @@ export function MenuConfirm({ battleId, busy, save, onPending, onEdit }: { battl
       {!processed && menuChanged && <p className="form-error" role="alert">菜单已被修改，请关闭后重新打开核对。</p>}
       {!processed && notice && <p className="form-notice" role="status">{notice}</p>}
       {error && <p className="form-error" role="alert">{error}<button type="button" className="text-button" onClick={() => setRetry(r => r + 1)}>重新读取</button></p>}
-      {unavailable && <p className="form-notice" role="status">有食材已经用完或报废，无法在本餐继续扣减。请返回编辑菜单处理。</p>}
+      {!processed && reviewIssue && <div className="review-summary review-summary--blocked" role="alert">
+        <strong>暂时不能核对这餐</strong>
+        <span>{reviewIssue}</span>
+        <ul>
+          {rows.filter((row, index, all) => !ingredients.some((item) => item.id === row.ingredient_id) && all.findIndex((item) => item.ingredient_id === row.ingredient_id) === index).map((row) => <li key={`missing-${row.ingredient_id}`}>{row.ingredient_name}：已不在库</li>)}
+          {reviewShortages.map((ingredient) => <li key={`short-${ingredient.id}`}>{ingredient.name}：菜单预计 {quantityLabel(plannedTotals.get(ingredient.id) ?? 0, ingredient.stock_unit)}，当前可用 {quantityLabel(ingredient.available_value, ingredient.stock_unit)}</li>)}
+        </ul>
+        <span className="review-summary-action">请返回编辑菜单调整预计量、替换食材，或先补货。</span>
+      </div>}
       {unitChanged && <p className="form-error" role="alert">库存单位已改变，请按新单位重新填写实际用量。</p>}
       {battle.dishes.map((d) => (
-        <fieldset key={d.id} disabled={sending || processed || menuChanged}>
+        <fieldset key={d.id} disabled={sending || processed || menuChanged || !!reviewIssue}>
           <legend>{d.name}</legend>
           {rows
             .filter((r) => r.daily_battle_dish_id === d.id)
             .map((r) => {
               const i = ingredients.find((item) => item.id === r.ingredient_id);
               const rowInsufficient = i && totals.get(r.ingredient_id)?.used && i.stock_value !== null && totals.get(r.ingredient_id)!.used > i.stock_value;
+              const rowPlannedShortage = !!reviewIssue && i && (plannedTotals.get(r.ingredient_id) ?? 0) > i.available_value;
               return (
                 <div className="confirm-usage-row" key={r.key}>
                   <div className="confirm-usage-meta">
                     <strong>{i?.name ?? r.ingredient_name}</strong>
-                    {i ? <span className="muted">计划 {r.planned_quantity_text} · 库存 {stockLabel(i)}</span> : <span className="muted">计划 {r.planned_quantity_text} · 已不在库</span>}
-                    {!i && <p className="form-hint">请返回编辑菜单，替换或移除此食材。</p>}
-                    {rowInsufficient && <p className="form-hint">当前库存不足，请把本餐该食材的实际用量改到库存范围内。</p>}
+                    {i ? <span className="muted">菜单预计 {r.planned_quantity_text} · 当前库存 {stockLabel(i)}</span> : <span className="muted">菜单预计 {r.planned_quantity_text} · 已不在库</span>}
+                    {!i && <p className="confirm-row-status">已不在库。请返回编辑菜单替换或移除此食材。</p>}
+                    {rowPlannedShortage && <p className="confirm-row-status">菜单预计 {quantityLabel(plannedTotals.get(r.ingredient_id) ?? 0, i?.stock_unit)}，当前可用 {quantityLabel(i.available_value, i.stock_unit)}。</p>}
+                    {rowInsufficient && <p className="confirm-row-status">本餐实际填写 {quantityLabel(totals.get(r.ingredient_id)?.used ?? 0, i?.stock_unit)}，当前库存只有 {stockLabel(i)}。</p>}
                   </div>
                   <div className="confirm-usage-input">
                     <label className="field">
@@ -324,10 +365,10 @@ export function MenuConfirm({ battleId, busy, save, onPending, onEdit }: { battl
       )}
       {invalidUsage && <p className="form-error" role="alert">实际用量可填 1、0.5、1/2 或 1/3；单位已标在标题中。</p>}
       {nonCalculable.length > 0 && <p className="form-error" role="alert">{nonCalculable.map((i) => i.name).join('、')}缺少可计算的库存数量或单位，请先到库存详情补全后再确认。</p>}
-      {(unavailable || insufficient || menuChanged || unitChanged) && <button type="button" className="btn-ghost" onClick={onEdit}>返回编辑菜单</button>}
+      {(reviewIssue || unavailable || insufficient || menuChanged || unitChanged) && <button type="button" className="btn-ghost" onClick={onEdit}>返回编辑菜单</button>}
       <button
         className="btn-primary"
-        disabled={busy || sending || !!error || processed || menuChanged || unitChanged || unavailable || invalidUsage || nonCalculable.length > 0 || insufficient || (!rows.length && !without)}
+        disabled={busy || sending || !!error || processed || cannotConfirm || (!rows.length && !without)}
       >
         {busy || sending ? '正在确定…' : '确定'}
       </button>

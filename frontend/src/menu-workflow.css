@@ -44,6 +44,12 @@
 .confirm-usage-meta strong, .confirm-usage-meta .muted { overflow-wrap: anywhere; }
 .confirm-usage-input .field { margin: 0; }
 .confirm-usage-input input { width: 100%; height: 42px; padding: 8px 10px; }
+.review-summary { display: grid; gap: 7px; padding: 13px 14px; margin: 0 0 16px; border-radius: 12px; font-size: 13px; line-height: 1.55; }
+.review-summary--blocked { color: var(--ink); background: var(--primary-50); border: 1px solid var(--primary-100); }
+.review-summary strong { font-size: 14px; }
+.review-summary ul { margin: 1px 0; padding-left: 18px; }
+.review-summary-action { color: var(--ink-soft); }
+.confirm-row-status { margin: 2px 0 0; color: var(--primary); font-size: 12px; line-height: 1.6; }
 @media (max-width: 768px) {
   .navigation { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .menu-order { padding: 16px; }
