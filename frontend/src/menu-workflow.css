@@ -25,11 +25,11 @@
 .menu-secondary-option[open] summary { margin-bottom: 8px; }
 .dish-choice-list { display: flex; flex-wrap: wrap; gap: 6px; max-height: 200px; overflow: auto; }
 .dish-choice-list .choice { margin: 0; }
-.prep-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(100px, 1fr) auto; align-items: center; gap: 8px; margin: 8px 0; font-size: 13px; }
+.prep-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(150px, 1fr) auto; align-items: end; gap: 8px; margin: 8px 0; font-size: 13px; }
 .prep-row > span { overflow-wrap: anywhere; }
-.prep-row input { height: 40px; padding: 8px; }
-.prep-row select { min-width: 0; height: 40px; }
-.prep-row:has(> select) { grid-template-columns: minmax(0, 1fr) minmax(120px, 1fr) minmax(100px, 1fr) auto; }
+.prep-row .field { min-width: 0; margin: 0; }
+.prep-row input, .prep-row select { min-width: 0; height: 40px; padding: 8px; }
+.prep-row--pending { grid-template-columns: repeat(3, minmax(0, 1fr)) auto; }
 .prep-add-actions { align-items: end; margin: 0 0 8px; }
 .prep-add-actions .field { flex: 1; margin: 0; }
 .prep-shortage { display: block; margin-top: 3px; color: var(--primary); font-weight: 400; }
@@ -66,14 +66,15 @@
   .history-filter input { font-size: 12px; width: 130px; }
   .history-filter { gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
   .menu-order .actions .btn-primary { width: 100%; justify-content: center; }
-  .prep-row, .prep-row:has(> select) { grid-template-columns: minmax(0, 1fr) auto; }
+  .prep-row, .prep-row--pending { grid-template-columns: minmax(0, 1fr) auto; }
   .confirm-usage-row { grid-template-columns: 1fr; gap: 8px; }
   .confirm-usage-meta { padding-bottom: 0; }
-  .prep-row input { grid-column: 1; grid-row: 2; }
-  .prep-row button { grid-column: 2; grid-row: 2; }
-  .prep-row:has(> select) select, .prep-row:has(> select) input { grid-column: 1; }
-  .prep-row:has(> select) select { grid-row: 2; }
-  .prep-row:has(> select) input { grid-row: 3; }
+  .prep-row--inventory > span { grid-column: 1 / -1; }
+  .prep-row--inventory .field { grid-column: 1; grid-row: 2; }
+  .prep-row--inventory button { grid-column: 2; grid-row: 2; }
+  .prep-row--pending .field { grid-column: 1; }
+  .prep-row--pending .prep-link { grid-row: 3; }
+  .prep-row--pending button { grid-column: 2; grid-row: 3; }
   .inline-dish-add { flex-wrap: wrap; }
   .inline-dish-add .field { flex-basis: 100%; }
 }
