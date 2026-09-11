@@ -34,6 +34,18 @@ uv run python -m unittest discover -s tests -v
 
 回归和冒烟测试依次执行。测试仅通过业务接口取消自己创建的未确认计划，保留测试历史，不删除数据。存在其他 planned 记录时拒绝开始，以免影响浏览器验证或其他测试。需要空数据态时启动一个新的隔离数据库，不调用 reset。
 
+## 本地人工验收数据
+
+需要把本地开发库整理为一组可连续操作的演示数据时，先完成备份，再清空并写入：
+
+```powershell
+uv run python scripts/migrate_db.py
+uv run python scripts/reset_data.py --yes
+uv run python scripts/seed_demo_data.py
+```
+
+这组数据通过真实 API 创建，包含 9 种库存、5 道菜、3 个搭配，以及一条已完成、一条已取消和一条待确认菜单。待确认菜单已贴好耗材，可直接走“核对用料 → 确认”来检查库存扣除。脚本不自行清库；重复运行会失败，避免悄悄混入重复数据。
+
 ## 当前覆盖范围
 
 - `smoke_test.py`：库存报废与安全撤销、搭配引用保护、菜单确认/撤销的最短真实链路。

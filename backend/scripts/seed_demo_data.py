@@ -1,339 +1,135 @@
-"""Insert realistic demo data for local preview.
+"""通过当前真实 API 写入一组可人工验收的本地测试数据。
 
-运行方式（默认连接 backend/.env）：
-uv run python scripts/seed_demo_data.py
+运行前：先备份并清空业务测试数据，再启动本地 API。
+  uv run python scripts/migrate_db.py
+  uv run python scripts/reset_data.py --yes
+  uv run python scripts/seed_demo_data.py [http://127.0.0.1:3000]
 
-规则：
-- 同名数据优先复用，减少重复写入。
-- 插入库存、菜品、搭配方案、今日作战。
-- 为两场作战补一组 confirmed 消耗，保持库存快照一致。
+本脚本不清库、不使用 SQL 绕过业务规则；重复运行会因同名数据而失败。
 """
 
 from __future__ import annotations
 
-import asyncio
-from datetime import date, datetime, timedelta, timezone
-from decimal import Decimal
-from pathlib import Path
-import os
-
-import asyncpg
-from dotenv import load_dotenv
+from datetime import date, timedelta
+import json
+import sys
+import urllib.error
+import urllib.request
 
 
-load_dotenv(Path(__file__).resolve().parent.parent / ".env")
+BASE = (sys.argv[1] if len(sys.argv) > 1 else "http://127.0.0.1:3000").rstrip("/")
 
-DB_HOST = os.getenv("DB_HOST", "localhost")
-DB_PORT = int(os.getenv("DB_PORT", "5432"))
-DB_NAME = os.getenv("DB_NAME", "pantry_nook")
-DB_USER = os.getenv("DB_USER", "postgres")
-DB_PASSWORD = os.getenv("DB_PASSWORD", "")
-
-
-def to_decimal(value: int | float | str | Decimal | None) -> Decimal | None:
-    if value is None:
-        return None
-    return Decimal(str(value))
-
-
-INGREDIENT_DEMO = [
-    {"name": "大米", "category": "碳水", "quantity_text": "2kg", "quantity_value": "2", "quantity_unit": "kg", "remaining_text": "2kg", "remaining_value": "2", "location": "室温", "purchase_date": date.today() - timedelta(days=2)},
-    {"name": "鸡蛋", "category": "蛋白质", "quantity_text": "12个", "quantity_value": "12", "quantity_unit": "个", "remaining_text": "12个", "remaining_value": "12", "location": "冰箱冷藏", "purchase_date": date.today() - timedelta(days=1)},
-    {"name": "番茄", "category": "蔬菜", "quantity_text": "4个", "quantity_value": "4", "quantity_unit": "个", "remaining_text": "4个", "remaining_value": "4", "location": "室温", "purchase_date": date.today() - timedelta(days=1)},
-    {"name": "菠菜", "category": "蔬菜", "quantity_text": "600g", "quantity_value": "600", "quantity_unit": "g", "remaining_text": "600g", "remaining_value": "600", "location": "冰箱冷藏", "purchase_date": date.today() - timedelta(days=1)},
-    {"name": "三文鱼排", "category": "蛋白质", "quantity_text": "700g", "quantity_value": "700", "quantity_unit": "g", "remaining_text": "700g", "remaining_value": "700", "location": "冰箱冷冻", "purchase_date": date.today() - timedelta(days=1)},
+INGREDIENTS = [
+    {"name": "大米", "category": "碳水", "stock_text": "2", "stock_value": 2, "stock_unit": "kg", "location": "室温"},
+    {"name": "挂面", "category": "碳水", "stock_text": "3", "stock_value": 3, "stock_unit": "把", "location": "室温"},
+    {"name": "鸡蛋", "category": "蛋白质", "stock_text": "10", "stock_value": 10, "stock_unit": "个", "location": "冰箱冷藏"},
+    {"name": "鸡胸肉", "category": "蛋白质", "stock_text": "500", "stock_value": 500, "stock_unit": "g", "location": "冰箱冷藏"},
+    {"name": "嫩豆腐", "category": "蛋白质", "stock_text": "2", "stock_value": 2, "stock_unit": "盒", "location": "冰箱冷藏"},
+    {"name": "番茄", "category": "蔬菜", "stock_text": "6", "stock_value": 6, "stock_unit": "个", "location": "室温"},
+    {"name": "菠菜", "category": "蔬菜", "stock_text": "2", "stock_value": 2, "stock_unit": "把", "location": "冰箱冷藏"},
+    {"name": "西兰花", "category": "蔬菜", "stock_text": "1", "stock_value": 1, "stock_unit": "个", "location": "冰箱冷藏"},
+    {"name": "苹果", "category": "水果", "stock_text": "4", "stock_value": 4, "stock_unit": "个", "location": "室温"},
 ]
 
-DISH_NAMES = [
-    "番茄鸡蛋",
-    "蒜香炒菠菜",
-    "三文鱼烤盘",
-]
-
-PLAN_DEFINITIONS = [
-    ("今日轻早餐", ["番茄鸡蛋"]),
-    ("明日晚餐", ["三文鱼烤盘", "蒜香炒菠菜"]),
-]
+DISH_NAMES = ["番茄炒鸡蛋", "清炒菠菜", "香煎鸡胸肉", "白灼西兰花", "番茄豆腐汤"]
 
 
-async def ensure_ingredients(conn: asyncpg.Connection) -> dict[str, int]:
-    mapping: dict[str, int] = {}
-    for item in INGREDIENT_DEMO:
-        existing = await conn.fetchrow(
-            "SELECT id FROM ingredients WHERE LOWER(name) = LOWER($1) LIMIT 1",
-            item["name"],
-        )
-        if existing is None:
-            existing = await conn.fetchrow(
-                """
-                INSERT INTO ingredients (
-                  name, category, quantity_text, quantity_value, quantity_unit,
-                  remaining_text, remaining_value, location, purchase_date, note
-                ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
-                RETURNING id
-                """,
-                item["name"],
-                item["category"],
-                item["quantity_text"],
-                to_decimal(item["quantity_value"]),
-                item["quantity_unit"],
-                item["remaining_text"],
-                to_decimal(item["remaining_value"]),
-                item["location"],
-                item["purchase_date"],
-                f"{item['name']} 为示例数据。",
-            )
-        mapping[item["name"]] = existing["id"]
-    return mapping
-
-
-async def ensure_dishes(conn: asyncpg.Connection) -> dict[str, int]:
-    mapping: dict[str, int] = {}
-    for name in DISH_NAMES:
-        existing = await conn.fetchrow(
-            "SELECT id FROM dishes WHERE deleted_at IS NULL AND LOWER(name) = LOWER($1) LIMIT 1",
-            name,
-        )
-        if existing is None:
-            existing = await conn.fetchrow("INSERT INTO dishes (name) VALUES ($1) RETURNING id", name)
-        mapping[name] = existing["id"]
-    return mapping
-
-
-async def ensure_plan(conn: asyncpg.Connection, plan_name: str, dish_ids: list[int]) -> int:
-    candidates = await conn.fetch("SELECT id FROM meal_plans WHERE name = $1", plan_name)
-    for cand in candidates:
-        existing = [r["dish_id"] for r in await conn.fetch(
-            "SELECT dish_id FROM meal_plan_dishes WHERE meal_plan_id = $1 ORDER BY position",
-            cand["id"],
-        )]
-        if existing == dish_ids:
-            return cand["id"]
-
-    created = await conn.fetchrow("INSERT INTO meal_plans (name) VALUES ($1) RETURNING id", plan_name)
-    for position, did in enumerate(dish_ids):
-        await conn.execute(
-            "INSERT INTO meal_plan_dishes (meal_plan_id, dish_id, position) VALUES ($1, $2, $3)",
-            created["id"], did, position,
-        )
-    return created["id"]
-
-
-async def ensure_battle_from_plan(conn: asyncpg.Connection, battle_date: date, plan_id: int) -> dict[str, int]:
-    existing = await conn.fetchrow(
-        "SELECT * FROM daily_battles WHERE battle_date = $1 AND meal_plan_id = $2 LIMIT 1",
-        battle_date,
-        plan_id,
-    )
-    if existing is not None:
-        return dict(existing)
-
-    battle = await conn.fetchrow(
-        "INSERT INTO daily_battles (battle_date, meal_plan_id) VALUES ($1, $2) RETURNING *",
-        battle_date,
-        plan_id,
-    )
-    source_dishes = await conn.fetch(
-        """
-        SELECT d.id, d.name, mpd.position
-          FROM meal_plan_dishes mpd
-          JOIN dishes d ON d.id = mpd.dish_id
-         WHERE mpd.meal_plan_id = $1
-         ORDER BY mpd.position
-        """,
-        plan_id,
-    )
-    for position, dish in enumerate(source_dishes):
-        await conn.execute(
-            """
-            INSERT INTO daily_battle_dishes
-            (daily_battle_id, dish_id, dish_name, position)
-            VALUES ($1, $2, $3, $4)
-            """,
-            battle["id"], dish["id"], dish["name"], position,
-        )
-    return dict(await conn.fetchrow("SELECT * FROM daily_battles WHERE id = $1", battle["id"]))
-
-
-async def ensure_battle_confirmed(conn: asyncpg.Connection, battle: dict, consumptions: list[dict]) -> None:
-    await conn.execute("SELECT pg_advisory_xact_lock($1)", 726140901)
-    row = await conn.fetchrow("SELECT * FROM daily_battles WHERE id = $1 FOR UPDATE", battle["id"])
-    if row is None or row["status"] != "planned":
-        return
-
-    if not consumptions:
-        return
-
-    battle_dishes = {r["id"] for r in await conn.fetch(
-        "SELECT id FROM daily_battle_dishes WHERE daily_battle_id = $1",
-        battle["id"],
-    )}
-    ingredient_ids = sorted({int(item["ingredient_id"]) for item in consumptions})
-    ingredients = {
-        int(r["id"]): dict(r)
-        for r in await conn.fetch(
-            "SELECT * FROM ingredients WHERE id = ANY($1::bigint[]) ORDER BY id FOR UPDATE",
-            ingredient_ids,
-        )
-    }
-    if len(ingredients) != len(ingredient_ids):
-        raise RuntimeError("部分食材不存在，示例数据写入被中止。")
-
-    await conn.execute(
-        "UPDATE daily_battles SET status = 'confirmed', confirmed_at = NOW(), updated_at = NOW() WHERE id = $1",
-        battle["id"],
-    )
-
-    for item in consumptions:
-        ingredient_id = int(item["ingredient_id"])
-        ingredient = ingredients[ingredient_id]
-        if ingredient["status"] != "active":
-            raise RuntimeError(f"食材“{ingredient['name']}”当前不是可用状态。")
-        if item.get("daily_battle_dish_id") is not None:
-            if int(item["daily_battle_dish_id"]) not in battle_dishes:
-                raise RuntimeError(f"食材“{ingredient['name']}”绑定的今日作战菜品不在该战斗中。")
-
-        before_text = ingredient["remaining_text"]
-        before_value = ingredient["remaining_value"]
-        before_status = ingredient["status"]
-        before_ended_at = ingredient["ended_at"]
-
-        if not str(item["remaining_text"]).strip():
-            raise RuntimeError(f"食材“{ingredient['name']}”缺少确认后剩余数量。")
-        after_text = item["remaining_text"].strip()
-        after_value = to_decimal(item.get("remaining_value")) if item.get("remaining_value") is not None else None
-        if after_value is None and item.get("quantity_value") is not None:
-            after_value = (ingredient["remaining_value"] - to_decimal(item["quantity_value"]))
-        if after_value is not None:
-            if after_value < 0:
-                raise RuntimeError(f"食材“{ingredient['name']}”剩余不足。")
-            if ingredient["remaining_value"] is not None and after_value > ingredient["remaining_value"]:
-                raise RuntimeError(f"食材“{ingredient['name']}”确认后剩余不能超过当前剩余。")
-
-        after_status = "consumed" if after_value == Decimal("0") else "active"
-        after_ended_at = datetime.now(timezone.utc) if after_status == "consumed" else None
-
-        await conn.execute(
-            """
-            UPDATE ingredients
-            SET remaining_text = $1, remaining_value = $2, status = $3, ended_at = $4, updated_at = NOW()
-            WHERE id = $5
-            """,
-            after_text, after_value, after_status, after_ended_at, ingredient_id,
-        )
-
-        await conn.execute(
-            """
-            INSERT INTO consumptions (
-              daily_battle_id, daily_battle_dish_id, ingredient_id,
-              quantity_used_text, quantity_value, quantity_unit, note,
-              remaining_before_text, remaining_before_value,
-              remaining_after_text, remaining_after_value,
-              ingredient_status_before, ingredient_ended_at_before,
-              ingredient_status_after, ingredient_ended_at_after
-            ) VALUES (
-              $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15
-            )
-            """,
-            battle["id"],
-            item.get("daily_battle_dish_id"),
-            ingredient_id,
-            item["quantity_used_text"],
-            item.get("quantity_value"),
-            item.get("quantity_unit"),
-            item.get("note"),
-            before_text,
-            before_value,
-            after_text,
-            after_value,
-            before_status,
-            before_ended_at,
-            after_status,
-            after_ended_at,
-        )
-
-        ingredient["remaining_text"] = after_text
-        ingredient["remaining_value"] = after_value
-        ingredient["status"] = after_status
-        ingredient["ended_at"] = after_ended_at
-
-
-
-async def seed() -> None:
-    conn = await asyncpg.connect(
-        host=DB_HOST,
-        port=DB_PORT,
-        database=DB_NAME,
-        user=DB_USER,
-        password=DB_PASSWORD,
-    )
+def request(method: str, path: str, payload=None) -> tuple[int, dict]:
+    body = json.dumps(payload, ensure_ascii=False).encode("utf-8") if payload is not None else None
+    headers = {"Content-Type": "application/json"} if payload is not None else {}
+    req = urllib.request.Request(BASE + path, data=body, headers=headers, method=method)
     try:
-        async with conn.transaction():
-            ingredient_map = await ensure_ingredients(conn)
-            dish_map = await ensure_dishes(conn)
-            plan_map = {}
-            for plan_name, dish_names in PLAN_DEFINITIONS:
-                plan_map[plan_name] = await ensure_plan(
-                    conn,
-                    plan_name,
-                    [dish_map[name] for name in dish_names],
-                )
+        with urllib.request.urlopen(req, timeout=20) as response:
+            return response.status, json.loads(response.read().decode("utf-8"))
+    except urllib.error.HTTPError as error:
+        return error.code, json.loads(error.read().decode("utf-8"))
 
-            today = date.today()
-            battle_today = await ensure_battle_from_plan(conn, today, plan_map["今日轻早餐"])
-            battle_tomorrow = await ensure_battle_from_plan(conn, today + timedelta(days=1), plan_map["明日晚餐"])
 
-            today_dishes = await conn.fetch(
-                "SELECT id FROM daily_battle_dishes WHERE daily_battle_id = $1 ORDER BY position",
-                battle_today["id"],
-            )
-            tomorrow_dishes = await conn.fetch(
-                "SELECT id FROM daily_battle_dishes WHERE daily_battle_id = $1 ORDER BY position",
-                battle_tomorrow["id"],
-            )
+def data(method: str, path: str, payload=None, expected: int = 200):
+    status, result = request(method, path, payload)
+    if status != expected:
+        message = result.get("error", {}).get("message", result)
+        raise RuntimeError(f"{method} {path} 预期 {expected}，实际 {status}：{message}")
+    return result["data"]
 
-            await ensure_battle_confirmed(
-                conn,
-                battle_today,
-                [
-                    {
-                        "daily_battle_dish_id": today_dishes[0]["id"] if today_dishes else None,
-                        "ingredient_id": ingredient_map["大米"],
-                        "quantity_used_text": "0.4kg",
-                        "quantity_unit": "kg",
-                        "quantity_value": "0.4",
-                        "remaining_text": "1.6kg",
-                        "remaining_value": "1.6",
-                        "note": "示例消耗",
-                    },
-                ],
-            )
 
-            await ensure_battle_confirmed(
-                conn,
-                battle_tomorrow,
-                [
-                    {
-                        "daily_battle_dish_id": tomorrow_dishes[0]["id"] if tomorrow_dishes else None,
-                        "ingredient_id": ingredient_map["三文鱼排"],
-                        "quantity_used_text": "100g",
-                        "quantity_unit": "g",
-                        "quantity_value": "100",
-                        "remaining_text": "500g",
-                        "remaining_value": "500",
-                        "note": "示例消耗",
-                    },
-                ],
-            )
+def create_ingredients() -> dict[str, dict]:
+    rows = data("POST", "/api/ingredients/batch", {"items": INGREDIENTS}, 201)
+    return {row["name"]: row for row in rows}
 
-        print("示例数据写入完成。")
-        print("库存示例：", ", ".join(INGREDIENT_DEMO_NAME for INGREDIENT_DEMO_NAME in ingredient_map))
-        print("菜品示例：", ", ".join(DISH_NAMES))
-        print("方案示例：", ", ".join(f"{name}:{pid}" for name, pid in plan_map.items()))
-        print("作战示例：", f"今日={battle_today['id']} 明日={battle_tomorrow['id']}")
-    finally:
-        await conn.close()
+
+def create_dishes() -> dict[str, dict]:
+    return {name: data("POST", "/api/dishes", {"name": name}, 201) for name in DISH_NAMES}
+
+
+def create_plan(name: str, dishes: list[dict]) -> dict:
+    return data("POST", "/api/meal-plans", {"name": name, "dish_ids": [dish["id"] for dish in dishes]}, 201)
+
+
+def create_battle(battle_date: date, meal_slot: str, dish_ids: list[int], preparations: list[dict]) -> dict:
+    return data("POST", "/api/daily-battles", {
+        "battle_date": battle_date.isoformat(),
+        "meal_slot": meal_slot,
+        "dish_ids": dish_ids,
+        "preparations": preparations,
+    }, 201)
+
+
+def confirm_tomato_eggs(battle: dict, egg: dict, tomato: dict) -> None:
+    rows = {dish["dish_id"]: dish["id"] for dish in battle["dishes"]}
+    payload = {
+        "expected_updated_at": battle["updated_at"],
+        "consumptions": [
+            {"ingredient_id": egg["id"], "daily_battle_dish_id": rows[battle["dishes"][0]["dish_id"]], "quantity_used_text": "2个"},
+            {"ingredient_id": tomato["id"], "daily_battle_dish_id": rows[battle["dishes"][0]["dish_id"]], "quantity_used_text": "2个"},
+        ],
+        "ingredient_totals": [
+            {"ingredient_id": egg["id"], "stock_text": "8", "stock_value": 8, "expected_updated_at": egg["updated_at"]},
+            {"ingredient_id": tomato["id"], "stock_text": "4", "stock_value": 4, "expected_updated_at": tomato["updated_at"]},
+        ],
+    }
+    data("POST", f"/api/daily-battles/{battle['id']}/confirm", payload)
+
+
+def main() -> None:
+    status, health = request("GET", "/health")
+    if status != 200 or health.get("database") != "connected":
+        raise RuntimeError("API 未连接数据库，已停止写入")
+
+    ingredients = create_ingredients()
+    dishes = create_dishes()
+    plans = {
+        "快手晚餐": create_plan("快手晚餐", [dishes["番茄炒鸡蛋"], dishes["清炒菠菜"]]),
+        "轻食组合": create_plan("轻食组合", [dishes["香煎鸡胸肉"], dishes["白灼西兰花"]]),
+        "家常汤菜": create_plan("家常汤菜", [dishes["番茄豆腐汤"], dishes["清炒菠菜"]]),
+    }
+
+    today = date.today()
+    completed = create_battle(today - timedelta(days=2), "dinner", [dishes["番茄炒鸡蛋"]["id"]], [
+        {"dish_id": dishes["番茄炒鸡蛋"]["id"], "ingredient_id": ingredients["鸡蛋"]["id"], "planned_quantity_text": "2个"},
+        {"dish_id": dishes["番茄炒鸡蛋"]["id"], "ingredient_id": ingredients["番茄"]["id"], "planned_quantity_text": "2个"},
+    ])
+    confirm_tomato_eggs(completed, ingredients["鸡蛋"], ingredients["番茄"])
+
+    cancelled = create_battle(today - timedelta(days=1), "lunch", [dishes["番茄豆腐汤"]["id"]], [
+        {"dish_id": dishes["番茄豆腐汤"]["id"], "ingredient_id": ingredients["番茄"]["id"], "planned_quantity_text": "2个"},
+        {"dish_id": dishes["番茄豆腐汤"]["id"], "ingredient_id": ingredients["嫩豆腐"]["id"], "planned_quantity_text": "1盒"},
+    ])
+    data("POST", f"/api/daily-battles/{cancelled['id']}/cancel")
+
+    pending = create_battle(today, "dinner", [dishes["香煎鸡胸肉"]["id"], dishes["白灼西兰花"]["id"]], [
+        {"dish_id": dishes["香煎鸡胸肉"]["id"], "ingredient_id": ingredients["鸡胸肉"]["id"], "planned_quantity_text": "200g"},
+        {"dish_id": dishes["白灼西兰花"]["id"], "ingredient_id": ingredients["西兰花"]["id"], "planned_quantity_text": "1个"},
+    ])
+
+    print("已写入本地测试数据：")
+    print("- 库存：9 种食材；鸡蛋剩 8 个，番茄剩 4 个。")
+    print("- 菜品：5 道；常用搭配：3 个。")
+    print(f"- 历史：{(today - timedelta(days=2)).isoformat()} 晚餐已完成；{(today - timedelta(days=1)).isoformat()} 午餐已取消。")
+    print(f"- 待完成：{today.isoformat()} 晚餐“香煎鸡胸肉 + 白灼西兰花”，可直接进入核对并确认。")
+    print(f"- 记录 ID：已完成 {completed['id']}，已取消 {cancelled['id']}，待完成 {pending['id']}。")
+    print(f"- 搭配 ID：" + "，".join(f"{name} {plan['id']}" for name, plan in plans.items()))
 
 
 if __name__ == "__main__":
-    asyncio.run(seed())
+    main()
