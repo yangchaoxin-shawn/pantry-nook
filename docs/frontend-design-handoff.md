@@ -1,5 +1,7 @@
 # 食隅记 Pantry Nook 设计交付与 ChatGPT 单 Agent 全栈开发说明
 
+> 当前用途（2026-09-11）：原始视觉交付参考；下文中的旧范围、读取顺序和验证要求不作为当前协作约定。业务看 [PRD](PRD.md)，开发入口看 [AGENTS.md](../AGENTS.md)，进度看 [项目状态](project-status.md)。
+
 > 设计包：WorkBuddy V5 三餐与共享反馈版
 > 交付版本：`WB-V5-2026-09-09`
 > 设计规范版本：`2.0`

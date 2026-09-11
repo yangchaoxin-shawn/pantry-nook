@@ -1,92 +1,44 @@
-# Git 规范
+# Git 与版本约定
 
-本项目采用 [Conventional Commits 1.0.0](https://www.conventionalcommits.org/zh-hans/v1.0.0/)。
+更新：2026-09-11。主分支 main，当前无远程仓库。远程地址/推送须另行确定。
 
-## 提交信息格式
+## 提交
 
-```text
-<type>(<scope>): <描述>
-
-[可选正文]
-
-[可选脚注]
-```
-
-- 描述用中文，一句话说清做了什么，结尾不加句号
-- 正文可选，解释"为什么"而不是"做了什么"
-
-## type 一览
-
-| type | 用途 |
-|---|---|
-| `feat` | 新功能 |
-| `fix` | 修复 bug |
-| `docs` | 只改文档 |
-| `style` | 代码格式调整（不影响逻辑） |
-| `refactor` | 重构（不改功能） |
-| `perf` | 性能优化 |
-| `test` | 测试相关 |
-| `build` | 构建/依赖变更 |
-| `chore` | 杂务（工具配置等） |
-
-## scope 一览
-
-| scope | 覆盖范围 |
-|---|---|
-| `backend` | backend/ 目录 |
-| `frontend` | frontend/ 目录 |
-| `db` | 数据库结构、迁移、脚本 |
-| `docs` | docs/ 及根目录文档 |
-| `deploy` | Docker、Nginx、部署相关 |
-
-不适用任何 scope 时可省略，如 `chore: 初始化项目结构`。
-
-## 示例
+采用 Conventional Commits，中文说明具体问题或行为。常用 scope：backend、frontend、db、docs、deploy。
+不适合 scope 时可省略；既有提交的 core/test 等 scope 是历史，不重写提交历史。
 
 ```text
-feat(backend): 添加今日作战确认接口
-fix(frontend): 修复确认后库存列表不刷新
-docs(prd): 明确撤销确认的库存回退规则
-refactor(db): 消耗表增加关联菜品字段
-build(deploy): 后端镜像升级 Node 20
+fix(frontend): 批量录入忽略未填写的空白行
+fix(backend): 阻止过期库存版本覆盖新数据
+docs: 统一当前规格与 Agent 协作入口
 ```
 
-## 破坏性变更
+同一行为的代码、API、必要测试和文档放在一个可审查的改动中。
+只 stage 本轮文件，不顺带提交用户改动、测试数据或个人配置；重大规则变化写明影响。
+检查通过后建立本地提交，不能以提交成功代替验证或用户验收。
 
-两种写法任选（可并用）：
+## 分支与验收
 
-```text
-feat(backend)!: 今日作战确认改为两阶段提交
+小范围已批准改动可提交 main；较大功能默认使用 codex/<任务名>，沿用用户明确指定的分支。
+main 是本地稳定候选基线，不表示已经部署或全部用户验收通过。
+用户准备/正在验收时，不在同一运行目录修改功能并触发热更新；后续隔离开发需独立代码、端口和数据库。
 
-BREAKING CHANGE: 确认接口从 PATCH 改为 POST /confirm
-```
+现有 .claude/worktrees/ 是 Claude 遗留工作区，不是当前隔离开发环境。
+不能未经检查清理、强制重置或合并。Git worktree 共享仓库元数据，并不会自动隔离进程和数据库。
 
-## 分支策略
+## 已建立的基线
 
-单人项目，从简：
+- dc2429b：初始项目结构。
+- 3893220：本地核心功能闭环基线。
+- 35f1dca：当前验收数据脚本。
 
-```text
-main        始终可运行、可部署
-feat/xxx    较大功能开发分支，完成后合回 main
-```
+这些是历史检查点；最新版本用 git log/status 核验。
+提交前按 [协作流程](collaboration.md) 选择检查并记录结果；不为提交文档重跑全量业务测试。
+无新改动/失败/未解决疑虑时，不重复相同检查。
 
-日常小改动直接提交 main。
+## 排除与保护
 
-## 本项目当前协作节奏
-
-1. 先冻结一个模块的业务规则与 API，再实现数据库、后端、前端和测试。
-2. 模块通过对应的验证后，建立一个可回退提交；功能、契约、测试和必要文档放在同一提交中。
-3. 纯局部视觉或文案调整只运行相关检查；模块规则变更再运行该模块的完整测试；跨模块阶段才运行全量验证。
-4. Docker、Nginx 和服务器部署在本地功能验收完成前不进入日常提交和验收范围；进入发布阶段时再单独建立部署提交。
-
-当前项目的第一个功能基线应覆盖已经完成的 Python/FastAPI 重构、库存、菜单、菜品与搭配闭环。此后按模块继续小步提交，避免把多轮已验证工作长期混在同一个未提交工作区。
-
-## 不进 Git 的内容
-
-`.gitignore` 已覆盖：
-
-- `.env`（数据库密码等敏感配置）
-- `node_modules/`、`dist/`
-- 日志 `*.log`
-- 编辑器/系统文件
-- `CLAUDE.local.md`、`.claude/settings.local.json`（个人本地偏好）
+.env、数据库备份、依赖、构建产物、日志及个人 Claude 配置不进 Git。
+.claude/settings.local.json、CLAUDE.local.md、.claude/worktrees/ 已由仓库 .gitignore 排除。
+不要为了迁移工具把 Claude 权限允许列表提交到仓库或改写为 Codex 权限。
+Docker/Nginx 等到明确的发布阶段才实施和验证；不提前进行部署提交。
