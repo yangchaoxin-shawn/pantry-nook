@@ -37,7 +37,10 @@ uv run python -m unittest discover -s tests -v
 uv run python scripts/regression_test.py 3010
 uv run python scripts/smoke_test.py 3010
 uv run python scripts/menu_workflow_test.py 3010
+uv run python scripts/concurrent_inventory_test.py 3010
 ```
+
+concurrent_inventory_test.py 覆盖备餐期间录入/报废/撤销、过期编辑与确认、两人同时确认、不同餐争用库存、不足回滚、多菜同耗材撤销及单位历史。仅允许带测试标记的服务，保留测试历史。
 
 如本机 uv 缓存受限，可使用 `uv --cache-dir .uv-cache run --no-sync ...` 与已有 `.venv`。
 

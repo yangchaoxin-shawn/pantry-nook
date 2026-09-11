@@ -443,7 +443,6 @@ export default function App() {
       setBusy(false);
     }
   }
-  const locked = data?.battles.some((b) => b.status === "planned") ?? false;
   const inventories =
     data?.ingredients.filter(
       (i) =>
@@ -543,10 +542,10 @@ export default function App() {
               </>
             ) : page === "ingredients" ? (
               <>
-                {addButton("批量记录", { kind: "ingredientBatch" }, locked)}
+                {addButton("批量记录", { kind: "ingredientBatch" })}
                 <button
                   className="btn-ghost"
-                  disabled={locked || loading || !!loadError}
+                  disabled={loading || !!loadError}
                   onClick={() => open({ kind: "ingredientSingle" })}
                 >
                   单个记录
@@ -602,19 +601,6 @@ export default function App() {
               )}
               {page === "ingredients" && (
                 <>
-                  {locked && (
-                    <div className="info-banner">
-                      有菜单还未完成，暂不能新增食材或修改库存数量。名称、分类和位置仍可编辑。
-                      <button
-                        className="text-button"
-                        onClick={() => {
-                          navigate("battles");
-                        }}
-                      >
-                        查看未完成计划
-                      </button>
-                    </div>
-                  )}
                   <div className="filter-bar">
                     <input
                       type="search"
@@ -899,7 +885,7 @@ export default function App() {
                         ? "编辑菜单"
                         : "安排一餐"
           }
-          onClose={() => setModal(null)}
+          onClose={() => { setModal(null); if (modal.kind === "confirm") reload(); }}
           busy={busy}
         >
           {actionError && (
@@ -910,7 +896,6 @@ export default function App() {
           {modal.kind === "ingredient" && (
             <IngredientEditor
               item={modal.item}
-              locked={locked}
               busy={busy}
               save={(payload) =>
                 void mutate(
@@ -1010,8 +995,13 @@ export default function App() {
             />
           )}
           {modal.kind === "confirm" && (
-            <MenuConfirm battleId={modal.item.id} busy={busy}
-              save={payload => void mutate(() => api.battleAction(modal.item.id, "confirm", payload), "已确定，库存已更新，菜单已归入历史")}
+            <MenuConfirm battleId={modal.item.id} busy={busy} onPending={setBusy}
+              save={async payload => {
+                await api.battleAction(modal.item.id, "confirm", payload);
+                setModal(null);
+                setNotice("已确定，库存已更新，菜单已归入历史");
+                reload();
+              }}
             />
           )}
           {modal.kind === "action" && (
@@ -1073,7 +1063,7 @@ function IngredientBatchEditor({
     ingredients: IngredientCreate[],
     resolutions: { ingredient_id: number; unit: string }[],
     categoryResolutions: { ingredient_id: number; category: IngredientCreate["category"] }[],
-    manualTotals: { ingredient_id: number; stock_text: string; stock_value: number; unit: string }[],
+    manualTotals: { ingredient_id: number; stock_text: string; stock_value: number; unit: string; expected_updated_at: string }[],
   ) => void;
 }) {
   const [rows, setRows] = useState(() =>
@@ -1153,7 +1143,7 @@ function IngredientBatchEditor({
       conflicts.filter(({ ingredient, incomingUnit }) => {
         const oldUnit = ingredient.stock_unit ?? ingredient.stock_unit ?? "";
         return oldUnit !== incomingUnit && !canConvert(oldUnit, incomingUnit);
-      }).map(({ ingredient }) => ({ ingredient_id: ingredient.id, stock_text: manualTotals[ingredient.id].trim(), stock_value: Number(manualTotals[ingredient.id]), unit: units[ingredient.id] })),
+      }).map(({ ingredient }) => ({ ingredient_id: ingredient.id, stock_text: manualTotals[ingredient.id].trim(), stock_value: Number(manualTotals[ingredient.id]), unit: units[ingredient.id], expected_updated_at: ingredient.updated_at })),
     )} disabled={busy || manualTotalMissing}>{busy ? "保存中…" : "按选择保存"}</button></div>
   </div>;
   }
@@ -1230,16 +1220,13 @@ function IngredientBatchEditor({
 
 function IngredientEditor({
   item,
-  locked,
   busy,
   save,
 }: {
   item: Ingredient;
-  locked: boolean;
   busy: boolean;
   save: (payload: IngredientCreate | IngredientUpdate) => void;
 }) {
-  const quantityLocked = locked;
   const currentQuantity = item.stock_value;
   const currentUnit = item.stock_unit;
   function submit(e: FormEvent<HTMLFormElement>) {
@@ -1251,7 +1238,7 @@ function IngredientEditor({
       location: (f.get("location") || null) as IngredientCreate["location"],
       note: String(f.get("note") || "") || null,
     };
-    if (!quantityLocked) {
+    {
       const quantityText = String(f.get("quantity") || "").trim();
       const quantityUnit = String(f.get("stock_unit") || "").trim();
       // 编辑库存量就是更新当前库存；购入记录与消耗历史不在此处修改。
@@ -1265,6 +1252,7 @@ function IngredientEditor({
       const value = p[key];
       if (value !== undefined && value !== item[key]) Object.assign(patch, { [key]: value });
     }
+    if (Object.keys(patch).some(key => key.startsWith("stock_"))) patch.expected_updated_at = item.updated_at;
     save(patch);
   }
   return (
@@ -1295,13 +1283,8 @@ function IngredientEditor({
           </select>
         </Field>
       </div>
-      <fieldset disabled={quantityLocked}>
+      <fieldset>
         <legend>当前库存</legend>
-        {quantityLocked && (
-          <p className="muted">
-            请先处理待完成菜单，再修改库存。
-          </p>
-        )}
         <div className="form-grid">
           <Field label="数量">
             <input
@@ -1340,7 +1323,7 @@ function IngredientEditor({
       </Field>
       <button
         className="btn-primary submit"
-        disabled={busy || (locked && !item)}
+        disabled={busy}
       >
         {busy ? "保存中…" : "保存食材"}
       </button>

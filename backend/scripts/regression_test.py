@@ -90,12 +90,12 @@ def main():
         "battle_date": "2026-09-10", "meal_slot": "dinner", "dish_ids": [dish["id"]],
         "preparations": [{"dish_id": dish["id"], "ingredient_id": stock["id"], "planned_quantity_text": "1"}],
     }, 201)
-    status, _ = request("PATCH", f"/api/ingredients/{stock['id']}", {"stock_value": 8})
-    check("待完成菜单阻止直改库存", status == 409)
+    status, _ = request("PATCH", f"/api/ingredients/{stock['id']}", {"stock_value": 8, "stock_text": "8", "expected_updated_at": resolved["updated_at"]})
+    check("待完成菜单允许直改库存", status == 200)
     status, _ = request("POST", "/api/ingredients/batch", {"items": [{
         "name": f"计划中新增-{STAMP}", "category": "其他", "stock_text": "1", "stock_value": 1, "stock_unit": "个",
     }]})
-    check("待完成菜单阻止新增库存", status == 409)
+    check("待完成菜单允许新增库存", status == 201)
 
     status, _ = request("POST", f"/api/daily-battles/{battle['id']}/confirm", {
         "expected_updated_at": battle["updated_at"], "consumptions": [], "ingredient_totals": [],
@@ -114,7 +114,7 @@ def main():
         codes = list(executor.map(lambda _: request("POST", f"/api/daily-battles/{battle['id']}/confirm", payload)[0], range(2)))
     check("重复确认不重复扣库存", codes == [409, 409])
     data("POST", f"/api/daily-battles/{battle['id']}/revoke-confirmation", {})
-    check("撤销确认精确恢复库存", data("GET", f"/api/ingredients/{stock['id']}")["stock_value"] == 6)
+    check("撤销确认精确恢复库存", data("GET", f"/api/ingredients/{stock['id']}")["stock_value"] == 8)
     history = data("GET", f"/api/daily-battles/{battle['id']}/consumptions")
     check("撤销保留反转历史", len(history) == 1 and history[0]["status"] == "reversed")
     data("POST", f"/api/daily-battles/{battle['id']}/cancel")

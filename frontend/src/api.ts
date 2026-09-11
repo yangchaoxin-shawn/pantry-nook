@@ -12,7 +12,7 @@ export type InventoryAdjustment = components["schemas"]["InventoryAdjustment"];
 export type InventoryAdjustmentRecord = components["schemas"]["InventoryAdjustmentRecord"];
 export type IngredientUnitResolution = { ingredient_id: number; unit: string };
 export type IngredientCategoryResolution = { ingredient_id: number; category: (typeof CATEGORIES)[number] };
-export type IngredientManualTotal = { ingredient_id: number; stock_text: string; stock_value: number; unit: string };
+export type IngredientManualTotal = { ingredient_id: number; stock_text: string; stock_value: number; unit: string; expected_updated_at: string };
 export type MealPlanInput =
   | components["schemas"]["MealPlanCreate"]
   | components["schemas"]["MealPlanUpdate"];
@@ -112,10 +112,10 @@ export const api = {
     category_resolutions: IngredientCategoryResolution[] = [],
     manual_totals: IngredientManualTotal[] = [],
   ) => {
-    const resolutions = new Map<number, { ingredient_id: number; stock_unit?: string; category?: (typeof CATEGORIES)[number]; final_stock_text?: string; final_stock_value?: number }>();
+    const resolutions = new Map<number, { ingredient_id: number; stock_unit?: string; category?: (typeof CATEGORIES)[number]; final_stock_text?: string; final_stock_value?: number; expected_updated_at?: string }>();
     for (const entry of unit_resolutions) resolutions.set(entry.ingredient_id, { ...(resolutions.get(entry.ingredient_id) ?? { ingredient_id: entry.ingredient_id }), stock_unit: entry.unit });
     for (const entry of category_resolutions) resolutions.set(entry.ingredient_id, { ...(resolutions.get(entry.ingredient_id) ?? { ingredient_id: entry.ingredient_id }), category: entry.category });
-    for (const entry of manual_totals) resolutions.set(entry.ingredient_id, { ...(resolutions.get(entry.ingredient_id) ?? { ingredient_id: entry.ingredient_id }), stock_unit: entry.unit, final_stock_text: entry.stock_text, final_stock_value: entry.stock_value });
+    for (const entry of manual_totals) resolutions.set(entry.ingredient_id, { ...(resolutions.get(entry.ingredient_id) ?? { ingredient_id: entry.ingredient_id }), stock_unit: entry.unit, final_stock_text: entry.stock_text, final_stock_value: entry.stock_value, expected_updated_at: entry.expected_updated_at });
     return request<Ingredient[]>("/api/ingredients/batch", "POST", { items: ingredients, resolutions: [...resolutions.values()] });
   },
   wasteIngredient: (id: number, payload: {

@@ -636,7 +636,7 @@ export interface components {
             location?: ("冰箱冷藏" | "冰箱冷冻" | "室温" | "其他") | null;
             note?: string | null;
         };
-        /** @description 同名在库食材发生分类或单位冲突时的用户选择。单位不可换算时，final_stock_text 与 final_stock_value 必填。 */
+        /** @description 同名在库食材发生分类或单位冲突时的用户选择。单位不可换算时，final_stock_text、final_stock_value 与 expected_updated_at 必填；版本过期拒绝覆盖。 */
         InventoryResolution: {
             ingredient_id: number;
             /** @enum {string} */
@@ -645,13 +645,15 @@ export interface components {
             /** @description 去除首尾空白后不能为空。 */
             final_stock_text?: string;
             final_stock_value?: number;
+            /** Format: date-time */
+            expected_updated_at?: string;
         };
-        /** @description 批量记录当前库存。空白行不发送；任意一项校验失败或存在未确认菜单时，整批不写入。 */
+        /** @description 批量记录当前库存。空白行不发送；任意一项校验失败时整批不写入；待完成菜单不限制入库。 */
         IngredientBatchCreate: {
             items: components["schemas"]["IngredientCreate"][];
             resolutions?: components["schemas"]["InventoryResolution"][];
         };
-        /** @description 至少提供一个列出的可修改字段。计划中存在作战时不得修改数量字段。 */
+        /** @description 至少提供一个可修改字段。修改任意 stock_* 字段必须提供 expected_updated_at；版本过期返回 409，不覆盖他人的变更。 */
         IngredientUpdate: {
             /** @description 去除首尾空白后不能为空。 */
             name?: string;
@@ -663,6 +665,8 @@ export interface components {
             stock_unit?: string;
             location?: ("冰箱冷藏" | "冰箱冷冻" | "室温" | "其他") | null;
             note?: string | null;
+            /** Format: date-time */
+            expected_updated_at?: string;
         };
         IngredientFinish: {
             stock_text?: string | null;

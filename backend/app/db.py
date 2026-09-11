@@ -58,7 +58,7 @@ async def _init_connection(conn) -> None:
 
 
 async def lock_inventory_workflow(conn) -> None:
-    """事务级锁串行化计划状态与库存写入，关闭先检查后写入的并发窗口。"""
+    """仅在写事务内短暂串行化库存和菜单状态变更；用户备餐、核对期间不持锁。"""
     await conn.execute("SELECT pg_advisory_xact_lock($1)", 726140901)
 
 

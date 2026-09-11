@@ -119,10 +119,10 @@ s, battle = req("POST", "/api/daily-battles", {"battle_date": "2026-09-08", "dis
 results.append(check("创建今日作战 201", s == 201, f"status={s}"))
 battle_id = battle["data"]["id"] if s == 201 else None
 
-# --- 3. 未确认作战存在时，不能直接改库存 ---
+# --- 3. 库存直改必须携带读取版本 ---
 if battle_id and ingredient_id:
     s, _ = req("PATCH", f"/api/ingredients/{ingredient_id}", {"stock_value": 10})
-    results.append(check("未确认作战时改库存被拒 409", s == 409, f"status={s}"))
+    results.append(check("缺少库存版本被拒 400", s == 400, f"status={s}"))
 
 # --- 4. 确认作战 -> 数量扣减 ---
 if battle_id and ingredient_id:

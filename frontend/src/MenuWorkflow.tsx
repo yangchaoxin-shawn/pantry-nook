@@ -1,3 +1,4 @@
+import { initialUsage, inventoryVersion } from './menu-confirm-logic';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { api, localDate, type Battle, type BattleInput, type BattleConfirm, type Dish, type Ingredient, type MealPlan, type Consumption } from './api';
 
@@ -127,6 +128,7 @@ type Usage = {
   daily_battle_dish_id: number | null;
   planned_quantity_text: string;
   quantity_used_text: string;
+  unit: string | null;
 };
 const stockLabel = (ingredient?: Ingredient) => {
   if (!ingredient) return '库存记录不可用';
@@ -137,34 +139,59 @@ const stockLabel = (ingredient?: Ingredient) => {
     : text;
 };
 const rounded = (value: number) => Math.round((value + Number.EPSILON) * 1000) / 1000;
-const quantityText = (value: number, unit: string | null) => `${value.toLocaleString('zh-CN', { maximumFractionDigits: 3 })}${unit ?? ''}`;
-export function MenuConfirm({ battleId, busy, save }: { battleId: number; busy: boolean; save: (payload: BattleConfirm) => void }) {
-  const [snapshot, setSnapshot] = useState<{ battle: Battle; ingredients: Ingredient[] } | null>(null);
+const quantityText = (value: number, unit: string | null) => `${rounded(value)}${unit ?? ''}`;
+type ReviewSnapshot = { battle: Battle; ingredients: Ingredient[] };
+export function MenuConfirm({ battleId, busy, save, onPending }: { battleId: number; busy: boolean; onPending: (pending: boolean) => void; save: (payload: BattleConfirm) => Promise<void> }) {
+  const [snapshot, setSnapshot] = useState<ReviewSnapshot | null>(null);
+  const latest = useRef<ReviewSnapshot | null>(null);
+  const [originalMenuVersion, setOriginalMenuVersion] = useState<string | null>(null);
+  const submitting = useRef(false);
+  const [sending, setSending] = useState(false);
   const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
   const [retry, setRetry] = useState(0);
   const [rows, setRows] = useState<Usage[]>([]);
   const [without, setWithout] = useState(false);
   useEffect(() => {
     const controller = new AbortController();
-    Promise.all([api.battle(battleId, controller.signal), api.ingredients(controller.signal)]).then(([battle, ingredients]) => {
-      if (controller.signal.aborted) return;
-      if (battle.data.status !== 'planned') throw new Error('这份菜单已处理，请关闭弹窗并刷新。');
-      setSnapshot({ battle: battle.data, ingredients });
-      setRows(
-        battle.data.preparations.map((p, key) => ({
-          key,
-          ingredient_id: p.ingredient_id,
-          daily_battle_dish_id: p.daily_battle_dish_id,
-          planned_quantity_text: p.planned_quantity_text || '未填写',
-          quantity_used_text: p.planned_quantity_text || '',
-        })),
-      );
-      setWithout(false);
-    }).catch(e => { if(!controller.signal.aborted) setError(message(e)); });
-    return () => controller.abort();
+    let reading = false;
+    async function refresh() {
+      if (reading || submitting.current || document.visibilityState === 'hidden') return;
+      reading = true;
+      try {
+        const [result, ingredients] = await Promise.all([api.battle(battleId, controller.signal), api.ingredients(controller.signal)]);
+        if (controller.signal.aborted || submitting.current) return;
+        const battle = result.data;
+        if (!latest.current) {
+          setOriginalMenuVersion(battle.updated_at);
+          setRows(battle.preparations.map((p, key) => {
+            const unit = ingredients.find(i => i.id === p.ingredient_id)?.stock_unit ?? null;
+            return { key, ingredient_id: p.ingredient_id, daily_battle_dish_id: p.daily_battle_dish_id,
+              planned_quantity_text: p.planned_quantity_text || '未填写',
+              quantity_used_text: initialUsage(p.planned_quantity_text, unit), unit };
+          }));
+        } else if (inventoryVersion(latest.current.battle, latest.current.ingredients) !== inventoryVersion(battle, ingredients)) {
+          setNotice('库存已更新，实际用量已保留，请核对后确定。');
+        }
+        latest.current = { battle, ingredients };
+        setSnapshot(latest.current);
+        setError('');
+      } catch (e) {
+        if (!controller.signal.aborted && !submitting.current) setError(`暂时无法读取最新数据：${message(e)}`);
+      } finally { reading = false; }
+    }
+    void refresh();
+    const timer = window.setInterval(() => void refresh(), 3000);
+    const resume = () => void refresh();
+    window.addEventListener('focus', resume);
+    document.addEventListener('visibilitychange', resume);
+    return () => { controller.abort(); window.clearInterval(timer); window.removeEventListener('focus', resume); document.removeEventListener('visibilitychange', resume); };
   }, [battleId, retry]);
   if (!snapshot) return error ? <div role="alert"><p>{error}</p><button className="btn-ghost" onClick={() => { setError(''); setRetry(r => r+1); }}>重新读取</button></div> : <p role="status">正在读取菜单和最新库存…</p>;
   const { battle, ingredients } = snapshot;
+  const processed = battle.status !== 'planned';
+  const menuChanged = battle.updated_at !== originalMenuVersion;
+  const unitChanged = rows.some(r => r.unit !== (ingredients.find(i => i.id === r.ingredient_id)?.stock_unit ?? null));
   const ids = [...new Set(rows.map(r => r.ingredient_id))];
   const unavailable = ids.some(id => !ingredients.some(i => i.id === id));
   const nonCalculable = ids
@@ -184,31 +211,42 @@ export function MenuConfirm({ battleId, busy, save }: { battleId: number; busy: 
     totals.set(row.ingredient_id, { ingredient, used: (total?.used ?? 0) + used });
   }
   const insufficient = [...totals.values()].some(({ ingredient, used }) => ingredient.stock_value !== null && used > ingredient.stock_value);
-  function submit(e: FormEvent) {
+  async function submit(e: FormEvent) {
     e.preventDefault();
-    if (without && rows.length === 0) {
-      save({ expected_updated_at: battle.updated_at, consumptions: [] });
-      return;
-    }
-    if (invalidUsage || nonCalculable.length || insufficient) return;
-    save({
-      expected_updated_at: battle.updated_at,
-      // 每道菜保留用户填写的实际用量原文；库存余量由各耗材的整餐合计一次性计算。
-      consumptions: rows.map((row) => ({
-        ingredient_id: row.ingredient_id,
-        daily_battle_dish_id: row.daily_battle_dish_id,
-        quantity_used_text: row.quantity_used_text.trim(),
-      })),
-      ingredient_totals: [...totals.entries()].map(([ingredient_id, { ingredient, used }]) => {
-        const remaining = rounded((ingredient.stock_value ?? 0) - used);
-        return {
-          ingredient_id,
-          stock_text: quantityText(remaining, ingredient.stock_unit),
-          stock_value: remaining,
-          expected_updated_at: ingredient.updated_at,
-        };
-      }),
-    });
+    if (submitting.current || processed || menuChanged || unitChanged || unavailable || invalidUsage || nonCalculable.length || insufficient || (!rows.length && !without)) return;
+    submitting.current = true; setSending(true); onPending(true); setError('');
+    try {
+      // 提交前再读一次；这里的检查不能代替后端事务内的版本校验。
+      const [result, freshIngredients] = await Promise.all([api.battle(battleId), api.ingredients()]);
+      const fresh = { battle: result.data, ingredients: freshIngredients };
+      latest.current = fresh; setSnapshot(fresh);
+      if (fresh.battle.status !== 'planned' || fresh.battle.updated_at !== battle.updated_at ||
+          inventoryVersion(battle, ingredients) !== inventoryVersion(fresh.battle, freshIngredients)) {
+        setNotice('数据已更新，实际用量已保留，请重新核对后确定。');
+        return;
+      }
+      await save({
+        expected_updated_at: battle.updated_at,
+        consumptions: rows.map(row => ({
+          ingredient_id: row.ingredient_id, daily_battle_dish_id: row.daily_battle_dish_id,
+          quantity_used_text: row.quantity_used_text.trim(), quantity_unit: row.unit,
+        })),
+        ...(rows.length ? { ingredient_totals: [...totals.entries()].map(([ingredient_id, { ingredient, used }]) => {
+          const remaining = rounded((ingredient.stock_value ?? 0) - used);
+          return { ingredient_id, stock_text: quantityText(remaining, ingredient.stock_unit),
+            stock_value: remaining, expected_updated_at: ingredient.updated_at };
+        }) } : {}),
+      });
+    } catch (e) {
+      // 响应丢失或并发冲突只重新读取，不自动重发扣库存请求。
+      setError(message(e));
+      try {
+        const [result, freshIngredients] = await Promise.all([api.battle(battleId), api.ingredients()]);
+        latest.current = { battle: result.data, ingredients: freshIngredients };
+        setSnapshot(latest.current);
+        setNotice('已读取最新数据，请重新核对。');
+      } catch { setError('无法确认操作结果，请恢复连接后重新读取；你的用量已保留。'); }
+    } finally { submitting.current = false; setSending(false); onPending(false); }
   }
   return (
     <form onSubmit={submit}>
@@ -217,8 +255,14 @@ export function MenuConfirm({ battleId, busy, save }: { battleId: number; busy: 
         <br />
         核对每种耗材的实际用量；点“确定”后自动更新库存。
       </p>
+      {processed && <p className="form-notice" role="status">这餐已{battle.status === 'confirmed' ? '确认' : '取消'}，不能再次扣库存。关闭后即可查看最新记录。</p>}
+      {!processed && menuChanged && <p className="form-error" role="alert">菜单已被修改，请关闭后重新打开核对。</p>}
+      {!processed && notice && <p className="form-notice" role="status">{notice}</p>}
+      {error && <p className="form-error" role="alert">{error}<button type="button" className="text-button" onClick={() => setRetry(r => r + 1)}>重新读取</button></p>}
+      {unavailable && <p className="form-error" role="alert">部分食材已不在库，请先核对库存或修改菜单。</p>}
+      {unitChanged && <p className="form-error" role="alert">库存单位已改变，请按新单位重新填写实际用量。</p>}
       {battle.dishes.map((d) => (
-        <fieldset key={d.id}>
+        <fieldset key={d.id} disabled={sending || processed || menuChanged}>
           <legend>{d.name}</legend>
           {rows
             .filter((r) => r.daily_battle_dish_id === d.id)
@@ -244,7 +288,7 @@ export function MenuConfirm({ battleId, busy, save }: { battleId: number; busy: 
                           setRows((rs) =>
                             rs.map((v) =>
                               v.key === r.key
-                                ? { ...v, quantity_used_text: e.target.value }
+                                ? { ...v, quantity_used_text: e.target.value, unit: i?.stock_unit ?? null }
                                 : v,
                             ),
                           )
@@ -272,9 +316,9 @@ export function MenuConfirm({ battleId, busy, save }: { battleId: number; busy: 
       {insufficient && <p className="form-error" role="alert">实际用量超过当前库存，请核对后再确定。</p>}
       <button
         className="btn-primary"
-        disabled={busy || unavailable || invalidUsage || nonCalculable.length > 0 || insufficient || (!rows.length && !without)}
+        disabled={busy || sending || !!error || processed || menuChanged || unitChanged || unavailable || invalidUsage || nonCalculable.length > 0 || insufficient || (!rows.length && !without)}
       >
-        {busy ? '正在确定…' : '确定'}
+        {busy || sending ? '正在确定…' : '确定'}
       </button>
     </form>
   );

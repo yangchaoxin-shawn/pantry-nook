@@ -540,7 +540,7 @@ async def confirm_battle(battle_id: int, request: Request):
                          $8, $9, $10, $11, $12, $13, $14, $15
                        )""",
                     pid, inp.get("daily_battle_dish_id"), item["ingredient_id"],
-                    inp["quantity_used_text"], inp.get("quantity_value"), inp.get("quantity_unit") or ing_row["stock_unit"], inp.get("note"),
+                    inp["quantity_used_text"], inp.get("quantity_value"), inp.get("quantity_unit") or ingredients[item["ingredient_id"]]["row"]["stock_unit"], inp.get("note"),
                     item["remaining_before_text"], item["remaining_before_value"],
                     item["remaining_after_text"], item["remaining_after_value"],
                     item["ingredient_status_before"], item["ingredient_ended_at_before"],
@@ -590,6 +590,9 @@ async def revoke_confirmation(battle_id: int, request: Request):
                     ingredient_ids,
                 )
             ingredients = {int(r["id"]): dict(r) for r in ingredient_rows}
+            # 只恢复确认之后没有再变更的库存，避免同量覆盖、换单位等绕过快照检查。
+            if any(r["updated_at"] != battle["confirmed_at"] for r in ingredient_rows):
+                raise conflict("相关库存已有后续变更，不能安全撤销本餐；请到库存核对调整")
 
             for consumption in consumptions:
                 cid = int(consumption["ingredient_id"])
@@ -631,8 +634,8 @@ async def revoke_confirmation(battle_id: int, request: Request):
                 )
                 # 同一食材可有多条消耗，下一条反向恢复须基于刚恢复的状态。
                 ing.update(
-                    remaining_text=consumption["remaining_before_text"],
-                    remaining_value=consumption["remaining_before_value"],
+                    stock_text=consumption["remaining_before_text"],
+                    stock_value=consumption["remaining_before_value"],
                     status=consumption["ingredient_status_before"],
                     ended_at=consumption["ingredient_ended_at_before"],
                 )

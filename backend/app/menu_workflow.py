@@ -14,7 +14,7 @@ def assert_version(value, actual):
     if parsed.tzinfo is None:
         raise validation_error('核对版本必须包含时区')
     if parsed != actual:
-        raise conflict('记录在核对期间发生变化，请关闭弹窗并刷新后重新核对')
+        raise conflict('记录已发生变化，请读取最新数据后重新核对')
 
 
 async def attach_preparations(conn, items):
