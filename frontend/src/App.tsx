@@ -168,23 +168,13 @@ function IngredientDetail({
   busy,
   edit,
   waste,
-  history,
 }: {
   item: Ingredient;
   busy: boolean;
   edit: () => void;
   waste: () => void;
-  history: () => void;
 }) {
   const stockQuantity = stockLabel(item);
-  const [reversibleCount, setReversibleCount] = useState<number | null>(null);
-  useEffect(() => {
-    let alive = true;
-    api.ingredientAdjustments(item.id)
-      .then((response) => alive && setReversibleCount(response.data.filter((record) => record.status === "active").length))
-      .catch(() => alive && setReversibleCount(null));
-    return () => { alive = false; };
-  }, [item.id]);
   return (
     <div className="ingredient-detail">
       <dl className="detail-grid">
@@ -211,9 +201,6 @@ function IngredientDetail({
         <button className="btn-ghost" onClick={edit} disabled={busy}>
           编辑
         </button>
-        <button className="btn-ghost" onClick={history} disabled={busy}>
-          变质/损坏记录{reversibleCount ? ` · 可撤销 ${reversibleCount} 条` : ""}
-        </button>
         <button className="text-button danger" onClick={waste} disabled={busy}>处理变质/损坏</button>
       </div>
     </div>
@@ -228,7 +215,7 @@ function WasteEditor({ item, busy, save }: { item: Ingredient; busy: boolean; sa
   const amount = Number(quantity);
   const invalid = !Number.isFinite(amount) || amount <= 0 || amount > item.stock_value;
   return <form onSubmit={(event) => { event.preventDefault(); if (!invalid) save({ stock_text: quantity, stock_value: amount, stock_unit: item.stock_unit, reason, note: String(new FormData(event.currentTarget).get("note") || "") || null, expected_updated_at: item.updated_at }); }}>
-    <p className="dialog-description">当前库存 {stockLabel(item)}。处理后可在“变质/损坏记录”里查看。</p>
+    <p className="dialog-description">当前库存 {stockLabel(item)}。处理后可在“库存处理记录”里查看。</p>
     <div className="unit-choice"><button type="button" className={all ? "chip active" : "chip"} onClick={() => { setAll(true); setQuantity(String(item.stock_value)); }}>全部处理</button><button type="button" className={!all ? "chip active" : "chip"} onClick={() => setAll(false)}>处理部分</button></div>
     <Field label={`处理数量（${item.stock_unit}）`}><input required disabled={all} type="number" min="0.000001" max={item.stock_value} step="0.000001" inputMode="decimal" value={quantity} onChange={e => setQuantity(e.target.value)} /></Field>
     <Field label="原因"><select value={reason} onChange={e => setReason(e.target.value as typeof reason)}>{Object.entries(wasteReasonText).map(([value, label]) => <option value={value} key={value}>{label}</option>)}</select></Field>
@@ -237,17 +224,6 @@ function WasteEditor({ item, busy, save }: { item: Ingredient; busy: boolean; sa
     <button className="btn-primary submit" disabled={busy || invalid}>{busy ? "处理中…" : "确认处理"}</button>
   </form>;
 }
-function AdjustmentHistory({ item, busy, revoke }: { item: Ingredient; busy: boolean; revoke: (id: number) => void }) {
-  const [records, setRecords] = useState<import("./api").InventoryAdjustment[] | null>(null);
-  const [error, setError] = useState("");
-  useEffect(() => { let alive = true; api.ingredientAdjustments(item.id).then(x => alive && setRecords(x.data)).catch(e => alive && setError(e instanceof Error ? e.message : "读取失败")); return () => { alive = false; }; }, [item.id]);
-  if (error) return <p className="form-error">{error}</p>;
-  if (!records) return <p className="muted">正在读取变质/损坏记录…</p>;
-  if (!records.length) return <p className="muted">还没有变质或损坏处理记录。</p>;
-  const label = (text: string, unit: string) => text.includes(unit) ? text : `${text}${unit}`;
-  return <div className="adjustment-history">{records.map(record => <article className="list-row" key={record.id}><div><strong>{wasteReasonText[record.reason]}</strong><p className="muted">{label(record.stock_before_text, record.stock_before_unit)} → {label(record.stock_after_text, record.stock_after_unit)}{record.note ? ` · ${record.note}` : ""}</p></div>{record.status === "active" ? <button className="text-button" disabled={busy} onClick={() => revoke(record.id)}>撤销处理</button> : <span className="muted">已撤销</span>}</article>)}</div>;
-}
-
 function InventoryAdjustmentLedger({ busy, refreshKey, revoke }: { busy: boolean; refreshKey: number; revoke: (id: number) => void }) {
   const [records, setRecords] = useState<import("./api").InventoryAdjustmentRecord[] | null>(null);
   const [error, setError] = useState("");
@@ -316,7 +292,6 @@ type Modal =
   | { kind: "ingredientBatch" }
   | { kind: "ingredientDetail"; item: Ingredient }
   | { kind: "ingredientWaste"; item: Ingredient }
-  | { kind: "ingredientHistory"; item: Ingredient }
   | { kind: "dish"; item?: Dish }
   | { kind: "dishInPlans"; item: Dish; planNames: string[] }
   | { kind: "plan"; item?: MealPlan }
@@ -907,8 +882,6 @@ export default function App() {
                     ? `查看食材 · ${modal.item.name}`
                   : modal.kind === "ingredientWaste"
                     ? `处理变质/损坏 · ${modal.item.name}`
-                  : modal.kind === "ingredientHistory"
-                    ? `变质/损坏记录 · ${modal.item.name}`
                   : modal.kind === "dishInPlans"
                     ? "先处理常用搭配"
                   : modal.kind === "dish"
@@ -964,14 +937,10 @@ export default function App() {
                 open({ kind: "ingredient", item: modal.item });
               }}
               waste={() => open({ kind: "ingredientWaste", item: modal.item })}
-              history={() => open({ kind: "ingredientHistory", item: modal.item })}
             />
           )}
           {modal.kind === "ingredientWaste" && (
             <WasteEditor item={modal.item} busy={busy} save={payload => void mutate(() => api.wasteIngredient(modal.item.id, payload), "库存已更新")} />
-          )}
-          {modal.kind === "ingredientHistory" && (
-            <AdjustmentHistory item={modal.item} busy={busy} revoke={id => void mutate(() => api.revokeAdjustment(id), "已撤销库存处理")} />
           )}
           {modal.kind === "dish" && (
             <form
