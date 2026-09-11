@@ -56,8 +56,7 @@ def build_schemas() -> dict:
         "stock_value": NUMBER, "stock_unit": {"type": "string", "maxLength": 50},
         "location": nullable(LOCATION), "note": nullable({"type": "string", "maxLength": 5000}),
     }
-    ingredient = {"id": ID, **inventory_input, "note": nullable({"type": "string"}),
-                  "reserved_value": NUMBER, "available_value": NUMBER, **TIMESTAMPS}
+    ingredient = {"id": ID, **inventory_input, "note": nullable({"type": "string"}), **TIMESTAMPS}
     dish = {"id": ID, "name": TEXT, "deleted_at": nullable(TIME), **TIMESTAMPS}
     plan = {"id": ID, "name": nullable(TEXT), **TIMESTAMPS}
     battle = {
@@ -97,9 +96,13 @@ def build_schemas() -> dict:
         "DailyBattleRecord": obj(battle),
         "DailyBattleDish": obj({"id": ID, "dish_id": ID, "name": TEXT,
                                 "position": {"type": "integer", "minimum": 0}}),
-        "PreparationInput": obj({'dish_id': ID, 'ingredient_id': ID, 'planned_quantity_text': nullable(TEXT)}, ['dish_id', 'ingredient_id']),
-        "Preparation": obj({'id': ID, 'daily_battle_dish_id': ID, 'dish_id': ID, 'ingredient_id': ID,
-                            'ingredient_name': TEXT, 'ingredient_status': INGREDIENT_STATUS,
+        "PreparationInput": obj({'dish_id': ID, 'ingredient_id': nullable(ID), 'pending_ingredient_name': nullable(TEXT), 'planned_quantity_text': nullable(TEXT)}, ['dish_id'], oneOf=[
+            {"required": ["ingredient_id"], "properties": {"ingredient_id": ID, "pending_ingredient_name": {"type": "null"}}},
+            {"required": ["pending_ingredient_name"], "properties": {"ingredient_id": {"type": "null"}, "pending_ingredient_name": REQUIRED_TEXT}},
+        ]),
+        "Preparation": obj({'id': ID, 'daily_battle_dish_id': ID, 'dish_id': ID, 'ingredient_id': nullable(ID),
+                            'ingredient_name': nullable(TEXT), 'ingredient_status': nullable(INGREDIENT_STATUS),
+                            'pending_ingredient_name': nullable(TEXT),
                             'planned_quantity_text': nullable(TEXT), 'position': {'type': 'integer'}, **TIMESTAMPS}),
         "DailyBattle": obj({**battle, "dishes": array(ref("DailyBattleDish")), 'preparations': array(ref('Preparation'))}),
         "ConfirmedBattle": obj({**battle, "dishes": array(ref("DailyBattleDish")),
@@ -145,12 +148,12 @@ def build_schemas() -> dict:
                                      {"required": ["meal_plan_id"], "properties": {"meal_plan_id": ID, "dish_ids": False},
                                       "not": {"required": ["dish_ids"]}},
                                      {"required": ["dish_ids"], "properties": {"dish_ids": DISH_IDS, "meal_plan_id": {"type": "null"}}},
-                                 ], description="meal_plan_id 与 dish_ids 必须二选一；从方案创建时复制菜品。保存前每道菜必须贴至少一项耗材；预计用量可在草稿阶段补全，确认库存前必须完整。"),
+                                 ], description="meal_plan_id 与 dish_ids 必须二选一；从方案创建时复制菜品。每道菜至少关联一项库存耗材或待购买食材；预计用量可在草稿阶段补全，确认库存前必须完整。"),
         "DailyBattleUpdate": obj({"dish_ids": DISH_IDS, 'battle_date': DATE, 'meal_slot': nullable(MEAL_SLOT),
                                    'preparations': array(ref('PreparationInput'), minItems=1, maxItems=500), 'expected_updated_at': TIME}, ['dish_ids', 'preparations']),
         "ActualUsage": obj(actual_usage, ["ingredient_id", "quantity_used_text", "expected_updated_at"]),
         "BattleConfirm": obj({"consumptions": array(ref('ActualUsage'), maxItems=500), 'expected_updated_at': TIME}, ["consumptions", "expected_updated_at"],
-                             description="仅可确认已建立核对锁定的菜单。后端在同一事务内按实际用量计算库存、写入消耗、释放锁定并校验菜单与库存版本；客户端不得提交剩余库存。"),
+                             description="后端只在最终确认的同一事务内校验实际库存、写入消耗、调整库存并校验菜单与库存版本；客户端不得提交剩余库存。待购买食材必须先入库并关联为库存耗材。"),
         "BattleRevoke": obj({"target_status": {"type": "string", "enum": ["planned", "cancelled"], "default": "planned"}}, []),
         "PaginationMeta": obj({"total": {"type": "integer", "minimum": 0},
                                "limit": {"type": "integer", "minimum": 1, "maximum": 100},
@@ -221,8 +224,6 @@ def install_openapi(app: FastAPI) -> None:
         ("/api/daily-battles/{battle_id}", "patch", "DailyBattleResponse", "DailyBattleUpdate", True, 200),
         ("/api/daily-battles/{battle_id}", "delete", "DailyBattleRecordResponse", None, False, 200),
         ("/api/daily-battles/{battle_id}/consumptions", "get", "BattleConsumptionList", None, False, 200),
-        ("/api/daily-battles/{battle_id}/review-reservation", "post", "DailyBattleResponse", None, False, 200),
-        ("/api/daily-battles/{battle_id}/review-reservation", "delete", "DailyBattleResponse", None, False, 200),
         ("/api/daily-battles/{battle_id}/cancel", "post", "DailyBattleResponse", None, False, 200),
         ("/api/daily-battles/{battle_id}/confirm", "post", "ConfirmedBattleResponse", "BattleConfirm", True, 200),
         ("/api/daily-battles/{battle_id}/revoke-confirmation", "post", "DailyBattleResponse", "BattleRevoke", False, 200),

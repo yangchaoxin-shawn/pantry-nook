@@ -1,14 +1,14 @@
 # Pantry Nook 当前状态
 
-更新：2026-09-11。本轮：双人共享场景的库存与菜单核对改动；下文区分本轮验证与历史证据。
+更新：2026-09-11。本轮：菜单待购买食材与最终确认库存校验；下文区分本轮验证与历史证据。
 业务规格只维护在 [PRD](PRD.md)，协作方式见 [流程](collaboration.md)。
 
 ## 当前授权与阶段
 
 用户已开始反馈库存/核对场景问题；尚未给出各模块的最终验收结论。
-本轮批准并实施：菜单保存不占库存；点击“核对用料”后建立短时可用库存锁定，确认时再扣真实库存。锁定期间允许补货，但不允许报废、减库存或换单位破坏其他菜单的锁定量。
-未新增角色、公开访问或部署；未重置用户数据。测试使用独立端口 3017 / 数据库，浏览器前端 localhost:5174。
-代码在原工作目录更新，会被原热重载服务读取；本轮隔离了测试端口和数据，未建立独立代码 worktree，不能称为完整双环境。
+本轮批准并实施：菜单与核对均不占用库存；库存不足仅提示缺口。无库存食材可作为本餐待购买项保存，补货后手动关联真实库存；最终确认才在事务内校验并扣减。
+未新增角色、公开访问或部署；未重置用户数据。自动化写入测试使用独立端口和测试数据库；用户浏览器继续使用本地 Vite 服务。
+代码在原工作目录更新，会被原热重载服务读取；自动化写入测试通过 isolated_server 使用独立端口和数据库，未建立独立代码 worktree，不能称为完整双环境。
 
 ## 模块状态
 
@@ -17,10 +17,10 @@
 | 库存录入与冲突 | 已确认 | 单个/批量、同名冲突处理已实现 | 本轮 regression + concurrent API；浏览器补录成功 | 待验收 | 单行批量、分类与单位冲突 |
 | 报废与撤销 | 已确认 | 全量/部分、全局记录、撤销已实现 | 本轮 smoke + concurrent 验证待餐报废/撤销 | 待验收 | 全量消失后从全局找回 |
 | 菜品与搭配 | 已确认 | CRUD、引用保护、复制已实现 | 菜品搭配审计及前次 API/browser 记录 | 待验收 | 复用、改名、引用删除 |
-| 菜单备餐 | 已确认 | 每餐菜品/耗材、草稿、编辑已实现 | 菜单审计及前次 workflow 记录 | 待验收 | 耗材与预计量的保存/确认边界 |
-| 确认、历史与撤销 | 已确认 | 核对锁定、确认事务、版本保护、同屏历史已实现 | review_reservation、workflow、concurrent API；浏览器异常路径 | 待验收 | 实际量调整、扣除、恢复和冲突 |
+| 菜单备餐 | 已确认 | 每餐菜品、库存耗材、待购买耗材、草稿与编辑已实现 | 本轮 workflow API | 待验收 | 待购买食材补货后关联库存 |
+| 确认、历史与撤销 | 已确认 | 最终确认事务、版本保护、同屏历史已实现 | 本轮 workflow、concurrent API | 待验收 | 实际量调整、扣除、恢复和冲突 |
 | 响应式与亮暗 | 已有实现 | 现有界面可供验收，整体重构后置 | 历史报告曾记录多尺寸；不是本轮复测 | 待验收 | 结合本次实际任务发现可用性问题 |
-| 迁移与契约 | 已有实现 | migration、OpenAPI 导出、前端生成类型 | 前次迁移/契约检查；本轮未重跑 | 不等同产品验收 | 改动时定向验证 |
+| 迁移与契约 | 已有实现 | migration、OpenAPI 导出、前端生成类型 | 本轮 migration、契约与生成检查通过 | 不等同产品验收 | 改动时定向验证 |
 
 历史来源：[库存审计](inventory-v1-data-api-audit.md)、[菜单审计](menu-v1-audit-2026-09-10.md)、
 [菜品搭配审计](dishes-plans-v1-audit-2026-09-10.md)、[旧菜单交付](menu-workflow-delivery.md)。
@@ -34,17 +34,13 @@
 - 8c685f0：上一轮统一规格与 Claude/Codex 协作入口；以下文档静态检查属于该轮。
 - 本轮文档静态检查通过：10 份当前文档、60 个本地链接与锚点、CLAUDE 导入路径、AGENTS 长度、编码及代码块；git diff --check 通过。未启动 Claude CLI 验证自动加载。
 
-## 本轮验证：2026-09-11 双人库存与核对
+## 本轮验证：2026-09-11 待购买食材与最终确认
 
-- 后端：regression 31、menu_workflow 34、concurrent_inventory 55、smoke 18 项断言通过；人工不可换算合并的版本检查追加 7 项定向断言通过。契约 unittest 4 项通过；compileall 与 OpenAPI 归档一致检查通过。
-- 前端：30 项测试通过，typecheck / lint / build 通过；不新增依赖。
-- 真实浏览器：390px 暗色、1440px 亮色核对窗口无横向溢出；初值 200g/1个 分别显示 200/1。打开时/列表刷新加载态、无待完成餐空态、断线错误与恢复均已走查。
-- 双窗口闭环：第二窗口入库 100g，第一窗口库存 500g → 600g、输入 150 不变；确认后真实 API 库存 450g；第二窗口自动显示已确认并禁用提交。
-- 断线保留 125，禁用确认；恢复后输入仍为 125。单位 g → kg 后禁用，按新单位改为 0.125 后确认成功，API 余量为 0.475kg。
-- 正常流程两窗口 error 控制台日志为空；故意关闭隔离后端时显示预期连接失败提示，恢复后所查 error 日志仍为空。未观察到 React runtime error。
-- 005_review_reservations 迁移新增核对锁定表；OpenAPI、生成类型与本地开发数据库已同步。
-- 本轮未做全站视觉回归、全部尺寸主题交叉组合、公开链接或跨真实设备网络验收，未改 WorkBuddy 视觉基准。
-- 相关库存确认后有后续更新时保守拒绝自动撤销，详细业务边界见 PRD。当前为 agent 验证通过、待用户验收。
+- 后端隔离库：menu_workflow 48、regression 34、fractional_quantity 12、concurrent_inventory 63、smoke 18 项断言通过；契约 unittest 7 项、compileall 与 OpenAPI 一致性检查通过。
+- 前端：40 项测试通过，typecheck / lint / build 通过；不新增依赖。
+- 业务覆盖：无库存食材可保存为待购买项；补货后可关联真实库存；库存 3、计划 4 可保存且不预占，最终确认返回库存不足；确认仍由后端短事务完成。
+- 006_menu_pending_purchases 迁移新增待购买食材字段并移除旧核对锁定表；OpenAPI、生成类型与本地开发数据库已同步。
+- 本轮仅做了桌面页面打开检查；未重复全站视觉回归、全部尺寸主题组合、公开链接或跨真实设备网络验收。当前为 agent 验证通过、待用户验收。
 
 ## 用户验收数据
 
@@ -88,8 +84,8 @@
 
 ## 本轮文件范围
 
-- 修改（前端）：frontend/src/App.tsx、MenuWorkflow.tsx、api.ts、api-schema.d.ts。
-- 修改（后端）：backend/app/routes/ingredients.py、daily_battles.py、quantity.py、migrations.py、api_contract.py；backend/scripts/regression_test.py、smoke_test.py、menu_workflow_test.py、fractional_quantity_test.py、concurrent_inventory_test.py、seed_demo_data.py。
+- 修改（前端）：frontend/src/App.tsx、MenuWorkflow.tsx、api.ts、api-schema.d.ts、menu-confirm-logic.ts、menu-workflow.css。
+- 修改（后端）：backend/app/routes/ingredients.py、daily_battles.py、migrations.py、menu_workflow.py、api_contract.py；backend/scripts/regression_test.py、smoke_test.py、menu_workflow_test.py、fractional_quantity_test.py、concurrent_inventory_test.py、seed_demo_data.py。
 - 修改（契约与文档）：contracts/openapi.yaml、docs/PRD.md、docs/project-status.md、backend/TESTING.md。
-- 新增：backend/app/review_locks.py、backend/migrations/005_review_reservations.sql、backend/scripts/review_reservation_test.py。
-- 删除：无。已新增表结构/migration；依赖和用户测试数据不变。
+- 新增：backend/migrations/006_menu_pending_purchases.sql。
+- 删除：backend/app/review_locks.py、backend/scripts/review_reservation_test.py。已更新表结构/migration；依赖和用户测试数据不变。

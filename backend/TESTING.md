@@ -38,10 +38,9 @@ uv run python scripts/regression_test.py 3010
 uv run python scripts/smoke_test.py 3010
 uv run python scripts/menu_workflow_test.py 3010
 uv run python scripts/concurrent_inventory_test.py 3010
-uv run python scripts/review_reservation_test.py 3010
 ```
 
-concurrent_inventory_test.py 覆盖备餐期间录入/报废/撤销、过期编辑与确认、两人同时确认、不同餐争用库存、不足回滚、多菜同耗材撤销及单位历史。review_reservation_test.py 覆盖核对锁定、释放、确认扣减与锁定期间减库存保护。仅允许带测试标记的服务，保留测试历史。
+concurrent_inventory_test.py 覆盖备餐期间录入/报废/撤销、过期编辑与确认、两人同时确认、不同餐争用库存、不足回滚、多菜同耗材撤销及单位历史。仅允许带测试标记的服务，保留测试历史。
 
 如本机 uv 缓存受限，可使用 `uv --cache-dir .uv-cache run --no-sync ...` 与已有 `.venv`。
 
@@ -77,7 +76,7 @@ uv run python scripts/seed_demo_data.py
 
 - `smoke_test.py`：库存报废与安全撤销、搭配引用保护、菜单确认/撤销的最短真实链路。
 - `regression_test.py`：同名入库合并与分类冲突选择、批量原子性、搭配引用、待完成菜单的库存保护、确认事务、重复确认和撤销历史。
-- `menu_workflow_test.py`：每道菜先贴耗材、草稿允许稍后补预计量、菜单版本校验、实际用量核对、库存版本冲突整体回滚、确认和撤销恢复。
+- `menu_workflow_test.py`：每道菜先贴库存耗材或待购买食材、草稿允许稍后补预计量、待购买项补货后关联库存、菜单版本校验、实际用量核对、库存版本冲突整体回滚、确认和撤销恢复。
 - `tests/test_api_contract.py`：统一错误结构与已归档 OpenAPI 契约。
 
 迁移演练在需要验证旧数据库升级时单独运行：

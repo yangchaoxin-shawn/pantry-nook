@@ -24,7 +24,7 @@ async def attach_preparations(conn, items):
         i.name AS ingredient_name, i.status AS ingredient_status
         FROM daily_battle_preparations p
         JOIN daily_battle_dishes bd ON bd.id=p.daily_battle_dish_id
-        JOIN ingredients i ON i.id=p.ingredient_id
+        LEFT JOIN ingredients i ON i.id=p.ingredient_id
         WHERE bd.daily_battle_id=ANY($1::bigint[])
         ORDER BY bd.position, p.position, p.id''', [i['id'] for i in items])
     by_id = {i['id']: i for i in items}
@@ -44,14 +44,26 @@ async def save_preparations(conn, battle_id, raw):
     values, seen = [], set()
     for position, item in enumerate(raw):
         item = ensure_object_body(item)
-        did, iid = parse_id(item.get('dish_id')), parse_id(item.get('ingredient_id'))
+        did = parse_id(item.get('dish_id'))
         if did not in dish_map:
             raise validation_error('备餐食材必须关联本菜单中的菜品')
-        if (did, iid) in seen:
-            raise validation_error('同一道菜不能重复选择同一条库存')
-        seen.add((did, iid))
-        values.append((dish_map[did], iid, optional_text(item.get('planned_quantity_text'), 'planned_quantity_text'), position))
-    ids = list({v[1] for v in values})
+        raw_id = item.get('ingredient_id')
+        pending_name = optional_text(item.get('pending_ingredient_name'), 'pending_ingredient_name', 255)
+        if raw_id in (None, ''):
+            if not pending_name:
+                raise validation_error('每项耗材请选择库存食材，或填写待购买食材名称')
+            key = (did, 'pending', pending_name.casefold())
+            ingredient_id = None
+        else:
+            if pending_name:
+                raise validation_error('一项耗材不能同时关联库存和待购买名称')
+            ingredient_id = parse_id(raw_id, 'ingredient_id')
+            key = (did, 'inventory', ingredient_id)
+        if key in seen:
+            raise validation_error('同一道菜不能重复选择同一种耗材')
+        seen.add(key)
+        values.append((dish_map[did], ingredient_id, pending_name, optional_text(item.get('planned_quantity_text'), 'planned_quantity_text'), position))
+    ids = list({v[1] for v in values if v[1] is not None})
     if ids:
         count = await conn.fetchval("SELECT COUNT(*) FROM ingredients WHERE id=ANY($1::bigint[]) AND status='active'", ids)
         if count != len(ids):
@@ -59,5 +71,5 @@ async def save_preparations(conn, battle_id, raw):
     await conn.execute('DELETE FROM daily_battle_preparations WHERE daily_battle_dish_id=ANY($1::bigint[])', list(dish_map.values()))
     if values:
         await conn.executemany('''INSERT INTO daily_battle_preparations
-            (daily_battle_dish_id,ingredient_id,planned_quantity_text,position) VALUES ($1,$2,$3,$4)''', values)
+            (daily_battle_dish_id,ingredient_id,pending_ingredient_name,planned_quantity_text,position) VALUES ($1,$2,$3,$4,$5)''', values)
     return None

@@ -72,6 +72,37 @@ def main():
     check("预计用量为空时不能确认", status == 400)
     data("POST", f"/api/daily-battles/{blank['id']}/cancel")
 
+    pending = data("POST", "/api/daily-battles", {**base, "dish_ids": [one["id"]], "preparations": [
+        {"dish_id": one["id"], "pending_ingredient_name": f"待购菠萝-{STAMP}", "planned_quantity_text": "1个"},
+    ]}, 201)
+    check("没有库存的食材可作为待购买耗材保存", pending["preparations"][0]["ingredient_id"] is None and pending["preparations"][0]["pending_ingredient_name"] == f"待购菠萝-{STAMP}")
+    status, _ = request("POST", f"/api/daily-battles/{pending['id']}/confirm", {"expected_updated_at": pending["updated_at"], "consumptions": []})
+    check("待购买食材未关联库存时不能确认", status == 400)
+    pineapple = ingredient(f"待购菠萝-{STAMP}", "水果", 1, "个")
+    linked = data("PATCH", f"/api/daily-battles/{pending['id']}", {
+        "dish_ids": [one["id"]], "preparations": [{"dish_id": one["id"], "ingredient_id": pineapple["id"], "planned_quantity_text": "1个"}],
+        "expected_updated_at": pending["updated_at"],
+    })
+    check("补货后可将待购买耗材关联到真实库存", linked["preparations"][0]["ingredient_id"] == pineapple["id"])
+    data("POST", f"/api/daily-battles/{pending['id']}/cancel")
+
+    carrot = ingredient(f"菜单胡萝卜-{STAMP}", "蔬菜", 3, "个")
+    shortfall = data("POST", "/api/daily-battles", {**base, "dish_ids": [one["id"]], "preparations": [
+        {"dish_id": one["id"], "ingredient_id": carrot["id"], "planned_quantity_text": "4个"},
+    ]}, 201)
+    check("预计量超过库存仍可保存菜单", shortfall["status"] == "planned")
+    check("保存预计量不扣除或预占库存", data("GET", f"/api/ingredients/{carrot['id']}")["stock_value"] == 3)
+    shortfall_row = shortfall["dishes"][0]["id"]
+    status, _ = request("POST", f"/api/daily-battles/{shortfall['id']}/confirm", {
+        "expected_updated_at": shortfall["updated_at"],
+        "consumptions": [{
+            "ingredient_id": carrot["id"], "daily_battle_dish_id": shortfall_row,
+            "quantity_used_text": "4", "expected_updated_at": carrot["updated_at"],
+        }],
+    })
+    check("库存不足只在最终确认时拒绝", status == 409)
+    data("POST", f"/api/daily-battles/{shortfall['id']}/cancel")
+
     preparations = [
         {"dish_id": one["id"], "ingredient_id": egg["id"], "planned_quantity_text": "2"},
         {"dish_id": one["id"], "ingredient_id": tomato["id"], "planned_quantity_text": "2"},
@@ -98,7 +129,6 @@ def main():
     }
     invalid = copy.deepcopy(payload)
     invalid["consumptions"][0]["expected_updated_at"] = "2000-01-01T00:00:00Z"
-    data("POST", f"/api/daily-battles/{battle['id']}/review-reservation")
     status, _ = request("POST", f"/api/daily-battles/{battle['id']}/confirm", invalid)
     check("库存版本冲突时确认整体回滚", status == 409)
     check("失败不扣库存", data("GET", f"/api/ingredients/{egg['id']}")["stock_value"] == 6)

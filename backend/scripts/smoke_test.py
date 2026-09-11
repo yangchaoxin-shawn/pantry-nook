@@ -126,8 +126,6 @@ if battle_id and ingredient_id:
 
 # --- 4. 确认作战 -> 数量扣减 ---
 if battle_id and ingredient_id:
-    s, _ = req("POST", f"/api/daily-battles/{battle_id}/review-reservation")
-    results.append(check("核对前锁定预计用量 200", s == 200, f"status={s}"))
     s, latest_ingredient = req("GET", f"/api/ingredients/{ingredient_id}")
     s, resp = req("POST", f"/api/daily-battles/{battle_id}/confirm", {
         "consumptions": [{

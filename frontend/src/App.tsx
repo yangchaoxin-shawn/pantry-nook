@@ -289,7 +289,7 @@ function DishPicker({
 type Modal =
   | { kind: "ingredient"; item: Ingredient }
   | { kind: "ingredientSingle" }
-  | { kind: "ingredientBatch" }
+  | { kind: "ingredientBatch"; suggestedNames?: string[] }
   | { kind: "ingredientDetail"; item: Ingredient }
   | { kind: "ingredientWaste"; item: Ingredient }
   | { kind: "dish"; item?: Dish }
@@ -896,12 +896,7 @@ export default function App() {
                         ? "编辑菜单"
                         : "安排一餐"
           }
-          onClose={() => {
-            if (modal.kind === "confirm") {
-              void api.releaseBattleReview(modal.item.id).finally(reload);
-            }
-            setModal(null);
-          }}
+          onClose={() => setModal(null)}
           busy={busy}
         >
           {actionError && (
@@ -925,6 +920,7 @@ export default function App() {
             <IngredientBatchEditor
               busy={busy}
               single={modal.kind === "ingredientSingle"}
+              suggestedNames={modal.kind === "ingredientBatch" ? modal.suggestedNames : undefined}
               existingIngredients={data.ingredients}
               save={(ingredients, resolutions, categoryResolutions, manualTotals) =>
                 void mutate(
@@ -1010,14 +1006,11 @@ export default function App() {
             <MenuConfirm battleId={modal.item.id} busy={busy} onPending={setBusy}
               onEdit={() => {
                 const battle = modal.item;
-                void api.releaseBattleReview(battle.id).finally(() => open({ kind: "battle", item: battle }));
+                open({ kind: "battle", item: battle });
               }}
-              onRestock={() => {
-                const battle = modal.item;
-                void api.releaseBattleReview(battle.id).finally(() => {
-                  navigate("ingredients");
-                  open({ kind: "ingredientBatch" });
-                });
+              onRestock={(suggestedNames) => {
+                navigate("ingredients");
+                open({ kind: "ingredientBatch", suggestedNames });
               }}
               save={async payload => {
                 await api.battleAction(modal.item.id, "confirm", payload);
@@ -1076,11 +1069,13 @@ const blankBatchIngredient = (id: number): BatchIngredientRow => ({
 function IngredientBatchEditor({
   busy,
   single = false,
+  suggestedNames = [],
   existingIngredients,
   save,
 }: {
   busy: boolean;
   single?: boolean;
+  suggestedNames?: string[];
   existingIngredients: Ingredient[];
   save: (
     ingredients: IngredientCreate[],
@@ -1089,8 +1084,9 @@ function IngredientBatchEditor({
     manualTotals: { ingredient_id: number; stock_text: string; stock_value: number; unit: string; expected_updated_at: string }[],
   ) => void;
 }) {
-  const [rows, setRows] = useState(() =>
-    Array.from({ length: single ? 1 : 5 }, (_, index) => blankBatchIngredient(index + 1)),
+  const [rows, setRows] = useState(() => suggestedNames.length
+    ? suggestedNames.map((name, index) => ({ ...blankBatchIngredient(index + 1), name }))
+    : Array.from({ length: single ? 1 : 5 }, (_, index) => blankBatchIngredient(index + 1)),
   );
   const [batchCategory, setBatchCategory] = useState<IngredientCreate["category"]>("蔬菜");
   const [batchLocation, setBatchLocation] = useState<IngredientCreate["location"]>(null);

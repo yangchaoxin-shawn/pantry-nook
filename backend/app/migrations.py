@@ -23,9 +23,9 @@ async def _is_current_schema(conn) -> bool:
              FROM information_schema.tables
             WHERE table_schema = 'public'
               AND table_name = ANY($1::text[])""",
-        ["daily_battle_preparations", "daily_battle_review_locks", "inventory_adjustments"],
+        ["daily_battle_preparations", "inventory_adjustments"],
     )
-    if tables != 3:
+    if tables != 2:
         return False
 
     columns = await conn.fetch(
@@ -33,7 +33,7 @@ async def _is_current_schema(conn) -> bool:
              FROM information_schema.columns
             WHERE table_schema = 'public'
               AND table_name = ANY($1::text[])""",
-        ["ingredients", "daily_battles"],
+        ["ingredients", "daily_battles", "daily_battle_preparations"],
     )
     present = {(row["table_name"], row["column_name"]) for row in columns}
     required = {
@@ -41,6 +41,7 @@ async def _is_current_schema(conn) -> bool:
         ("ingredients", "stock_value"),
         ("ingredients", "stock_unit"),
         ("daily_battles", "meal_slot"),
+        ("daily_battle_preparations", "pending_ingredient_name"),
     }
     legacy = {
         ("ingredients", "quantity_text"),

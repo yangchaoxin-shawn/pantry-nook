@@ -18,6 +18,6 @@ export function initialUsage(text: string | null | undefined, unit: string | nul
 }
 
 export function inventoryVersion(battle: Pick<Battle, 'preparations'>, ingredients: Pick<Ingredient, 'id' | 'updated_at'>[]): string {
-  return [...new Set(battle.preparations.map(p => p.ingredient_id))].sort((a, b) => a - b)
+  return [...new Set(battle.preparations.map(p => p.ingredient_id).filter((id): id is number => id !== null))].sort((a, b) => a - b)
     .map(id => `${id}:${ingredients.find(i => i.id === id)?.updated_at ?? 'unavailable'}`).join('|');
 }

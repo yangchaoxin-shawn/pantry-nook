@@ -286,30 +286,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/daily-battles/{battle_id}/review-reservation": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Start Review
-         * @description Start or renew a short review lock. It never deducts stock.
-         */
-        post: operations["start_review_api_daily_battles__battle_id__review_reservation_post"];
-        /**
-         * Release Review
-         * @description Release a review lock when the user exits editing; safe to call repeatedly.
-         */
-        delete: operations["release_review_api_daily_battles__battle_id__review_reservation_delete"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/daily-battles/{battle_id}/confirm": {
         parameters: {
             query?: never;
@@ -429,8 +405,6 @@ export interface components {
             stock_unit: string;
             location: ("冰箱冷藏" | "冰箱冷冻" | "室温" | "其他") | null;
             note: string | null;
-            reserved_value: number;
-            available_value: number;
             /** Format: date-time */
             created_at: string;
             /** Format: date-time */
@@ -499,17 +473,25 @@ export interface components {
         };
         PreparationInput: {
             dish_id: number;
-            ingredient_id: number;
+            ingredient_id?: number | null;
+            pending_ingredient_name?: string | null;
             planned_quantity_text?: string | null;
-        };
+        } & ({
+            ingredient_id: number;
+            pending_ingredient_name?: null;
+        } | {
+            ingredient_id?: null;
+            /** @description 去除首尾空白后不能为空。 */
+            pending_ingredient_name: string;
+        });
         Preparation: {
             id: number;
             daily_battle_dish_id: number;
             dish_id: number;
-            ingredient_id: number;
-            ingredient_name: string;
-            /** @enum {string} */
-            ingredient_status: "active" | "consumed" | "discarded";
+            ingredient_id: number | null;
+            ingredient_name: string | null;
+            ingredient_status: ("active" | "consumed" | "discarded") | null;
+            pending_ingredient_name: string | null;
             planned_quantity_text: string | null;
             position: number;
             /** Format: date-time */
@@ -741,7 +723,7 @@ export interface components {
             name?: string | null;
             dish_ids?: number[];
         };
-        /** @description meal_plan_id 与 dish_ids 必须二选一；从方案创建时复制菜品。保存前每道菜必须贴至少一项耗材；预计用量可在草稿阶段补全，确认库存前必须完整。 */
+        /** @description meal_plan_id 与 dish_ids 必须二选一；从方案创建时复制菜品。每道菜至少关联一项库存耗材或待购买食材；预计用量可在草稿阶段补全，确认库存前必须完整。 */
         DailyBattleCreate: {
             /** Format: date */
             battle_date: string;
@@ -774,7 +756,7 @@ export interface components {
             expected_updated_at: string;
             note?: string | null;
         };
-        /** @description 仅可确认已建立核对锁定的菜单。后端在同一事务内按实际用量计算库存、写入消耗、释放锁定并校验菜单与库存版本；客户端不得提交剩余库存。 */
+        /** @description 后端只在最终确认的同一事务内校验实际库存、写入消耗、调整库存并校验菜单与库存版本；客户端不得提交剩余库存。待购买食材必须先入库并关联为库存耗材。 */
         BattleConfirm: {
             consumptions: components["schemas"]["ActualUsage"][];
             /** Format: date-time */
@@ -2292,122 +2274,6 @@ export interface operations {
         };
     };
     cancel_battle_api_daily_battles__battle_id__cancel_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                battle_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description 请求成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["DailyBattleResponse"];
-                };
-            };
-            /** @description 请求参数或 JSON 格式不正确 */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description 资源不存在 */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description 当前业务状态不允许该操作 */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description 服务器内部错误 */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    start_review_api_daily_battles__battle_id__review_reservation_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                battle_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description 请求成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["DailyBattleResponse"];
-                };
-            };
-            /** @description 请求参数或 JSON 格式不正确 */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description 资源不存在 */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description 当前业务状态不允许该操作 */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description 服务器内部错误 */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    release_review_api_daily_battles__battle_id__review_reservation_delete: {
         parameters: {
             query?: never;
             header?: never;
