@@ -113,7 +113,7 @@ results.append(check("被搭配引用的菜品不能直接删除 409", s == 409,
 # --- 2. 今日作战（按 dish_ids） ---
 s, _ = req("POST", "/api/daily-battles", {"battle_date": "2026-09-08", "dish_ids": [dish_id], "preparations": []})
 results.append(check("未贴耗材的菜单不能保存 400", s == 400, f"status={s}"))
-s, battle = req("POST", "/api/daily-battles", {"battle_date": "2026-09-08", "dish_ids": [dish_id], "preparations": [{
+s, battle = req("POST", "/api/daily-battles", {"battle_date": "2026-09-08", "meal_slot": "dinner", "dish_ids": [dish_id], "preparations": [{
     "dish_id": dish_id, "ingredient_id": ingredient_id, "planned_quantity_text": "0.5",
 }]})
 results.append(check("创建今日作战 201", s == 201, f"status={s}"))

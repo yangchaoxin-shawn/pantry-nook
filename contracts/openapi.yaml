@@ -2746,18 +2746,11 @@
             ]
           },
           "meal_slot": {
-            "anyOf": [
-              {
-                "type": "string",
-                "enum": [
-                  "breakfast",
-                  "lunch",
-                  "dinner"
-                ]
-              },
-              {
-                "type": "null"
-              }
+            "type": "string",
+            "enum": [
+              "breakfast",
+              "lunch",
+              "dinner"
             ]
           },
           "status": {
@@ -3049,18 +3042,11 @@
             ]
           },
           "meal_slot": {
-            "anyOf": [
-              {
-                "type": "string",
-                "enum": [
-                  "breakfast",
-                  "lunch",
-                  "dinner"
-                ]
-              },
-              {
-                "type": "null"
-              }
+            "type": "string",
+            "enum": [
+              "breakfast",
+              "lunch",
+              "dinner"
             ]
           },
           "status": {
@@ -3153,18 +3139,11 @@
             ]
           },
           "meal_slot": {
-            "anyOf": [
-              {
-                "type": "string",
-                "enum": [
-                  "breakfast",
-                  "lunch",
-                  "dinner"
-                ]
-              },
-              {
-                "type": "null"
-              }
+            "type": "string",
+            "enum": [
+              "breakfast",
+              "lunch",
+              "dinner"
             ]
           },
           "status": {
@@ -4462,18 +4441,11 @@
             "uniqueItems": true
           },
           "meal_slot": {
-            "anyOf": [
-              {
-                "type": "string",
-                "enum": [
-                  "breakfast",
-                  "lunch",
-                  "dinner"
-                ]
-              },
-              {
-                "type": "null"
-              }
+            "type": "string",
+            "enum": [
+              "breakfast",
+              "lunch",
+              "dinner"
             ]
           },
           "preparations": {
@@ -4487,6 +4459,7 @@
         },
         "required": [
           "battle_date",
+          "meal_slot",
           "preparations"
         ],
         "oneOf": [
@@ -4530,7 +4503,7 @@
             }
           }
         ],
-        "description": "meal_plan_id 与 dish_ids 必须二选一；从方案创建时复制菜品。每道菜至少关联一项库存耗材或待购买食材；预计用量可在草稿阶段补全，确认库存前必须完整。"
+        "description": "meal_plan_id 与 dish_ids 必须二选一；从方案创建时复制菜品。每道菜至少关联一项库存耗材或待购买食材；同一日期和餐次只能有一份菜单；预计用量可在草稿阶段补全，确认库存前必须完整。"
       },
       "DailyBattleUpdate": {
         "type": "object",
@@ -4551,18 +4524,11 @@
             "format": "date"
           },
           "meal_slot": {
-            "anyOf": [
-              {
-                "type": "string",
-                "enum": [
-                  "breakfast",
-                  "lunch",
-                  "dinner"
-                ]
-              },
-              {
-                "type": "null"
-              }
+            "type": "string",
+            "enum": [
+              "breakfast",
+              "lunch",
+              "dinner"
             ]
           },
           "preparations": {

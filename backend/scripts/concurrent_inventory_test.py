@@ -5,14 +5,18 @@ import re
 import urllib.request
 import regression_test as t
 
+MENU_SEQUENCE = 0
+
 
 def stock(i):
     return t.data('GET', f"/api/ingredients/{i['id']}")
 
 
 def menu(ingredients, dishes):
+    global MENU_SEQUENCE
+    MENU_SEQUENCE += 1
     return t.data('POST', '/api/daily-battles', {
-        'battle_date': '2026-09-11', 'meal_slot': 'dinner', 'dish_ids': [d['id'] for d in dishes],
+        'battle_date': f'2026-10-{MENU_SEQUENCE:02d}', 'meal_slot': 'dinner', 'dish_ids': [d['id'] for d in dishes],
         'preparations': [{'dish_id': d['id'], 'ingredient_id': i['id'], 'planned_quantity_text': '1' + i['stock_unit']}
                          for d, i in zip(dishes, ingredients)],
     }, 201)

@@ -455,7 +455,8 @@ export interface components {
             /** Format: date */
             battle_date: string;
             meal_plan_id: number | null;
-            meal_slot: ("breakfast" | "lunch" | "dinner") | null;
+            /** @enum {string} */
+            meal_slot: "breakfast" | "lunch" | "dinner";
             /** @enum {string} */
             status: "planned" | "confirmed" | "cancelled";
             confirmed_at: string | null;
@@ -504,7 +505,8 @@ export interface components {
             /** Format: date */
             battle_date: string;
             meal_plan_id: number | null;
-            meal_slot: ("breakfast" | "lunch" | "dinner") | null;
+            /** @enum {string} */
+            meal_slot: "breakfast" | "lunch" | "dinner";
             /** @enum {string} */
             status: "planned" | "confirmed" | "cancelled";
             confirmed_at: string | null;
@@ -521,7 +523,8 @@ export interface components {
             /** Format: date */
             battle_date: string;
             meal_plan_id: number | null;
-            meal_slot: ("breakfast" | "lunch" | "dinner") | null;
+            /** @enum {string} */
+            meal_slot: "breakfast" | "lunch" | "dinner";
             /** @enum {string} */
             status: "planned" | "confirmed" | "cancelled";
             confirmed_at: string | null;
@@ -723,13 +726,14 @@ export interface components {
             name?: string | null;
             dish_ids?: number[];
         };
-        /** @description meal_plan_id 与 dish_ids 必须二选一；从方案创建时复制菜品。每道菜至少关联一项库存耗材或待购买食材；预计用量可在草稿阶段补全，确认库存前必须完整。 */
+        /** @description meal_plan_id 与 dish_ids 必须二选一；从方案创建时复制菜品。每道菜至少关联一项库存耗材或待购买食材；同一日期和餐次只能有一份菜单；预计用量可在草稿阶段补全，确认库存前必须完整。 */
         DailyBattleCreate: {
             /** Format: date */
             battle_date: string;
             meal_plan_id?: number | null;
             dish_ids?: number[];
-            meal_slot?: ("breakfast" | "lunch" | "dinner") | null;
+            /** @enum {string} */
+            meal_slot: "breakfast" | "lunch" | "dinner";
             preparations: components["schemas"]["PreparationInput"][];
         } & ({
             meal_plan_id: number;
@@ -742,7 +746,8 @@ export interface components {
             dish_ids: number[];
             /** Format: date */
             battle_date?: string;
-            meal_slot?: ("breakfast" | "lunch" | "dinner") | null;
+            /** @enum {string} */
+            meal_slot?: "breakfast" | "lunch" | "dinner";
             preparations: components["schemas"]["PreparationInput"][];
             /** Format: date-time */
             expected_updated_at?: string;

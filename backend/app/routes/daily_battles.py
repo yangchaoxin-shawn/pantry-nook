@@ -35,6 +35,7 @@ router = APIRouter()
 BATTLE_STATUSES = ["planned", "confirmed", "cancelled"]
 REVOCATION_STATUSES = ["planned", "cancelled"]
 MEAL_SLOTS = ['breakfast', 'lunch', 'dinner']
+MEAL_SLOT_LABELS = {'breakfast': '早餐', 'lunch': '午餐', 'dinner': '晚餐'}
 
 
 # ---------- 输入构造 ----------
@@ -69,6 +70,19 @@ def validate_preparations_cover_dishes(dishes: list[dict], raw_preparations: Any
     missing = [expected[dish_id] for dish_id in expected if dish_id not in prepared_dish_ids]
     if missing:
         raise validation_error("以下菜品尚未贴耗材：" + "、".join(missing))
+
+
+async def assert_slot_available(conn, battle_date, meal_slot: str, exclude_id: int | None = None) -> None:
+    """一日三餐各只有一份菜单；锁由调用方的写事务持有。"""
+    existing = await conn.fetchrow(
+        """SELECT id, status FROM daily_battles
+           WHERE battle_date = $1 AND meal_slot = $2
+             AND ($3::bigint IS NULL OR id <> $3)
+           ORDER BY id DESC LIMIT 1""",
+        battle_date, meal_slot, exclude_id,
+    )
+    if existing is not None:
+        raise conflict(f"{battle_date.isoformat()} {MEAL_SLOT_LABELS[meal_slot]}已有一份菜单，请编辑已有安排")
 
 
 async def assert_ready_for_confirmation(conn, battle_id: int, inputs: list[dict]) -> None:
@@ -358,7 +372,7 @@ async def create_battle(request: Request):
     has_plan = body.get("meal_plan_id") not in (None, "")
     has_dishes = "dish_ids" in body
     input_: dict[str, Any] = {"battle_date": battle_date_val}
-    meal_slot = enum_value(body.get('meal_slot'), 'meal_slot', MEAL_SLOTS, optional=True)
+    meal_slot = enum_value(body.get('meal_slot'), 'meal_slot', MEAL_SLOTS)
 
     if has_plan == has_dishes:
         raise validation_error("meal_plan_id 和 dish_ids 必须二选一")
@@ -371,6 +385,7 @@ async def create_battle(request: Request):
     async with pool.acquire() as conn:
         async with conn.transaction():
             await lock_inventory_workflow(conn)
+            await assert_slot_available(conn, battle_date_val, meal_slot)
             dishes = await _source_dishes(conn, input_)
             # 菜单草稿允许稍后填预计用量，但每道菜必须先贴至少一种耗材。
             validate_preparations_cover_dishes(dishes, body.get("preparations", []))
@@ -402,6 +417,10 @@ async def update_battle(battle_id: int, request: Request):
             if current["status"] != "planned":
                 raise conflict("只有计划中的今日作战可以调整菜品")
             assert_version(body.get('expected_updated_at'), current['updated_at'])
+            new_slot = enum_value(body['meal_slot'], 'meal_slot', MEAL_SLOTS) if 'meal_slot' in body else current['meal_slot']
+            new_date = optional_date(required_text(body['battle_date'], 'battle_date', 10), 'battle_date') if 'battle_date' in body else current['battle_date']
+            if new_slot != current['meal_slot'] or new_date != current['battle_date']:
+                await assert_slot_available(conn, new_date, new_slot, pid)
             dishes = await _source_dishes(conn, input_)
             validate_preparations_cover_dishes(dishes, body["preparations"])
             existing = await conn.fetch("SELECT id, dish_id FROM daily_battle_dishes WHERE daily_battle_id = $1", pid)
@@ -418,12 +437,7 @@ async def update_battle(battle_id: int, request: Request):
                 else:
                     await conn.execute("INSERT INTO daily_battle_dishes (daily_battle_id, dish_id, dish_name, position) VALUES ($1, $2, $3, $4)", pid, dish["id"], dish["name"], position)
             await conn.execute("UPDATE daily_battles SET updated_at = NOW() WHERE id = $1", pid)
-            if 'meal_slot' in body:
-                slot = enum_value(body['meal_slot'], 'meal_slot', MEAL_SLOTS, optional=True)
-                await conn.execute('UPDATE daily_battles SET meal_slot=$1 WHERE id=$2', slot, pid)
-            if 'battle_date' in body:
-                new_date = optional_date(required_text(body['battle_date'], 'battle_date', 10), 'battle_date')
-                await conn.execute('UPDATE daily_battles SET battle_date=$1 WHERE id=$2', new_date, pid)
+            await conn.execute('UPDATE daily_battles SET battle_date=$1, meal_slot=$2 WHERE id=$3', new_date, new_slot, pid)
             await save_preparations(conn, pid, body['preparations'])
             result = await _get_battle(conn, pid)
     return ok(result)
@@ -593,6 +607,8 @@ async def revoke_confirmation(battle_id: int, request: Request):
                 raise not_found("今日作战")
             if battle["status"] != "confirmed":
                 raise conflict("只有已确认的今日作战可以撤销确认")
+            if target_status == 'planned':
+                await assert_slot_available(conn, battle['battle_date'], battle['meal_slot'], pid)
 
             consumptions = await conn.fetch(
                 """SELECT * FROM consumptions

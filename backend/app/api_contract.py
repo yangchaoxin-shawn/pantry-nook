@@ -60,7 +60,7 @@ def build_schemas() -> dict:
     dish = {"id": ID, "name": TEXT, "deleted_at": nullable(TIME), **TIMESTAMPS}
     plan = {"id": ID, "name": nullable(TEXT), **TIMESTAMPS}
     battle = {
-        "id": ID, "battle_date": DATE, "meal_plan_id": nullable(ID), "meal_slot": nullable(MEAL_SLOT),
+        "id": ID, "battle_date": DATE, "meal_plan_id": nullable(ID), "meal_slot": MEAL_SLOT,
         "status": BATTLE_STATUS, "confirmed_at": nullable(TIME),
         "cancelled_at": nullable(TIME), **TIMESTAMPS,
     }
@@ -143,13 +143,13 @@ def build_schemas() -> dict:
         "MealPlanUpdate": obj({"name": nullable(TEXT), "dish_ids": DISH_IDS}, [], minProperties=1,
                               **require_known_field({"name": nullable(TEXT), "dish_ids": DISH_IDS})),
         "DailyBattleCreate": obj({"battle_date": DATE, "meal_plan_id": nullable(ID), "dish_ids": DISH_IDS,
-                                  'meal_slot': nullable(MEAL_SLOT), 'preparations': array(ref('PreparationInput'), minItems=1, maxItems=500)},
-                                 ["battle_date", "preparations"], oneOf=[
+                                  'meal_slot': MEAL_SLOT, 'preparations': array(ref('PreparationInput'), minItems=1, maxItems=500)},
+                                 ["battle_date", "meal_slot", "preparations"], oneOf=[
                                      {"required": ["meal_plan_id"], "properties": {"meal_plan_id": ID, "dish_ids": False},
                                       "not": {"required": ["dish_ids"]}},
                                      {"required": ["dish_ids"], "properties": {"dish_ids": DISH_IDS, "meal_plan_id": {"type": "null"}}},
-                                 ], description="meal_plan_id 与 dish_ids 必须二选一；从方案创建时复制菜品。每道菜至少关联一项库存耗材或待购买食材；预计用量可在草稿阶段补全，确认库存前必须完整。"),
-        "DailyBattleUpdate": obj({"dish_ids": DISH_IDS, 'battle_date': DATE, 'meal_slot': nullable(MEAL_SLOT),
+                                 ], description="meal_plan_id 与 dish_ids 必须二选一；从方案创建时复制菜品。每道菜至少关联一项库存耗材或待购买食材；同一日期和餐次只能有一份菜单；预计用量可在草稿阶段补全，确认库存前必须完整。"),
+        "DailyBattleUpdate": obj({"dish_ids": DISH_IDS, 'battle_date': DATE, 'meal_slot': MEAL_SLOT,
                                    'preparations': array(ref('PreparationInput'), minItems=1, maxItems=500), 'expected_updated_at': TIME}, ['dish_ids', 'preparations']),
         "ActualUsage": obj(actual_usage, ["ingredient_id", "quantity_used_text", "expected_updated_at"]),
         "BattleConfirm": obj({"consumptions": array(ref('ActualUsage'), maxItems=500), 'expected_updated_at': TIME}, ["consumptions", "expected_updated_at"],

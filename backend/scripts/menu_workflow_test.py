@@ -58,6 +58,11 @@ def main():
     one = data("POST", "/api/dishes", {"name": f"番茄炒蛋-{STAMP}"}, 201)
     two = data("POST", "/api/dishes", {"name": f"清炒菠菜-{STAMP}"}, 201)
     base = {"battle_date": "2026-09-10", "meal_slot": "dinner", "dish_ids": [one["id"], two["id"]]}
+    status, _ = request("POST", "/api/daily-battles", {
+        "battle_date": base["battle_date"], "dish_ids": [one["id"]],
+        "preparations": [{"dish_id": one["id"], "ingredient_id": egg["id"], "planned_quantity_text": "1"}],
+    })
+    check("新建菜单必须指定餐次", status == 400)
     status, _ = request("POST", "/api/daily-battles", {**base, "preparations": []})
     check("每道菜保存前必须贴耗材", status == 400)
     status, _ = request("POST", "/api/daily-battles", {**base, "preparations": [{"dish_id": one["id"], "ingredient_id": egg["id"], "planned_quantity_text": "2"}]})
@@ -71,8 +76,23 @@ def main():
     status, _ = request("POST", f"/api/daily-battles/{blank['id']}/confirm", {"consumptions": []})
     check("预计用量为空时不能确认", status == 400)
     data("POST", f"/api/daily-battles/{blank['id']}/cancel")
+    status, _ = request("POST", "/api/daily-battles", {**base, "preparations": [
+        {"dish_id": one["id"], "ingredient_id": egg["id"], "planned_quantity_text": "2"},
+        {"dish_id": two["id"], "ingredient_id": spinach["id"], "planned_quantity_text": "1"},
+    ]})
+    check("同一日期和餐次不能新建第二份菜单", status == 409)
+    another = data("POST", "/api/daily-battles", {**base, "battle_date": "2026-09-09", "meal_slot": "lunch", "dish_ids": [one["id"]], "preparations": [
+        {"dish_id": one["id"], "ingredient_id": egg["id"], "planned_quantity_text": "1"},
+    ]}, 201)
+    status, _ = request("PATCH", f"/api/daily-battles/{another['id']}", {
+        "battle_date": base["battle_date"], "meal_slot": base["meal_slot"], "dish_ids": [one["id"]],
+        "preparations": [{"dish_id": one["id"], "ingredient_id": egg["id"], "planned_quantity_text": "1"}],
+        "expected_updated_at": another["updated_at"],
+    })
+    check("改日期或餐次不能撞入已有菜单", status == 409)
+    data("POST", f"/api/daily-battles/{another['id']}/cancel")
 
-    pending = data("POST", "/api/daily-battles", {**base, "dish_ids": [one["id"]], "preparations": [
+    pending = data("POST", "/api/daily-battles", {**base, "battle_date": "2026-09-11", "dish_ids": [one["id"]], "preparations": [
         {"dish_id": one["id"], "pending_ingredient_name": f"待购菠萝-{STAMP}", "planned_quantity_text": "1个"},
     ]}, 201)
     check("没有库存的食材可作为待购买耗材保存", pending["preparations"][0]["ingredient_id"] is None and pending["preparations"][0]["pending_ingredient_name"] == f"待购菠萝-{STAMP}")
@@ -87,7 +107,7 @@ def main():
     data("POST", f"/api/daily-battles/{pending['id']}/cancel")
 
     carrot = ingredient(f"菜单胡萝卜-{STAMP}", "蔬菜", 3, "个")
-    shortfall = data("POST", "/api/daily-battles", {**base, "dish_ids": [one["id"]], "preparations": [
+    shortfall = data("POST", "/api/daily-battles", {**base, "battle_date": "2026-09-12", "dish_ids": [one["id"]], "preparations": [
         {"dish_id": one["id"], "ingredient_id": carrot["id"], "planned_quantity_text": "4个"},
     ]}, 201)
     check("预计量超过库存仍可保存菜单", shortfall["status"] == "planned")
@@ -108,7 +128,7 @@ def main():
         {"dish_id": one["id"], "ingredient_id": tomato["id"], "planned_quantity_text": "2"},
         {"dish_id": two["id"], "ingredient_id": spinach["id"], "planned_quantity_text": "1"},
     ]
-    battle = data("POST", "/api/daily-battles", {**base, "preparations": preparations}, 201)
+    battle = data("POST", "/api/daily-battles", {**base, "battle_date": "2026-09-13", "preparations": preparations}, 201)
     check("菜单保存餐次与耗材", battle["meal_slot"] == "dinner" and len(battle["preparations"]) == 3)
     status, _ = request("PATCH", f"/api/daily-battles/{battle['id']}", {"dish_ids": [one["id"], two["id"]]})
     check("更新菜单必须提交耗材", status == 400)

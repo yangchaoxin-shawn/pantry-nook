@@ -54,11 +54,12 @@ CREATE TABLE IF NOT EXISTS meal_plan_dishes (
   CONSTRAINT meal_plan_dishes_position_unique UNIQUE (meal_plan_id, position)
 );
 
--- 今日作战从方案复制菜品；同一天允许创建多条作战记录。
+-- 一条记录对应某日某一餐；同一日期和餐次只允许一份菜单。
 CREATE TABLE IF NOT EXISTS daily_battles (
   id BIGSERIAL PRIMARY KEY,
   battle_date DATE NOT NULL,
   meal_plan_id BIGINT REFERENCES meal_plans(id) ON DELETE SET NULL,
+  meal_slot VARCHAR(20) NOT NULL CHECK (meal_slot IN ('breakfast', 'lunch', 'dinner')),
   status VARCHAR(20) NOT NULL DEFAULT 'planned',
   confirmed_at TIMESTAMPTZ,
   cancelled_at TIMESTAMPTZ,
@@ -87,8 +88,6 @@ CREATE TABLE IF NOT EXISTS daily_battle_dishes (
   CONSTRAINT daily_battle_dishes_id_battle_unique UNIQUE (id, daily_battle_id)
 );
 
-ALTER TABLE daily_battles ADD COLUMN IF NOT EXISTS meal_slot VARCHAR(20)
-  CHECK (meal_slot IN ('breakfast', 'lunch', 'dinner'));
 CREATE TABLE IF NOT EXISTS daily_battle_preparations (
   id BIGSERIAL PRIMARY KEY,
   daily_battle_dish_id BIGINT NOT NULL REFERENCES daily_battle_dishes(id) ON DELETE CASCADE,
@@ -151,8 +150,6 @@ ALTER TABLE consumptions
   ADD COLUMN IF NOT EXISTS ingredient_status_after VARCHAR(20) NOT NULL DEFAULT 'active',
   ADD COLUMN IF NOT EXISTS ingredient_ended_at_after TIMESTAMPTZ;
 
-ALTER TABLE daily_battles DROP CONSTRAINT IF EXISTS daily_battles_date_unique;
-
 CREATE UNIQUE INDEX IF NOT EXISTS dishes_active_name_idx
   ON dishes (LOWER(btrim(name)))
   WHERE deleted_at IS NULL;
@@ -163,6 +160,7 @@ CREATE INDEX IF NOT EXISTS ingredients_location_idx ON ingredients(location);
 CREATE UNIQUE INDEX IF NOT EXISTS ingredients_active_normalized_name_unique ON ingredients (LOWER(btrim(name))) WHERE status='active';
 CREATE INDEX IF NOT EXISTS meal_plan_dishes_dish_id_idx ON meal_plan_dishes(dish_id);
 CREATE INDEX IF NOT EXISTS daily_battles_status_idx ON daily_battles(status);
+CREATE INDEX IF NOT EXISTS daily_battles_date_slot_idx ON daily_battles(battle_date, meal_slot);
 CREATE INDEX IF NOT EXISTS daily_battle_dishes_dish_id_idx ON daily_battle_dishes(dish_id);
 CREATE INDEX IF NOT EXISTS consumptions_battle_id_idx ON consumptions(daily_battle_id);
 CREATE INDEX IF NOT EXISTS consumptions_ingredient_id_idx ON consumptions(ingredient_id);
@@ -221,6 +219,38 @@ CREATE TRIGGER battles_require_reversed_consumptions
 BEFORE UPDATE OF status ON daily_battles
 FOR EACH ROW
 EXECUTE FUNCTION prevent_battle_unconfirmation_with_active_consumptions();
+
+CREATE OR REPLACE FUNCTION enforce_daily_battle_slot_unique()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  IF TG_OP = 'UPDATE'
+     AND NEW.battle_date IS NOT DISTINCT FROM OLD.battle_date
+     AND NEW.meal_slot IS NOT DISTINCT FROM OLD.meal_slot
+     AND NOT (OLD.status IS DISTINCT FROM 'planned' AND NEW.status = 'planned') THEN
+    RETURN NEW;
+  END IF;
+
+  PERFORM pg_advisory_xact_lock(hashtext(NEW.battle_date::text), hashtext(NEW.meal_slot));
+  IF EXISTS (
+    SELECT 1 FROM daily_battles
+     WHERE battle_date = NEW.battle_date
+       AND meal_slot = NEW.meal_slot
+       AND id <> COALESCE(NEW.id, 0)
+  ) THEN
+    RAISE EXCEPTION '同一日期和餐次只能有一份菜单'
+      USING ERRCODE = 'unique_violation';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS battles_require_unique_date_slot ON daily_battles;
+CREATE TRIGGER battles_require_unique_date_slot
+BEFORE INSERT OR UPDATE OF battle_date, meal_slot, status ON daily_battles
+FOR EACH ROW
+EXECUTE FUNCTION enforce_daily_battle_slot_unique();
 
 CREATE TABLE IF NOT EXISTS inventory_adjustments (id BIGSERIAL PRIMARY KEY, ingredient_id BIGINT NOT NULL REFERENCES ingredients(id) ON DELETE RESTRICT, reason VARCHAR(20) NOT NULL CHECK (reason IN ('spoiled','damaged','other')), note TEXT, stock_before_text VARCHAR(255) NOT NULL, stock_before_value NUMERIC(15,6) NOT NULL, stock_before_unit VARCHAR(50) NOT NULL, stock_after_text VARCHAR(255) NOT NULL, stock_after_value NUMERIC(15,6) NOT NULL, stock_after_unit VARCHAR(50) NOT NULL, stock_after_updated_at TIMESTAMPTZ NOT NULL, ingredient_status_before VARCHAR(20) NOT NULL, ingredient_ended_at_before TIMESTAMPTZ, ingredient_status_after VARCHAR(20) NOT NULL, ingredient_ended_at_after TIMESTAMPTZ, status VARCHAR(20) NOT NULL DEFAULT 'active' CHECK(status IN ('active','reversed')), reversed_at TIMESTAMPTZ, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW());
 CREATE INDEX IF NOT EXISTS inventory_adjustments_ingredient_idx ON inventory_adjustments(ingredient_id,created_at DESC);

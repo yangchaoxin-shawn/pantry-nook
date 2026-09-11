@@ -74,7 +74,7 @@ export function MenuEditor({ item, sourceDishes, plans, ingredients, initialPlan
     ? inventoryPrep(p.dish_id, p.ingredient_id, p.planned_quantity_text)
     : pendingPrep(p.dish_id, p.pending_ingredient_name ?? '', p.planned_quantity_text)) ?? []);
   const [date, setDate] = useState(item?.battle_date ?? localDate());
-  const [meal, setMeal] = useState<Meal | ''>(item ? item.meal_slot ?? '' : copyFrom?.meal_slot ?? 'dinner');
+  const [meal, setMeal] = useState<Meal>(item?.meal_slot ?? copyFrom?.meal_slot ?? 'dinner');
   const [name, setName] = useState('');
   const [adding, setAdding] = useState(false);
   const [error, setError] = useState('');
@@ -110,7 +110,7 @@ export function MenuEditor({ item, sourceDishes, plans, ingredients, initialPlan
       setError(`先为${missingPreparationDishes.map(id => dishes.find(d => d.id === id)?.name).filter(Boolean).join('、')}添加耗材。`);
       return;
     }
-    save({ battle_date: date, meal_slot: meal || null, dish_ids: selected, preparations: preps,
+    save({ battle_date: date, meal_slot: meal, dish_ids: selected, preparations: preps,
       ...(item ? { expected_updated_at: item.updated_at } : {}) });
   }
   const unavailable = selected.filter(id => !dishes.some(d => d.id === id));
@@ -127,7 +127,7 @@ export function MenuEditor({ item, sourceDishes, plans, ingredients, initialPlan
   return <form onSubmit={submit} className="menu-editor">
     {notice && <p className="form-notice" role="status">{notice}</p>}
     <div className="form-grid"><label className="field">日期<input type="date" aria-label="菜单日期" required value={date} onChange={e => setDate(e.target.value)} /></label>
-      <label className="field">时段<select aria-label="菜单时段" required={!item} value={meal} onChange={e => setMeal(e.target.value as Meal | '')}>{item && <option value="">不指定</option>}{Object.entries(MEALS).map(([value,label]) => <option key={value} value={value}>{label}</option>)}</select></label></div>
+      <label className="field">时段<select aria-label="菜单时段" required value={meal} onChange={e => setMeal(e.target.value as Meal)}>{Object.entries(MEALS).map(([value,label]) => <option key={value} value={value}>{label}</option>)}</select></label></div>
     {plans.length > 0 && !item && <details className="menu-secondary-option"><summary>从常用搭配开始（选填）</summary><label className="field">选择搭配<select value={planId} onChange={e => { setPlanId(e.target.value); const plan = plans.find(p => p.id === Number(e.target.value)); if (plan) { setSelected(plan.dishes.map(d => d.id)); setPreps([]); } }}><option value="">不使用搭配</option>{plans.map(p => <option key={p.id} value={p.id}>{p.name || '未命名方案'} · {p.dishes.map(d => d.name).join('、')}</option>)}</select></label></details>}
     <div className="inline-dish-add"><label className="field">新菜名<input aria-label="新增菜品" placeholder="输入后加入本餐" value={name} maxLength={255} onChange={e => setName(e.target.value)} onKeyDown={e => { if(e.key === 'Enter') { e.preventDefault(); void addDish(); } }} /></label><button type="button" className="btn-ghost" disabled={adding || busy || !name.trim()} onClick={() => void addDish()}>{adding ? '添加中' : '加入'}</button></div>
     {error && <p className="form-error" role="alert">{error}</p>}
