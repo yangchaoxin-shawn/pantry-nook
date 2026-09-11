@@ -142,7 +142,7 @@ const stockLabel = (ingredient?: Ingredient) => {
 };
 const quantityLabel = (value: number, unit: string | null | undefined) => `${value}${unit ?? ''}`;
 type ReviewSnapshot = { battle: Battle; ingredients: Ingredient[] };
-export function MenuConfirm({ battleId, busy, save, onPending, onEdit }: { battleId: number; busy: boolean; onPending: (pending: boolean) => void; save: (payload: BattleConfirm) => Promise<void>; onEdit: () => void }) {
+export function MenuConfirm({ battleId, busy, save, onPending, onEdit, onRestock }: { battleId: number; busy: boolean; onPending: (pending: boolean) => void; save: (payload: BattleConfirm) => Promise<void>; onEdit: () => void; onRestock: () => void }) {
   const [snapshot, setSnapshot] = useState<ReviewSnapshot | null>(null);
   const latest = useRef<ReviewSnapshot | null>(null);
   const lastReservationAt = useRef(0);
@@ -305,6 +305,10 @@ export function MenuConfirm({ battleId, busy, save, onPending, onEdit }: { battl
           {reviewShortages.map((ingredient) => <li key={`short-${ingredient.id}`}>{ingredient.name}：菜单预计 {quantityLabel(plannedTotals.get(ingredient.id) ?? 0, ingredient.stock_unit)}，当前可用 {quantityLabel(ingredient.available_value, ingredient.stock_unit)}</li>)}
         </ul>
         <span className="review-summary-action">请返回编辑菜单调整预计量、替换食材，或先补货。</span>
+        <div className="actions review-summary-actions">
+          <button type="button" className="btn-ghost" onClick={onEdit}>返回编辑菜单</button>
+          <button type="button" className="btn-primary" onClick={onRestock}>去补货</button>
+        </div>
       </div>}
       {unitChanged && <p className="form-error" role="alert">库存单位已改变，请按新单位重新填写实际用量。</p>}
       {battle.dishes.map((d) => (
@@ -365,7 +369,7 @@ export function MenuConfirm({ battleId, busy, save, onPending, onEdit }: { battl
       )}
       {invalidUsage && <p className="form-error" role="alert">实际用量可填 1、0.5、1/2 或 1/3；单位已标在标题中。</p>}
       {nonCalculable.length > 0 && <p className="form-error" role="alert">{nonCalculable.map((i) => i.name).join('、')}缺少可计算的库存数量或单位，请先到库存详情补全后再确认。</p>}
-      {(reviewIssue || unavailable || insufficient || menuChanged || unitChanged) && <button type="button" className="btn-ghost" onClick={onEdit}>返回编辑菜单</button>}
+      {!reviewIssue && (unavailable || insufficient || menuChanged || unitChanged) && <button type="button" className="btn-ghost" onClick={onEdit}>返回编辑菜单</button>}
       <button
         className="btn-primary"
         disabled={busy || sending || !!error || processed || cannotConfirm || (!rows.length && !without)}

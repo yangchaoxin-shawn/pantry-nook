@@ -1012,6 +1012,13 @@ export default function App() {
                 const battle = modal.item;
                 void api.releaseBattleReview(battle.id).finally(() => open({ kind: "battle", item: battle }));
               }}
+              onRestock={() => {
+                const battle = modal.item;
+                void api.releaseBattleReview(battle.id).finally(() => {
+                  navigate("ingredients");
+                  open({ kind: "ingredientBatch" });
+                });
+              }}
               save={async payload => {
                 await api.battleAction(modal.item.id, "confirm", payload);
                 setModal(null);

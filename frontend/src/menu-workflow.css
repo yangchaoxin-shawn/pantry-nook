@@ -49,6 +49,8 @@
 .review-summary strong { font-size: 14px; }
 .review-summary ul { margin: 1px 0; padding-left: 18px; }
 .review-summary-action { color: var(--ink-soft); }
+.review-summary-actions { margin-top: 2px; gap: 8px; }
+.review-summary-actions .btn-primary, .review-summary-actions .btn-ghost { min-height: 38px; padding: 7px 12px; }
 .confirm-row-status { margin: 2px 0 0; color: var(--primary); font-size: 12px; line-height: 1.6; }
 @media (max-width: 768px) {
   .navigation { grid-template-columns: repeat(3, minmax(0, 1fr)); }
