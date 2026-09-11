@@ -1,13 +1,13 @@
 # Pantry Nook 当前状态
 
-更新：2026-09-12。本轮：核心模块边界审查；完整结果见 [审查报告](core-boundary-audit-2026-09-12.md)。
+更新：2026-09-12。本轮：正数入库与双人编辑冲突；上一轮结果见 [审查报告](core-boundary-audit-2026-09-12.md)。
 业务规格只维护在 [PRD](PRD.md)，协作方式见 [流程](collaboration.md)。
 
 ## 当前授权与阶段
 
-用户表示几个模块基本无问题，授权充分审查并修复明确缺陷；不是最终发布验收。
-本轮修复菜单缺失版本绕过保护、同名改名/历史恢复冲突、库存合并精度和溢出、分页总数、搭配引用与菜品删除并发。没有新增业务模块或改数据库结构。
-既有规则继续有效：搭配集合与非空名称唯一；库存按类别推荐单位；备餐不预占库存，待购买项可留在草稿，最终确认才扣减。
+用户已确认：入库必须大于 0；双人编辑冲突保留输入；新增合并撤销流程。
+前两项已实施：库存全部编辑、菜品与搭配编辑均检查版本，过期响应带最新内容；前端核对后才能重试。新入库与人工合并数量必须正数，保留已有数据。
+第三项已形成 [合并撤销实施规格](inventory-merge-recovery-proposal.md)，待确认新增模型/API/历史处理后实施，目前不宣称已支持合并撤销。
 未新增角色、公开访问或部署；未重置用户数据。自动化写入测试使用独立端口和测试数据库；用户浏览器继续使用本地 Vite 服务。
 代码在原工作目录更新，会被原热重载服务读取；自动化写入测试通过 isolated_server 使用独立端口和数据库，未建立独立代码 worktree，不能称为完整双环境。
 
@@ -35,7 +35,16 @@
 - 8c685f0：上一轮统一规格与 Claude/Codex 协作入口；以下文档静态检查属于该轮。
 - 本轮文档静态检查通过：10 份当前文档、60 个本地链接与锚点、CLAUDE 导入路径、AGENTS 长度、编码及代码块；git diff --check 通过。未启动 Claude CLI 验证自动加载。
 
-## 本轮验证：2026-09-12 核心边界
+## 本轮验证：2026-09-12 正数入库与编辑冲突
+
+- 独立服务 3034，数据库 `pantry_nook_test_f99e3268d8704933aeccc762fc7ee4cd`：新增 edit_conflict 28、regression 40 项通过；后端 unittest 7、compileall 通过。
+- 前端测试 44、typecheck/lint/build 通过。5183 页面直连独立 API；库存与菜品过期保存展示最新内容、保留输入、核对后重试成功。
+- 390×844 暗色检查菜品冲突和零数量拦截；1440×900 暗色完成核对后保存。所查控制台 error/warn 为空，未见 React runtime error。亮色和搭配编辑的完整浏览器路径本轮未复测。
+- API 路径不变；库存/菜品/搭配编辑版本必填，错误增加 RECORD_CHANGED 和最新快照。OpenAPI 与生成类型同步。本轮无数据库/migration 或依赖变更。
+- 修改：backend/app/menu_workflow.py、routes/ingredients.py、routes/dishes.py、routes/meal_plans.py、api_contract.py、scripts/regression_test.py；frontend/src/App.tsx、api.ts、api.test.ts、api-schema.d.ts；contracts/openapi.yaml、docs/PRD.md、docs/project-status.md、backend/TESTING.md。
+- 新增：backend/scripts/edit_conflict_test.py、docs/inventory-merge-recovery-proposal.md。删除：无。合并撤销尚未实施，用户验收待进行。
+
+## 历史验证：2026-09-12 核心边界
 
 - 边界 15 场景、regression 40、smoke 18、workflow 53、concurrent 63、fractional 12 通过；后端 unittest 7、编译与契约检查通过。
 - 前端测试 42、typecheck/lint/build 通过；移动暗色和桌面亮色通过真实 API 验证冲突提示及修正后保存，所查控制台无错误。
@@ -107,4 +116,4 @@
 
 ## 本轮文件范围
 
-见 [核心边界审查文件范围](core-boundary-audit-2026-09-12.md#文件范围)。过去的 006/008 migration 及文件清单属于历史迭代，不能当作本轮改动。
+见上方“正数入库与编辑冲突”。[核心边界审查文件范围](core-boundary-audit-2026-09-12.md#文件范围) 属于上一轮。

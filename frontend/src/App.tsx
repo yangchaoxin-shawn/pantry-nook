@@ -7,6 +7,7 @@ import {
 } from "react";
 import {
   api,
+  ApiError,
   CATEGORIES,
   LOCATIONS,
   localDate,
@@ -321,6 +322,7 @@ export default function App() {
     [busy, setBusy] = useState(false),
     [actionError, setActionError] = useState(""),
     [notice, setNotice] = useState("");
+  const [editConflict, setEditConflict] = useState<Ingredient | Dish | MealPlan | null>(null);
   const mutationLock = useRef(false);
   const [date, setDate] = useState(localDate),
     [search, setSearch] = useState("");
@@ -401,6 +403,7 @@ export default function App() {
   }
   function open(next: Modal) {
     setActionError("");
+    setEditConflict(null);
     setModal(next);
   }
   async function requestDishDelete(item: Dish) {
@@ -425,7 +428,7 @@ export default function App() {
     });
   }
   async function mutate(run: () => Promise<unknown>, message: string) {
-    if (mutationLock.current) return;
+    if (mutationLock.current || editConflict) return;
     mutationLock.current = true;
     setBusy(true);
     setActionError("");
@@ -435,6 +438,9 @@ export default function App() {
       setNotice(message);
       reload();
     } catch (error) {
+      if (error instanceof ApiError && error.code === 'RECORD_CHANGED' && error.details?.current) {
+        setEditConflict(error.details.current);
+      }
       setActionError(
         error instanceof Error ? error.message : "操作失败，请重试。",
       );
@@ -897,7 +903,7 @@ export default function App() {
                         ? "编辑菜单"
                         : "安排一餐"
           }
-          onClose={() => setModal(null)}
+          onClose={() => { setModal(null); setEditConflict(null); }}
           busy={busy}
         >
           {actionError && (
@@ -905,10 +911,29 @@ export default function App() {
               {actionError}
             </p>
           )}
+          {editConflict && <section className="form-hint" aria-label="最新记录">
+            <strong>对方已保存的内容</strong>
+            <p>{editConflict.name || "未命名搭配"}
+              {'stock_value' in editConflict && ` · ${editConflict.category} · ${stockLabel(editConflict)} · ${editConflict.location || '未填位置'}`}
+              {'dishes' in editConflict && ` · ${editConflict.dishes.map(d => d.name).join('、')}`}
+            </p>
+            {'note' in editConflict && <p>备注：{editConflict.note || '无'}</p>}
+            <p>下方仍是你的输入。核对后可以继续修改，再次保存。</p>
+            <button type="button" className="btn-ghost" onClick={() => {
+              setModal(current => {
+                if (current?.kind === 'ingredient') return { ...current, item: editConflict as Ingredient };
+                if (current?.kind === 'dish') return { ...current, item: editConflict as Dish };
+                if (current?.kind === 'plan') return { ...current, item: editConflict as MealPlan };
+                return current;
+              });
+              setEditConflict(null); setActionError('');
+            }}>已核对，继续编辑</button>
+          </section>}
           {modal.kind === "ingredient" && (
             <IngredientEditor
               item={modal.item}
               busy={busy}
+              blocked={!!editConflict}
               save={(payload) =>
                 void mutate(
                   () => api.saveIngredient(modal.item.id, payload),
@@ -941,6 +966,7 @@ export default function App() {
               waste={() => open({ kind: "ingredientWaste", item: modal.item })}
             />
           )}
+
           {modal.kind === "ingredientWaste" && (
             <WasteEditor item={modal.item} busy={busy} save={payload => void mutate(() => api.wasteIngredient(modal.item.id, payload), "库存已更新")} />
           )}
@@ -950,7 +976,7 @@ export default function App() {
                 e.preventDefault();
                 const f = new FormData(e.currentTarget);
                 void mutate(
-                  () => api.saveDish(modal.item?.id, String(f.get("name"))),
+                  () => api.saveDish(modal.item?.id, String(f.get("name")), modal.item?.updated_at),
                   "菜品已保存",
                 );
               }}
@@ -964,7 +990,7 @@ export default function App() {
                   placeholder="例如：番茄炒蛋"
                 />
               </Field>
-              <button className="btn-primary submit" disabled={busy}>
+              <button className="btn-primary submit" disabled={busy || !!editConflict}>
                 {busy ? "保存中…" : "保存菜品"}
               </button>
             </form>
@@ -985,6 +1011,7 @@ export default function App() {
               item={modal.item}
               dishes={data.dishes}
               busy={busy}
+              blocked={!!editConflict}
               savePlan={(payload) =>
                 void mutate(
                   () => api.savePlan(modal.item?.id, payload),
@@ -1114,6 +1141,10 @@ function IngredientBatchEditor({
       setError(`第 ${rows.indexOf(incomplete) + 1} 项请补全食材名、数量和单位。`);
       return;
     }
+    if (filled.some(row => !Number.isFinite(Number(row.quantity)) || Number(row.quantity) <= 0)) {
+      setError('入库数量必须大于 0。');
+      return;
+    }
     const ingredients = filled.map((row) => ({
       name: row.name.trim(),
       category: batchCategory,
@@ -1144,7 +1175,8 @@ function IngredientBatchEditor({
   if (conflicts.length) {
     const manualTotalMissing = conflicts.some(({ ingredient, incomingUnit }) => {
       const oldUnit = ingredient.stock_unit ?? ingredient.stock_unit ?? "";
-      return oldUnit !== incomingUnit && !canConvertUnits(oldUnit, incomingUnit) && !manualTotals[ingredient.id]?.trim();
+      const amount = Number(manualTotals[ingredient.id]);
+      return oldUnit !== incomingUnit && !canConvertUnits(oldUnit, incomingUnit) && (!Number.isFinite(amount) || amount <= 0);
     });
     return <div className="batch-resolution">
     <p className="form-notice">发现已有同名食材。请确认分类和单位；保存后只会保留一条库存记录。</p>
@@ -1156,7 +1188,7 @@ function IngredientBatchEditor({
       return <fieldset key={ingredient.id}><legend>{ingredient.name}</legend><p className="muted">现有 {ingredient.category} · {stockLabel(ingredient)}；本次 {incomingCategory} · {draftIngredients.find(item => item.name.toLocaleLowerCase() === ingredient.name.toLocaleLowerCase())?.stock_text}{incomingUnit}</p>
         {hasCategoryConflict && <><p className="resolution-label">分类</p><div className="unit-choice"><button type="button" className={categories[ingredient.id] === ingredient.category ? "chip active" : "chip"} onClick={() => setCategories(current => ({...current, [ingredient.id]: ingredient.category}))}>保留为 {ingredient.category}</button><button type="button" className={categories[ingredient.id] === incomingCategory ? "chip active" : "chip"} onClick={() => setCategories(current => ({...current, [ingredient.id]: incomingCategory}))}>改为 {incomingCategory}</button></div></>}
         {hasUnitConflict && <><p className="resolution-label">单位</p><div className="unit-choice"><button type="button" className={units[ingredient.id] === oldUnit ? "chip active" : "chip"} onClick={() => setUnits(current => ({...current, [ingredient.id]: oldUnit}))}>统一为 {oldUnit}</button><button type="button" className={units[ingredient.id] === incomingUnit ? "chip active" : "chip"} onClick={() => setUnits(current => ({...current, [ingredient.id]: incomingUnit}))}>统一为 {incomingUnit}</button></div></>}
-        {needsManualTotal && <div className="manual-total"><label htmlFor={`manual-total-${ingredient.id}`}>合并后的库存量（{units[ingredient.id]}）</label><input id={`manual-total-${ingredient.id}`} type="number" inputMode="decimal" min="0" step="0.000001" placeholder="按实际库存填写" value={manualTotals[ingredient.id] ?? ""} onChange={(event) => setManualTotals(current => ({ ...current, [ingredient.id]: event.target.value }))} /><p className="form-hint">这两种单位无法自动换算，请按实际库存填写最终数量。</p></div>}
+        {needsManualTotal && <div className="manual-total"><label htmlFor={`manual-total-${ingredient.id}`}>合并后的库存量（{units[ingredient.id]}）</label><input id={`manual-total-${ingredient.id}`} type="number" inputMode="decimal" min="0.000001" step="0.000001" placeholder="按实际库存填写" value={manualTotals[ingredient.id] ?? ""} onChange={(event) => setManualTotals(current => ({ ...current, [ingredient.id]: event.target.value }))} /><p className="form-hint">这两种单位无法自动换算，请按实际库存填写最终数量。</p></div>}
         </fieldset>;
     })}
     <div className="actions"><button type="button" className="btn-ghost" onClick={() => setConflicts([])}>返回修改</button><button type="button" className="btn-primary" onClick={() => save(
@@ -1221,7 +1253,7 @@ function IngredientBatchEditor({
               aria-label={`第 ${index + 1} 项数量`}
               type="number"
               inputMode="decimal"
-              min="0"
+              min="0.000001"
               step="0.000001"
               placeholder="数量"
               value={row.quantity}
@@ -1268,11 +1300,13 @@ function IngredientBatchEditor({
 function IngredientEditor({
   item,
   busy,
+  blocked,
   save,
 }: {
   item: Ingredient;
   busy: boolean;
-  save: (payload: IngredientCreate | IngredientUpdate) => void;
+  blocked?: boolean;
+  save: (payload: IngredientUpdate) => void;
 }) {
   const currentQuantity = item.stock_value;
   const currentUnit = item.stock_unit;
@@ -1280,7 +1314,7 @@ function IngredientEditor({
   function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const f = new FormData(e.currentTarget);
-    const p: IngredientUpdate = {
+    const p: Partial<IngredientUpdate> = {
       name: String(f.get("name")),
       category: f.get("category") as IngredientCreate["category"],
       location: (f.get("location") || null) as IngredientCreate["location"],
@@ -1295,12 +1329,11 @@ function IngredientEditor({
       p.stock_unit = quantityUnit;
     }
     // 只提交用户实际改过的字段，编辑名称不会覆盖另一设备更新后的库存。
-    const patch: IngredientUpdate = {};
+    const patch: IngredientUpdate = { expected_updated_at: item.updated_at };
     for (const key of ["name", "category", "location", "note", "stock_text", "stock_value", "stock_unit"] as const) {
       const value = p[key];
       if (value !== undefined && value !== item[key]) Object.assign(patch, { [key]: value });
     }
-    if (Object.keys(patch).some(key => key.startsWith("stock_"))) patch.expected_updated_at = item.updated_at;
     save(patch);
   }
   return (
@@ -1339,7 +1372,7 @@ function IngredientEditor({
               type="number"
               name="quantity"
               required
-              min="0"
+              min="0.000001"
               step="0.000001"
               inputMode="decimal"
               defaultValue={currentQuantity}
@@ -1372,7 +1405,7 @@ function IngredientEditor({
       </Field>
       <button
         className="btn-primary submit"
-        disabled={busy}
+        disabled={busy || blocked}
       >
         {busy ? "保存中…" : "保存食材"}
       </button>
@@ -1383,11 +1416,13 @@ function PlanEditor({
   item,
   dishes,
   busy,
+  blocked,
   savePlan,
 }: {
   item?: MealPlan;
   dishes: Dish[];
   busy: boolean;
+  blocked?: boolean;
   savePlan: (payload: MealPlanInput) => void;
 }) {
   const [selected, setSelected] = useState<number[]>(item?.dishes.map((d) => d.id) ?? []);
@@ -1398,6 +1433,7 @@ function PlanEditor({
     savePlan({
       name: String(f.get("name") || "") || null,
       dish_ids: selected,
+      ...(item ? { expected_updated_at: item.updated_at } : {}),
     });
   }
   return (
@@ -1415,7 +1451,7 @@ function PlanEditor({
       <p className="form-hint">
         搭配是模板，修改不会改变已创建的菜单。
       </p>
-      <button className="btn-primary submit" disabled={busy || selected.length === 0 || unavailable.length > 0}>{busy ? "保存中…" : "保存搭配"}</button>
+      <button className="btn-primary submit" disabled={busy || blocked || selected.length === 0 || unavailable.length > 0}>{busy ? "保存中…" : "保存搭配"}</button>
     </form>
   );
 }

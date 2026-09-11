@@ -664,7 +664,7 @@ export interface components {
             items: components["schemas"]["IngredientCreate"][];
             resolutions?: components["schemas"]["InventoryResolution"][];
         };
-        /** @description 至少提供一个可修改字段。修改任意 stock_* 字段必须提供 expected_updated_at；版本过期返回 409，不覆盖他人的变更。 */
+        /** @description 至少提供一个可修改字段。所有编辑必须提供 expected_updated_at；版本过期返回 409，不覆盖他人的变更。 */
         IngredientUpdate: {
             /** @description 去除首尾空白后不能为空。 */
             name?: string;
@@ -677,7 +677,7 @@ export interface components {
             location?: ("冰箱冷藏" | "冰箱冷冻" | "室温" | "其他") | null;
             note?: string | null;
             /** Format: date-time */
-            expected_updated_at?: string;
+            expected_updated_at: string;
         };
         IngredientFinish: {
             stock_text?: string | null;
@@ -718,6 +718,12 @@ export interface components {
             /** @description 去除首尾空白后不能为空。 */
             name: string;
         };
+        DishUpdate: {
+            /** @description 去除首尾空白后不能为空。 */
+            name: string;
+            /** Format: date-time */
+            expected_updated_at: string;
+        };
         /** @description 菜品集合与已有搭配相同时返回 409，菜品顺序不影响重复判断；非空名称同样保持唯一。 */
         MealPlanCreate: {
             name?: string | null;
@@ -727,6 +733,8 @@ export interface components {
         MealPlanUpdate: {
             name?: string | null;
             dish_ids?: number[];
+            /** Format: date-time */
+            expected_updated_at: string;
         };
         /** @description meal_plan_id 与 dish_ids 必须二选一；从方案创建时复制菜品。每道菜至少关联一项库存耗材或待购买食材；同一日期和餐次只能有一份菜单；预计用量可在草稿阶段补全，确认库存前必须完整。 */
         DailyBattleCreate: {
@@ -1569,7 +1577,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["DishInput"];
+                "application/json": components["schemas"]["DishUpdate"];
             };
         };
         responses: {

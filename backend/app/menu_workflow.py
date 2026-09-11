@@ -1,10 +1,10 @@
 """菜单的备餐关联、乐观并发校验与整餐剩余量整理。"""
 from datetime import datetime
-from .errors import conflict, validation_error, not_found
+from .errors import AppError, conflict, validation_error, not_found
 from .validation import ensure_object_body, parse_id, optional_text
 
 
-def assert_version(value, actual):
+def assert_version(value, actual, current=None):
     if value is None:
         raise validation_error('请提供记录版本，读取最新数据后再保存')
     try:
@@ -14,6 +14,9 @@ def assert_version(value, actual):
     if parsed.tzinfo is None:
         raise validation_error('核对版本必须包含时区')
     if parsed != actual:
+        if current is not None:
+            from .db import jsonable
+            raise AppError(409, 'RECORD_CHANGED', '记录已更新，请核对最新内容后再保存。本次输入已保留。', {'current': jsonable(current)})
         raise conflict('记录已发生变化，请读取最新数据后重新核对')
 
 

@@ -11,6 +11,7 @@ import asyncpg
 from fastapi import APIRouter, Request
 
 from ..db import get_pool, lock_catalog_workflow
+from ..menu_workflow import assert_version
 from ..errors import conflict, not_found, validation_error
 from ..responses import created, ok
 from ..validation import ensure_object_body, optional_text, pagination, parse_id
@@ -191,6 +192,7 @@ async def update_plan(plan_id: int, request: Request):
             async with conn.transaction():
                 await lock_catalog_workflow(conn)
                 current = await _get_plan(conn, pid, lock=True)
+                assert_version(body.get('expected_updated_at'), current['updated_at'], current)
                 final_ids = input_.get("dish_ids", [dish["id"] for dish in current["dishes"]])
                 final_name = input_.get("name", current["name"])
                 signature = plan_signature(final_ids)

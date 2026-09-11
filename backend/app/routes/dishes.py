@@ -9,6 +9,7 @@ import asyncpg
 from fastapi import APIRouter, Request
 
 from ..db import get_pool, lock_catalog_workflow
+from ..menu_workflow import assert_version
 from ..errors import conflict, not_found, validation_error
 from ..responses import created, ok
 from ..validation import ensure_object_body, pagination, parse_id, required_text
@@ -89,13 +90,15 @@ async def update_dish(dish_id: int, request: Request):
     input_ = dish_input(body, partial=True)
     pool = await get_pool()
     try:
-        result = await pool.fetchrow(
-            """UPDATE dishes
-               SET name = $1, updated_at = NOW()
-               WHERE id = $2 AND deleted_at IS NULL
-               RETURNING *""",
-            input_["name"], pid,
-        )
+        async with pool.acquire() as conn, conn.transaction():
+            await lock_catalog_workflow(conn)
+            current = await conn.fetchrow("SELECT * FROM dishes WHERE id=$1 AND deleted_at IS NULL FOR UPDATE", pid)
+            if current is None:
+                raise not_found("菜品")
+            assert_version(body.get('expected_updated_at'), current['updated_at'], dict(current))
+            result = await conn.fetchrow(
+                "UPDATE dishes SET name=$1,updated_at=NOW() WHERE id=$2 RETURNING *", input_["name"], pid,
+            )
     except asyncpg.exceptions.UniqueViolationError:
         raise conflict("菜品名称已存在")
     if result is None:

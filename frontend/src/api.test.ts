@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, expectTypeOf, it, vi } from 'vitest'
-import { api, type Ingredient, type IngredientUpdate } from './api'
+import { api, ApiError, type Ingredient, type IngredientUpdate } from './api'
 import { startedBatchRows } from './batch-ingredient-logic'
 import { applyDefaultUnit, orderedUnits, recommendedUnits } from './inventory-units'
 
@@ -8,6 +8,24 @@ const json = (body: unknown, status = 200) => new Response(JSON.stringify(body),
 
 beforeEach(() => { fetchMock.mockReset(); vi.stubGlobal('fetch', fetchMock) })
 afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals() })
+
+describe('双人编辑冲突', () => {
+  it('返回可核对的最新快照，不自动重发保存', async () => {
+    const current = { id: 3, name: '对方新名称', updated_at: '2026-09-12T01:00:00Z' }
+    fetchMock.mockResolvedValueOnce(json({ error: { code: 'RECORD_CHANGED', message: '记录已更新', details: { current } } }, 409))
+    const result = api.saveIngredient(3, { name: '我的名称', expected_updated_at: '2026-09-12T00:00:00Z' })
+    await expect(result).rejects.toBeInstanceOf(ApiError)
+    await expect(result).rejects.toMatchObject({ code: 'RECORD_CHANGED', details: { current } })
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+  it('编辑菜品携带版本，新建不携带版本', async () => {
+    fetchMock.mockImplementation(async () => json({ data: { id: 3 } }))
+    await api.saveDish(3, '菜名', '2026-09-12T00:00:00Z')
+    await api.saveDish(undefined, '新菜名')
+    expect(JSON.parse(String(fetchMock.mock.calls[0][1]?.body))).toEqual({ name: '菜名', expected_updated_at: '2026-09-12T00:00:00Z' })
+    expect(JSON.parse(String(fetchMock.mock.calls[1][1]?.body))).toEqual({ name: '新菜名' })
+  })
+})
 
 describe('完整读取与读取失败', () => {
   it('超过两页的作战仍包含最后一页未确认计划，页数和顺序准确', async () => {
@@ -117,7 +135,7 @@ describe('写入结果与库存原文', () => {
 
   it.each(['not json', JSON.stringify({}), JSON.stringify('saved')])('单条编辑的不可用响应仍提示先核对，响应=%s', async response => {
     fetchMock.mockResolvedValueOnce(new Response(response, { status: 201 }))
-    await expect(api.saveIngredient(3, { name: '回归食材' })).rejects.toThrow('操作结果尚未确认')
+    await expect(api.saveIngredient(3, { name: '回归食材', expected_updated_at: '2026-09-12T00:00:00Z' })).rejects.toThrow('操作结果尚未确认')
     expect(fetchMock).toHaveBeenCalledTimes(1)
   })
 
@@ -151,17 +169,17 @@ describe('写入结果与库存原文', () => {
     const result = await api.ingredients()
     expect(result[0].stock_text).toBe('["一份"]')
 
-    const patch: IngredientUpdate = { stock_text: '2', stock_value: 2 }
+    const patch: IngredientUpdate = { stock_text: '2', stock_value: 2, expected_updated_at: '2026-09-12T00:00:00Z' }
     fetchMock.mockResolvedValueOnce(json({ data: raw }))
     await api.saveIngredient(3, patch)
-    expect(JSON.parse(String(fetchMock.mock.calls[1][1]?.body))).toEqual({ stock_text: '2', stock_value: 2 })
+    expect(JSON.parse(String(fetchMock.mock.calls[1][1]?.body))).toEqual({ stock_text: '2', stock_value: 2, expected_updated_at: '2026-09-12T00:00:00Z' })
   })
 
   it('只改名称的 PATCH 不携带余量，避免覆盖另一设备确认后的库存', async () => {
     fetchMock.mockResolvedValueOnce(json({ data: { id: 3, name: '新名称', stock_text: '两份' } }))
-    await api.saveIngredient(3, { name: '新名称' })
+    await api.saveIngredient(3, { name: '新名称', expected_updated_at: '2026-09-12T00:00:00Z' })
     expect(fetchMock.mock.calls[0][1]?.method).toBe('PATCH')
-    expect(JSON.parse(String(fetchMock.mock.calls[0][1]?.body))).toEqual({ name: '新名称' })
+    expect(JSON.parse(String(fetchMock.mock.calls[0][1]?.body))).toEqual({ name: '新名称', expected_updated_at: '2026-09-12T00:00:00Z' })
   })
 
   it('没有字段变化时读取最新记录，不发送空 PATCH', async () => {

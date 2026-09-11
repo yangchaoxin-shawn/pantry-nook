@@ -18,7 +18,7 @@ def payload(b,partial=False):
  if not partial or has("category"):r["category"]=enum_value(b.get("category"),"category",CATEGORIES)
  if not partial or has("stock_text"):r["stock_text"]=required_text(b.get("stock_text"),"stock_text")
  if not partial or has("stock_value"):
-  v=optional_number(b.get("stock_value"),"stock_value",min_value=0)
+  v=optional_number(b.get("stock_value"),"stock_value",min_value=0,exclusive_min=True)
   if v is None:raise validation_error("stock_value 必须是数字")
   r["stock_value"]=v
  if not partial or has("stock_unit"):r["stock_unit"]=required_text(b.get("stock_unit"),"stock_unit",50)
@@ -37,7 +37,7 @@ def resolutions(body):
  out={}
  for entry in raw:
   entry=ensure_object_body(entry); iid=parse_id(entry.get("ingredient_id"),"ingredient_id")
-  final=optional_number(entry.get("final_stock_value"),"final_stock_value",min_value=0) if "final_stock_value" in entry else None
+  final=optional_number(entry.get("final_stock_value"),"final_stock_value",min_value=0,exclusive_min=True) if "final_stock_value" in entry else None
   out[iid]={"expected_updated_at":entry.get("expected_updated_at"),"category":enum_value(entry["category"],"category",CATEGORIES) if "category" in entry else None,"stock_unit":required_text(entry["stock_unit"],"stock_unit",50) if "stock_unit" in entry else None,"final_stock_value":final,"final_stock_text":required_text(entry.get("final_stock_text"),"final_stock_text") if final is not None else None}
  return out
 @router.get("")
@@ -97,9 +97,8 @@ async def patch(ingredient_id:int,request:Request):
    old=await c.fetchrow("SELECT * FROM ingredients WHERE id=$1 AND status='active' FOR UPDATE",pid)
    if old is None:raise not_found("食材")
    if "name" in x:await assert_stock_name_available(c,x["name"],pid)
-   if any(k.startswith("stock_") for k in keys):
-    version=required_text(b.get("expected_updated_at"),"expected_updated_at",64)
-    assert_version(version,old["updated_at"])
+   version=required_text(b.get("expected_updated_at"),"expected_updated_at",64)
+   assert_version(version,old["updated_at"],dto(old))
    row=await c.fetchrow("UPDATE ingredients SET "+", ".join(k+"=$"+str(i+1) for i,k in enumerate(keys))+",updated_at=NOW() WHERE id=$"+str(len(keys)+1)+" AND status='active' RETURNING *",*[x[k] for k in keys],pid)
  if row is None:raise not_found("食材")
  return ok(dto(row))

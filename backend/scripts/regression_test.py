@@ -96,7 +96,7 @@ def main():
     status, body = request("POST", "/api/meal-plans", {"name": f"回归搭配-{STAMP}", "dish_ids": [other_dish["id"]]})
     check("相同搭配名称不能重复创建", status == 409 and body["error"]["code"] == "CONFLICT")
     other_plan = data("POST", "/api/meal-plans", {"name": f"另一搭配-{STAMP}", "dish_ids": [other_dish["id"]]}, 201)
-    status, body = request("PATCH", f"/api/meal-plans/{other_plan['id']}", {"dish_ids": [dish["id"]]})
+    status, body = request("PATCH", f"/api/meal-plans/{other_plan['id']}", {"dish_ids": [dish["id"]], "expected_updated_at": other_plan['updated_at']})
     check("编辑后不能与其他搭配相同", status == 409 and body["error"]["code"] == "CONFLICT")
     concurrent_payloads = [
         {"name": f"并发搭配甲-{STAMP}", "dish_ids": [dish["id"], other_dish["id"]]},

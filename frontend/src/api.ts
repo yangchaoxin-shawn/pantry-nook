@@ -33,6 +33,12 @@ type Envelope<T> = {
   meta?: { total: number; limit: number; offset: number };
 };
 const BASE = (import.meta.env.VITE_API_BASE || "").replace(/\/$/, "");
+export class ApiError extends Error {
+  constructor(message: string, public code: string, public details?: { current?: Ingredient | Dish | MealPlan }) {
+    super(message);
+    this.name = 'ApiError';
+  }
+}
 async function request<T>(
   path: string,
   method = "GET",
@@ -62,8 +68,9 @@ async function request<T>(
   }
   const body = await response.json().catch(() => null);
   if (!response.ok)
-    throw new Error(
+    throw new ApiError(
       body?.error?.message || `请求失败（${response.status}），请重试。`,
+      body?.error?.code || 'REQUEST_ERROR', body?.error?.details,
     );
   if (!body || typeof body !== "object" || !("data" in body))
     throw new Error(
@@ -103,9 +110,9 @@ export const api = {
   consumptions: (s?: AbortSignal) => list<Consumption>("/api/consumptions", s),
   saveIngredient: (
     id: number,
-    p: IngredientUpdate,
+    p: IngredientUpdate | Record<string, never>,
   ) => {
-    if (Object.keys(p).length === 0) return request<Ingredient>(`/api/ingredients/${id}`);
+    if (Object.keys(p).filter(key => key !== "expected_updated_at").length === 0) return request<Ingredient>(`/api/ingredients/${id}`);
     return request<Ingredient>(`/api/ingredients/${id}`, "PATCH", p);
   },
   saveIngredientsBatch: (
@@ -128,9 +135,10 @@ export const api = {
   ingredientAdjustments: (id: number) => request<InventoryAdjustment[]>(`/api/ingredients/${id}/adjustments`),
   inventoryAdjustments: (s?: AbortSignal) => list<InventoryAdjustmentRecord>("/api/inventory-adjustments", s),
   revokeAdjustment: (id: number) => request<{ inventory: Ingredient; adjustment: InventoryAdjustment }>(`/api/ingredients/adjustments/${id}/revoke`, "POST"),
-  saveDish: (id: number | undefined, name: string) =>
+  saveDish: (id: number | undefined, name: string, expected_updated_at?: string) =>
     request<Dish>(`/api/dishes${id ? `/${id}` : ""}`, id ? "PATCH" : "POST", {
       name,
+      ...(id ? { expected_updated_at } : {}),
     }),
   deleteDish: (id: number) => request<Dish>(`/api/dishes/${id}`, "DELETE"),
   dishMealPlans: (id: number) => request<components["schemas"]["DishMealPlan"][]>(`/api/dishes/${id}/meal-plans`),

@@ -953,7 +953,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/DishInput"
+                "$ref": "#/components/schemas/DishUpdate"
               }
             }
           }
@@ -3955,7 +3955,8 @@
             "type": "number",
             "minimum": 0,
             "maximum": 999999999.999999,
-            "multipleOf": 1e-06
+            "multipleOf": 1e-06,
+            "exclusiveMinimum": 0
           },
           "stock_unit": {
             "type": "string",
@@ -4029,7 +4030,8 @@
             "type": "number",
             "minimum": 0,
             "maximum": 999999999.999999,
-            "multipleOf": 1e-06
+            "multipleOf": 1e-06,
+            "exclusiveMinimum": 0
           },
           "expected_updated_at": {
             "type": "string",
@@ -4094,7 +4096,8 @@
             "type": "number",
             "minimum": 0,
             "maximum": 999999999.999999,
-            "multipleOf": 1e-06
+            "multipleOf": 1e-06,
+            "exclusiveMinimum": 0
           },
           "stock_unit": {
             "type": "string",
@@ -4132,7 +4135,9 @@
             "format": "date-time"
           }
         },
-        "required": [],
+        "required": [
+          "expected_updated_at"
+        ],
         "minProperties": 1,
         "not": {
           "properties": {
@@ -4145,7 +4150,7 @@
             "note": false
           }
         },
-        "description": "至少提供一个可修改字段。修改任意 stock_* 字段必须提供 expected_updated_at；版本过期返回 409，不覆盖他人的变更。"
+        "description": "至少提供一个可修改字段。所有编辑必须提供 expected_updated_at；版本过期返回 409，不覆盖他人的变更。"
       },
       "IngredientFinish": {
         "type": "object",
@@ -4345,6 +4350,25 @@
           "name"
         ]
       },
+      "DishUpdate": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 255,
+            "minLength": 1,
+            "description": "去除首尾空白后不能为空。"
+          },
+          "expected_updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "name",
+          "expected_updated_at"
+        ]
+      },
       "MealPlanCreate": {
         "type": "object",
         "properties": {
@@ -4400,9 +4424,15 @@
             "minItems": 1,
             "maxItems": 50,
             "uniqueItems": true
+          },
+          "expected_updated_at": {
+            "type": "string",
+            "format": "date-time"
           }
         },
-        "required": [],
+        "required": [
+          "expected_updated_at"
+        ],
         "minProperties": 1,
         "description": "更新后不得与其他搭配拥有相同菜品集合或相同非空名称。",
         "not": {
