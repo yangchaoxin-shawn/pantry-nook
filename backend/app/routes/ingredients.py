@@ -6,12 +6,18 @@ from ..errors import conflict, not_found, validation_error
 from ..responses import created, ok
 from ..validation import enum_value, ensure_object_body, optional_number, optional_text, pagination, parse_id, required_text
 from ..menu_workflow import assert_version
-from ..quantity import render_stock
+from ..quantity import normalize_stock, parse_planned_quantity, render_stock
 router=APIRouter()
 CATEGORIES=["碳水","蔬菜","蛋白质","水果","其他"]; LOCATIONS=["冰箱冷藏","冰箱冷冻","室温","其他"]; REASONS=["spoiled","damaged","other"]
 FACTORS={"g":("m",Decimal(1)),"kg":("m",Decimal(1000)),"斤":("m",Decimal(500)),"ml":("v",Decimal(1)),"L":("v",Decimal(1000))}
 def dto(x):
  return {k:x[k] for k in ("id","name","category","stock_text","stock_value","stock_unit","location","note","created_at","updated_at")}
+def assert_stock_fields(r,partial=False):
+ stock_fields={"stock_text","stock_value","stock_unit"};provided=stock_fields.intersection(r)
+ if partial and provided and provided!=stock_fields:raise validation_error("修改库存数量时，请同时提交数量原文、数值和单位")
+ if provided==stock_fields:
+  parsed=normalize_stock(parse_planned_quantity(r["stock_text"],r["stock_unit"]))
+  if parsed!=normalize_stock(Decimal(r["stock_value"])):raise validation_error("库存数量原文与数值不一致")
 def payload(b,partial=False):
  r={};has=lambda k:k in b
  if not partial or has("name"):r["name"]=required_text(b.get("name"),"name")
@@ -25,6 +31,7 @@ def payload(b,partial=False):
  if has("location"):r["location"]=enum_value(b.get("location"),"location",LOCATIONS,optional=True)
  if has("note"):r["note"]=optional_text(b.get("note"),"note",5000)
  if partial and not r:raise validation_error("至少需要提供一个可修改字段")
+ assert_stock_fields(r,partial)
  return r
 def render(v):return render_stock(v)
 def convert(v,a,b):
@@ -38,7 +45,12 @@ def resolutions(body):
  for entry in raw:
   entry=ensure_object_body(entry); iid=parse_id(entry.get("ingredient_id"),"ingredient_id")
   final=optional_number(entry.get("final_stock_value"),"final_stock_value",min_value=0,exclusive_min=True) if "final_stock_value" in entry else None
-  out[iid]={"expected_updated_at":entry.get("expected_updated_at"),"category":enum_value(entry["category"],"category",CATEGORIES) if "category" in entry else None,"stock_unit":required_text(entry["stock_unit"],"stock_unit",50) if "stock_unit" in entry else None,"final_stock_value":final,"final_stock_text":required_text(entry.get("final_stock_text"),"final_stock_text") if final is not None else None}
+  final_text=required_text(entry.get("final_stock_text"),"final_stock_text") if final is not None else None
+  unit=required_text(entry["stock_unit"],"stock_unit",50) if "stock_unit" in entry else None
+  if final is not None:
+   if unit is None:raise validation_error("人工合并库存时必须选择最终单位")
+   if normalize_stock(parse_planned_quantity(final_text,unit))!=normalize_stock(Decimal(final)):raise validation_error("合并后的数量原文与数值不一致")
+  out[iid]={"expected_updated_at":entry.get("expected_updated_at"),"category":enum_value(entry["category"],"category",CATEGORIES) if "category" in entry else None,"stock_unit":unit,"final_stock_value":final,"final_stock_text":final_text}
  return out
 @router.get("")
 async def listed(request:Request):
@@ -106,7 +118,8 @@ async def patch(ingredient_id:int,request:Request):
 async def waste(ingredient_id:int,request:Request):
  b=ensure_object_body(await request.json());pid=parse_id(ingredient_id);v=optional_number(b.get("stock_value"),"stock_value",min_value=0,exclusive_min=True)
  if v is None:raise validation_error("stock_value 必须大于零")
- unit=required_text(b.get("stock_unit"),"stock_unit",50);reason=enum_value(b.get("reason"),"reason",REASONS);note=optional_text(b.get("note"),"note",5000);version=required_text(b.get("expected_updated_at"),"expected_updated_at",64);pool=await get_pool()
+ unit=required_text(b.get("stock_unit"),"stock_unit",50);text=required_text(b.get("stock_text"),"stock_text");reason=enum_value(b.get("reason"),"reason",REASONS);note=optional_text(b.get("note"),"note",5000);version=required_text(b.get("expected_updated_at"),"expected_updated_at",64);pool=await get_pool()
+ if normalize_stock(parse_planned_quantity(text,unit))!=normalize_stock(Decimal(v)):raise validation_error("处理数量原文与数值不一致")
  async with pool.acquire() as c:
   async with c.transaction():
    await lock_inventory_workflow(c);old=await c.fetchrow("SELECT * FROM ingredients WHERE id=$1 AND status='active' FOR UPDATE",pid)

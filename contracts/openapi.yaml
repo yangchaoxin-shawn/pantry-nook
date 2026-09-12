@@ -2071,6 +2071,90 @@
         }
       }
     },
+    "/api/daily-battles/{battle_id}/resume": {
+      "post": {
+        "tags": [
+          "daily-battles"
+        ],
+        "summary": "Resume Battle",
+        "description": "将已取消的原菜单恢复为待完成，继续使用同一餐次和历史记录。",
+        "operationId": "resume_battle_api_daily_battles__battle_id__resume_post",
+        "parameters": [
+          {
+            "name": "battle_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9007199254740991
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "请求成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DailyBattleResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "请求参数或 JSON 格式不正确",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "资源不存在",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "当前业务状态不允许该操作",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "服务器内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BattleResume"
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/daily-battles/{battle_id}/confirm": {
       "post": {
         "tags": [
@@ -3127,6 +3211,17 @@
               }
             ]
           },
+          "planned_quantity_unit": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 255
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "position": {
             "type": "integer"
           },
@@ -3148,6 +3243,7 @@
           "ingredient_status",
           "pending_ingredient_name",
           "planned_quantity_text",
+          "planned_quantity_unit",
           "position",
           "created_at",
           "updated_at"
@@ -4293,6 +4389,20 @@
           "expected_updated_at"
         ],
         "minProperties": 1,
+        "dependentRequired": {
+          "stock_text": [
+            "stock_value",
+            "stock_unit"
+          ],
+          "stock_value": [
+            "stock_text",
+            "stock_unit"
+          ],
+          "stock_unit": [
+            "stock_text",
+            "stock_value"
+          ]
+        },
         "not": {
           "properties": {
             "name": false,
@@ -4304,7 +4414,7 @@
             "note": false
           }
         },
-        "description": "至少提供一个可修改字段。所有编辑必须提供 expected_updated_at；版本过期返回 409，不覆盖他人的变更。"
+        "description": "至少提供一个可修改字段。修改库存数量时 stock_text、stock_value、stock_unit 必须成组提交且含义一致。所有编辑必须提供 expected_updated_at；版本过期返回 409，不覆盖他人的变更。"
       },
       "IngredientFinish": {
         "type": "object",
@@ -4835,6 +4945,19 @@
           }
         },
         "required": []
+      },
+      "BattleResume": {
+        "type": "object",
+        "properties": {
+          "expected_updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "expected_updated_at"
+        ],
+        "description": "将已取消的原菜单恢复为待完成；沿用原日期、餐次、菜品、耗材及历史，不创建第二条菜单。"
       },
       "PaginationMeta": {
         "type": "object",

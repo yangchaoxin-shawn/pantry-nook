@@ -7,7 +7,7 @@ from recovery_merge_test import choices
 def scenario(name, incoming_unit='kg'):
     old = t.ingredient(name, value=1.7, unit='kg')
     a = t.data('POST', f"/api/ingredients/{old['id']}/waste", {
-        'stock_value':1, 'stock_unit':'kg', 'reason':'spoiled', 'expected_updated_at':old['updated_at']}, 201)['adjustment']
+        'stock_text':'1', 'stock_value':1, 'stock_unit':'kg', 'reason':'spoiled', 'expected_updated_at':old['updated_at']}, 201)['adjustment']
     current = t.data('GET', f"/api/ingredients/{old['id']}")
     t.check('部分报废后剩0.7',current['stock_value']==0.7)
     if incoming_unit=='kg':

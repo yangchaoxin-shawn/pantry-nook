@@ -303,6 +303,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/daily-battles/{battle_id}/resume": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Resume Battle
+         * @description 将已取消的原菜单恢复为待完成，继续使用同一餐次和历史记录。
+         */
+        post: operations["resume_battle_api_daily_battles__battle_id__resume_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/daily-battles/{battle_id}/confirm": {
         parameters: {
             query?: never;
@@ -528,6 +548,7 @@ export interface components {
             ingredient_status: ("active" | "consumed" | "discarded") | null;
             pending_ingredient_name: string | null;
             planned_quantity_text: string | null;
+            planned_quantity_unit: string | null;
             position: number;
             /** Format: date-time */
             created_at: string;
@@ -701,7 +722,7 @@ export interface components {
             items: components["schemas"]["IngredientCreate"][];
             resolutions?: components["schemas"]["InventoryResolution"][];
         };
-        /** @description 至少提供一个可修改字段。所有编辑必须提供 expected_updated_at；版本过期返回 409，不覆盖他人的变更。 */
+        /** @description 至少提供一个可修改字段。修改库存数量时 stock_text、stock_value、stock_unit 必须成组提交且含义一致。所有编辑必须提供 expected_updated_at；版本过期返回 409，不覆盖他人的变更。 */
         IngredientUpdate: {
             /** @description 去除首尾空白后不能为空。 */
             name?: string;
@@ -824,6 +845,11 @@ export interface components {
             /** Format: date-time */
             expected_updated_at?: string;
             merge_resolutions?: components["schemas"]["MergeResolution"][];
+        };
+        /** @description 将已取消的原菜单恢复为待完成；沿用原日期、餐次、菜品、耗材及历史，不创建第二条菜单。 */
+        BattleResume: {
+            /** Format: date-time */
+            expected_updated_at: string;
         };
         PaginationMeta: {
             total: number;
@@ -2454,6 +2480,68 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description 请求成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DailyBattleResponse"];
+                };
+            };
+            /** @description 请求参数或 JSON 格式不正确 */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description 当前业务状态不允许该操作 */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description 服务器内部错误 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    resume_battle_api_daily_battles__battle_id__resume_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                battle_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BattleResume"];
+            };
+        };
         responses: {
             /** @description 请求成功 */
             200: {

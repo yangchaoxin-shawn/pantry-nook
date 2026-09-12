@@ -148,6 +148,15 @@ describe('写入结果与库存原文', () => {
     expect(fetchMock).toHaveBeenCalledTimes(1)
   })
 
+  it('恢复已取消菜单时携带版本，避免覆盖另一台设备的更新', async () => {
+    fetchMock.mockResolvedValueOnce(json({ data: { id: 7, status: 'planned' } }))
+    await api.battleAction(7, 'resume', { expected_updated_at: '2026-09-12T00:00:00Z' })
+    const [url, init] = fetchMock.mock.calls[0]
+    expect(String(url)).toContain('/api/daily-battles/7/resume')
+    expect(JSON.parse(String(init?.body))).toEqual({ expected_updated_at: '2026-09-12T00:00:00Z' })
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+
   it('批量录入只发送一次，并按原样提交整批食材', async () => {
     const ingredients = [
       { name: '鸡蛋', category: '蛋白质' as const, stock_text: '6', stock_value: 6, stock_unit: '个' },

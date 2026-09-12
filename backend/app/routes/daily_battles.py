@@ -191,15 +191,24 @@ def prepare_inventory_changes(inputs: list[dict], ingredients: dict[int, dict]) 
             raise conflict(f"食材“{row['name']}”库存只有 {render_stock(available)}{row['stock_unit']}，本餐实际用量为 {render_stock(used)}{row['stock_unit']}；请补货或修改实际用量")
         entry.update(used_value=used, final_text=render_stock(remaining), final_value=remaining)
 
+    running_remaining: dict[int, Decimal] = {
+        ingredient_id: Decimal(entry["row"]["stock_value"])
+        for ingredient_id, entry in ingredients.items()
+        if entry["row"]["stock_value"] is not None
+    }
     for pos, input_ in enumerate(inputs):
         ingredient_id = int(input_["ingredient_id"])
         entry = ingredients[ingredient_id]
         row = entry["row"]
-        input_["quantity_value"] = normalize_stock(input_["usage_value"]) or None
+        quantity_value = normalize_stock(input_["usage_value"])
+        input_["quantity_value"] = quantity_value or None
         input_["quantity_unit"] = row["stock_unit"]
         input_["updates_inventory"] = last[ingredient_id] == pos
-        input_["remaining_text"] = entry["final_text"] if last[ingredient_id] == pos else row["stock_text"]
-        input_["remaining_value"] = entry["final_value"] if last[ingredient_id] == pos else row["stock_value"]
+        running_remaining[ingredient_id] = normalize_stock(running_remaining[ingredient_id] - quantity_value)
+        if last[ingredient_id] == pos:
+            running_remaining[ingredient_id] = entry["final_value"]
+        input_["remaining_text"] = render_stock(running_remaining[ingredient_id])
+        input_["remaining_value"] = running_remaining[ingredient_id]
 
 
 # ---------- 查询 / 事务辅助 ----------
@@ -459,6 +468,32 @@ async def cancel_battle(battle_id: int):
             await conn.execute(
                 """UPDATE daily_battles
                    SET status = 'cancelled', cancelled_at = NOW(), updated_at = NOW()
+                   WHERE id = $1""",
+                pid,
+            )
+            result = await _get_battle(conn, pid)
+    return ok(result)
+
+
+@router.post("/{battle_id}/resume")
+async def resume_battle(battle_id: int, request: Request):
+    """将已取消的原菜单恢复为待完成，继续使用同一餐次和历史记录。"""
+    pid = parse_id(battle_id)
+    body = ensure_object_body(await request.json())
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        async with conn.transaction():
+            await lock_inventory_workflow(conn)
+            current = await conn.fetchrow("SELECT * FROM daily_battles WHERE id = $1 FOR UPDATE", pid)
+            if current is None:
+                raise not_found("今日作战")
+            if current["status"] != "cancelled":
+                raise conflict("只有已取消的菜单可以恢复为待完成")
+            assert_version(body.get("expected_updated_at"), current["updated_at"])
+            await assert_slot_available(conn, current["battle_date"], current["meal_slot"], pid)
+            await conn.execute(
+                """UPDATE daily_battles
+                   SET status = 'planned', confirmed_at = NULL, cancelled_at = NULL, updated_at = NOW()
                    WHERE id = $1""",
                 pid,
             )

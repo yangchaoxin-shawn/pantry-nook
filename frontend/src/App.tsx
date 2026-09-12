@@ -298,6 +298,7 @@ type Modal =
   | { kind: "ingredientWaste"; item: Ingredient }
   | { kind: "dish"; item?: Dish }
   | { kind: "dishInPlans"; item: Dish; planNames: string[] }
+  | { kind: "dishInMenus"; item: Dish; menuNames: string[] }
   | { kind: "plan"; item?: MealPlan }
   | { kind: "battle"; item?: Battle; plan?: MealPlan; copyFrom?: Battle; notice?: string }
   | { kind: "confirm"; item: Battle }
@@ -410,6 +411,18 @@ export default function App() {
     setModal(next);
   }
   async function requestDishDelete(item: Dish) {
+    const pendingMenus = data?.battles.filter((battle) =>
+      battle.status === "planned" && battle.dishes.some((dish) => dish.dish_id === item.id),
+    ) ?? [];
+    if (pendingMenus.length) {
+      const mealLabels = { breakfast: "早餐", lunch: "午餐", dinner: "晚餐" } as const;
+      open({
+        kind: "dishInMenus",
+        item,
+        menuNames: pendingMenus.map((battle) => `${battle.battle_date} ${mealLabels[battle.meal_slot]}`),
+      });
+      return;
+    }
     try {
       const referencedPlans = (await api.dishMealPlans(item.id)).data;
       if (referencedPlans.length) {
@@ -604,6 +617,7 @@ export default function App() {
                     : open({kind: 'battle', item: b, notice: confirmationNotice(b)})}
                   copy={b => open({kind: 'battle', copyFrom: b})}
                   cancel={b => open({kind: 'action', title: '取消这份菜单？', message: '菜单保留在历史中，不产生消耗，不改变库存。', run: () => api.battleAction(b.id, 'cancel')})}
+                  restore={b => open({kind: 'action', title: '恢复这份菜单？', message: '这份原菜单会回到待完成，日期、餐次、菜品和历史都会保留。', run: () => api.battleAction(b.id, 'resume', { expected_updated_at: b.updated_at })})}
                   revoke={b => open({kind: 'recovery', recoveryKind: 'battle', id: b.id})}
                   remove={b => open({kind: 'action', title: '删除这份未执行菜单？', message: '没有消耗历史的菜单会被删除，无法恢复。库存不变。', run: () => api.deleteBattle(b.id)})}
                 />
@@ -644,7 +658,7 @@ export default function App() {
                       </button>;
                     })}
                   </div>
-                  {locationError && <p className="form-error" role="alert">{locationError}</p>}
+                  {locationError && <div className="error-state-inline" role="alert"><p className="form-error">{locationError}</p><button className="btn-ghost" onClick={reload}>重新读取</button></div>}
                   <div className="inventory-groups">
                     {CATEGORIES.map(group => {
                       const items = inventories.filter(i => i.category === group);
@@ -661,7 +675,7 @@ export default function App() {
                       </section>;
                     })}
                   </div>
-                  {inventories.length === 0 && (
+                  {!locationError && inventories.length === 0 && (
                     <section className="card">
                       <Empty
                         title={
@@ -894,6 +908,8 @@ export default function App() {
                     ? `处理变质/损坏 · ${modal.item.name}`
                   : modal.kind === "dishInPlans"
                     ? "先处理常用搭配"
+                  : modal.kind === "dishInMenus"
+                    ? "先处理待完成菜单"
                   : modal.kind === "dish"
                     ? modal.item
                       ? "编辑菜品"
@@ -1010,6 +1026,17 @@ export default function App() {
               <div className="actions">
                 <button className="btn-ghost" onClick={() => setModal(null)}>返回</button>
                 <button className="btn-primary" onClick={() => { setModal(null); navigate("plans"); }}>查看常用搭配</button>
+              </div>
+            </>
+          )}
+          {modal.kind === "dishInMenus" && (
+            <>
+              <p className="dialog-description">
+                “{modal.item.name}”正在被待完成菜单{modal.menuNames.join("、")}使用。先调整这些菜单，再回来删除菜品。
+              </p>
+              <div className="actions">
+                <button className="btn-ghost" onClick={() => setModal(null)}>返回</button>
+                <button className="btn-primary" onClick={() => { setModal(null); navigate("battles"); }}>查看餐安排</button>
               </div>
             </>
           )}

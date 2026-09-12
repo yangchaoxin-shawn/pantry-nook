@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor
+from decimal import Decimal
 import json
 import re
 import sys
@@ -41,8 +42,9 @@ def data(method: str, path: str, payload=None, expected=200):
 
 
 def ingredient(name: str, category="蔬菜", value=3, unit="个"):
+    stock_text = format(Decimal(str(value)), "f")
     return data("POST", "/api/ingredients/batch", {"items": [{
-        "name": name, "category": category, "stock_text": str(value),
+        "name": name, "category": category, "stock_text": stock_text,
         "stock_value": value, "stock_unit": unit,
     }]}, 201)[0]
 
@@ -114,7 +116,7 @@ def main():
         "battle_date": "2026-09-10", "meal_slot": "dinner", "dish_ids": [dish["id"]],
         "preparations": [{"dish_id": dish["id"], "ingredient_id": stock["id"], "planned_quantity_text": "1"}],
     }, 201)
-    status, _ = request("PATCH", f"/api/ingredients/{stock['id']}", {"stock_value": 8, "stock_text": "8", "expected_updated_at": resolved["updated_at"]})
+    status, _ = request("PATCH", f"/api/ingredients/{stock['id']}", {"stock_value": 8, "stock_text": "8", "stock_unit": resolved["stock_unit"], "expected_updated_at": resolved["updated_at"]})
     check("待完成菜单允许直改库存", status == 200)
     status, _ = request("POST", "/api/ingredients/batch", {"items": [{
         "name": f"计划中新增-{STAMP}", "category": "其他", "stock_text": "1", "stock_value": 1, "stock_unit": "个",

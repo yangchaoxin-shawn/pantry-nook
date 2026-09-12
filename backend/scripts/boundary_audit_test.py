@@ -35,7 +35,7 @@ def main():
         verify(label + '返回400且整体不写入', status == 400 and after == stock)
 
     waste = api.data('POST', f"/api/ingredients/{first['id']}/waste", {
-        'stock_value': 3, 'stock_unit': '个', 'reason': 'spoiled', 'expected_updated_at': first['updated_at'],
+        'stock_text': '3', 'stock_value': 3, 'stock_unit': '个', 'reason': 'spoiled', 'expected_updated_at': first['updated_at'],
     }, 201)
     replacement = api.ingredient(first['name'], value=2)
     status, _ = api.request('POST', f"/api/ingredients/adjustments/{waste['adjustment']['id']}/revoke")

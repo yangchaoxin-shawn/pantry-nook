@@ -2,6 +2,7 @@
 from datetime import datetime
 from .errors import AppError, conflict, validation_error, not_found
 from .validation import ensure_object_body, parse_id, optional_text
+from .quantity import parse_planned_quantity
 
 
 def assert_version(value, actual, current=None):
@@ -67,12 +68,41 @@ async def save_preparations(conn, battle_id, raw):
         seen.add(key)
         values.append((dish_map[did], ingredient_id, pending_name, optional_text(item.get('planned_quantity_text'), 'planned_quantity_text'), position))
     ids = list({v[1] for v in values if v[1] is not None})
+    ingredient_units = {}
     if ids:
-        count = await conn.fetchval("SELECT COUNT(*) FROM ingredients WHERE id=ANY($1::bigint[]) AND status='active'", ids)
-        if count != len(ids):
+        ingredient_rows = await conn.fetch(
+            "SELECT id,stock_unit FROM ingredients WHERE id=ANY($1::bigint[]) AND status='active'",
+            ids,
+        )
+        if len(ingredient_rows) != len(ids):
             raise conflict('所选食材已不在库，请重新选择')
+        ingredient_units = {int(row['id']): row['stock_unit'] for row in ingredient_rows}
+        if any(not unit for unit in ingredient_units.values()):
+            raise validation_error('所选食材缺少库存单位，请先到库存补全')
+
+    # 编辑菜单时，同一耗材且预计量原文未改变，就保留原单位快照；只有用户改量或换耗材才按当前单位重建快照。
+    existing_rows = await conn.fetch(
+        '''SELECT daily_battle_dish_id,ingredient_id,planned_quantity_text,planned_quantity_unit
+             FROM daily_battle_preparations
+            WHERE daily_battle_dish_id=ANY($1::bigint[])''',
+        list(dish_map.values()),
+    )
+    existing_units = {
+        (int(row['daily_battle_dish_id']), int(row['ingredient_id']), row['planned_quantity_text']): row['planned_quantity_unit']
+        for row in existing_rows if row['ingredient_id'] is not None
+    }
+    stored_values = []
+    for dish_row_id, ingredient_id, pending_name, planned_text, position in values:
+        planned_unit = None
+        if ingredient_id is not None:
+            current_unit = ingredient_units[ingredient_id]
+            if planned_text:
+                parse_planned_quantity(planned_text, current_unit)
+            planned_unit = existing_units.get((dish_row_id, ingredient_id, planned_text)) or current_unit
+        stored_values.append((dish_row_id, ingredient_id, pending_name, planned_text, planned_unit, position))
     await conn.execute('DELETE FROM daily_battle_preparations WHERE daily_battle_dish_id=ANY($1::bigint[])', list(dish_map.values()))
-    if values:
+    if stored_values:
         await conn.executemany('''INSERT INTO daily_battle_preparations
-            (daily_battle_dish_id,ingredient_id,pending_ingredient_name,planned_quantity_text,position) VALUES ($1,$2,$3,$4,$5)''', values)
+            (daily_battle_dish_id,ingredient_id,pending_ingredient_name,planned_quantity_text,planned_quantity_unit,position)
+            VALUES ($1,$2,$3,$4,$5,$6)''', stored_values)
     return None

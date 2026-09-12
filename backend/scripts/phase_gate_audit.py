@@ -28,9 +28,11 @@ def main():
             'daily_battle_dish_id':battle['dishes'][0]['id'], 'quantity_used_text':used, 'expected_updated_at':stock['updated_at']}]})
 
     stock=t.ingredient('文本数值一致-'+t.STAMP,value=2)
-    updated=t.data('PATCH',f"/api/ingredients/{stock['id']}",{'stock_value':5,'expected_updated_at':stock['updated_at']})
-    result('stock_text_value', '数值修改后展示数量与计算数量一致或拒绝不完整请求',
-           {'stock_text':updated['stock_text'],'stock_value':updated['stock_value']}, updated['stock_text']=='5')
+    status,_=t.request('PATCH',f"/api/ingredients/{stock['id']}",{'stock_value':5,'expected_updated_at':stock['updated_at']})
+    unchanged=t.data('GET',f"/api/ingredients/{stock['id']}")
+    result('stock_text_value', '不完整库存数量更新被拒且原库存不变',
+           {'status':status,'stock_text':unchanged['stock_text'],'stock_value':unchanged['stock_value']},
+           status==400 and unchanged['stock_text']=='2' and unchanged['stock_value']==2)
 
     stock=t.ingredient('零用量-'+t.STAMP,value=2)
     _,b,_=meal(stock)
@@ -42,24 +44,25 @@ def main():
     _,b,body=meal(stock)
     assert confirm(b,stock,'1')[0]==200
     cancelled=t.data('POST',f"/api/daily-battles/{b['id']}/revoke-confirmation",{'target_status':'cancelled'})
-    attempts={
-        'create':t.request('POST','/api/daily-battles',body)[0],
-        'edit':t.request('PATCH',f"/api/daily-battles/{b['id']}",{**body,'expected_updated_at':cancelled['updated_at']})[0],
-        'delete':t.request('DELETE',f"/api/daily-battles/{b['id']}")[0]}
-    result('cancelled_slot', '保留历史且能重新安排同一日期餐次', attempts, any(code<300 for code in attempts.values()))
+    resumed_status,resumed_body=t.request('POST',f"/api/daily-battles/{b['id']}/resume",{'expected_updated_at':cancelled['updated_at']})
+    attempts={'resume':resumed_status,'same_id':resumed_body.get('data',{}).get('id')}
+    result('cancelled_slot', '恢复原菜单为待完成且不新增第二条', attempts,
+           resumed_status==200 and resumed_body['data']['status']=='planned' and resumed_body['data']['id']==b['id'])
+    if resumed_status==200:t.data('POST',f"/api/daily-battles/{b['id']}/cancel")
 
     stock=t.ingredient('错误预计量-'+t.STAMP,value=3)
-    _,b,_=meal(stock,'随便写')
-    status,_=confirm(b,stock,'1')
-    result('invalid_planned_quantity', '非空预计量格式合法才能确认', {'planned':'随便写','confirm':status},status==400)
-    if status==200:t.data('POST',f"/api/daily-battles/{b['id']}/revoke-confirmation",{'target_status':'cancelled'})
-    else:t.data('POST',f"/api/daily-battles/{b['id']}/cancel")
+    sequence += 1
+    dish=t.data('POST','/api/dishes',{'name':'错误预计量菜-'+t.STAMP},201)
+    status,_=t.request('POST','/api/daily-battles',{'battle_date':str(date(2038,1,1)+timedelta(days=sequence)),
+        'meal_slot':'dinner','dish_ids':[dish['id']],
+        'preparations':[{'dish_id':dish['id'],'ingredient_id':stock['id'],'planned_quantity_text':'随便写'}]})
+    result('invalid_planned_quantity', '库存耗材的非空预计量必须是数字或分数', {'planned':'随便写','save':status},status==400)
 
     stock=t.ingredient('菜品删除影响-'+t.STAMP,value=3)
     dish,b,body=meal(stock)
     deleted=t.request('DELETE',f"/api/dishes/{dish['id']}")[0]
     edited=t.request('PATCH',f"/api/daily-battles/{b['id']}",{**body,'expected_updated_at':b['updated_at']})[0]
-    result('deleted_dish_edit', '菜品删除后已有菜单仍可保留快照编辑', {'delete':deleted,'edit_existing':edited},edited==200)
+    result('deleted_dish_edit', '待完成菜单引用菜品时阻止删除且菜单仍可编辑', {'delete':deleted,'edit_existing':edited},deleted==409 and edited==200)
     t.data('POST',f"/api/daily-battles/{b['id']}/cancel")
 
     # 独立构造两道菜共用库存的恢复历史，不依赖其他脚本的数据。
@@ -85,9 +88,10 @@ def main():
     _,b,_=meal(stock,'1','审查单位饭')
     t.data('PATCH',f"/api/ingredients/{stock['id']}",{'stock_text':'3000','stock_value':3000,'stock_unit':'g','expected_updated_at':stock['updated_at']})
     current=t.data('GET',f"/api/daily-battles/{b['id']}")
-    result('planned_unit_snapshot','单位变更后保留原预计量单位或要求重新填写',
+    result('planned_unit_snapshot','单位变更后保留原预计量单位',
            {'battle_id':b['id'],'planned_quantity_text':current['preparations'][0]['planned_quantity_text'],
-            'planned_unit_stored':'planned_unit' in current['preparations'][0]},False)
+            'planned_quantity_unit':current['preparations'][0].get('planned_quantity_unit')},
+           current['preparations'][0].get('planned_quantity_unit')=='kg')
     print('AUDIT_RESULTS='+json.dumps(findings,ensure_ascii=False))
     print('NOTE: 单位快照项需结合浏览器判定，脚本不代表用户验收。')
     return 1 if any(not item['passed'] for item in findings) else 0

@@ -27,7 +27,7 @@ TABLES = ('ingredients', 'dishes', 'meal_plans', 'meal_plan_dishes',
 async def snapshot(conn):
     # Table identifiers come exclusively from the static allowlist above.
     return {table: await conn.fetchval(
-        "SELECT COALESCE(jsonb_agg(to_jsonb(t) - 'meal_slot' - 'dish_signature' ORDER BY (to_jsonb(t) - 'meal_slot' - 'dish_signature')::text), '[]'::jsonb)::text FROM "
+        "SELECT COALESCE(jsonb_agg(to_jsonb(t) - 'meal_slot' - 'dish_signature' - 'planned_quantity_unit' ORDER BY (to_jsonb(t) - 'meal_slot' - 'dish_signature' - 'planned_quantity_unit')::text), '[]'::jsonb)::text FROM "
         + table + ' t') for table in TABLES}
 
 
@@ -93,6 +93,13 @@ async def main(backup, expect_plan_deduplication=False):
         slots_before = await conn.fetch('SELECT id,meal_slot FROM daily_battles ORDER BY id')
         plan_before = await plan_deduplication_state(conn) if expect_plan_deduplication else None
         await migrate(conn)
+        invalid_units = await conn.fetchval(
+            """SELECT COUNT(*)::int
+                 FROM daily_battle_preparations p
+                 JOIN ingredients i ON i.id = p.ingredient_id
+                WHERE p.planned_quantity_unit IS DISTINCT FROM i.stock_unit"""
+        )
+        assert invalid_units == 0, 'Existing menu units were not backfilled from their ingredients'
         if expect_plan_deduplication:
             await assert_plan_deduplication(conn, plan_before, before)
         else:

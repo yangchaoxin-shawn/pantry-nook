@@ -10,6 +10,7 @@ const UNIT_GROUP: Record<string, string> = {
   ml: "volume",
   L: "volume",
 };
+const UNIT_FACTOR: Record<string, number> = { g: 1, kg: 1000, 斤: 500, ml: 1, L: 1000 };
 
 /**
  * 只有明确属于同一量纲的单位才允许自动换算。
@@ -21,6 +22,12 @@ export function canConvertUnits(source: string | null | undefined, target: strin
   const sourceGroup = UNIT_GROUP[source];
   const targetGroup = UNIT_GROUP[target];
   return Boolean(sourceGroup && targetGroup && sourceGroup === targetGroup);
+}
+
+export function convertUnitValue(value: number, source: string, target: string): number | null {
+  if (!canConvertUnits(source, target)) return null;
+  if (source === target) return value;
+  return value * UNIT_FACTOR[source] / UNIT_FACTOR[target];
 }
 
 /** 默认单位不代表用户填过一行；只有食材名或数量出现才进入校验与保存。 */

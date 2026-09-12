@@ -25,6 +25,7 @@ export type BattleConfirm = components["schemas"]["BattleConfirm"];
 type BattleActionArgs =
   | [id: number, action: "confirm", payload: BattleConfirm]
   | [id: number, action: "cancel"]
+  | [id: number, action: "resume", payload: components["schemas"]["BattleResume"]]
   | [
       id: number,
       action: "revoke-confirmation",

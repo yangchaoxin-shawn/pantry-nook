@@ -129,6 +129,19 @@ async def delete_dish(dish_id: int):
             if plans:
                 labels = [row["name"] or "未命名搭配" for row in plans]
                 raise conflict("这道菜正在被搭配“" + "、".join(labels) + "”使用，请先编辑或删除这些搭配")
+            pending_menus = await conn.fetch(
+                """SELECT b.battle_date, b.meal_slot
+                     FROM daily_battles b
+                     JOIN daily_battle_dishes bd ON bd.daily_battle_id = b.id
+                    WHERE bd.dish_id = $1 AND b.status = 'planned'
+                    ORDER BY b.battle_date DESC, b.meal_slot DESC
+                    FOR SHARE""",
+                pid,
+            )
+            if pending_menus:
+                slot_labels = {"breakfast": "早餐", "lunch": "午餐", "dinner": "晚餐"}
+                labels = [f"{row['battle_date'].isoformat()} {slot_labels[row['meal_slot']]}" for row in pending_menus]
+                raise conflict("这道菜正在被待完成菜单“" + "、".join(labels) + "”使用，请先调整这些菜单")
             result = await conn.fetchrow(
                 """UPDATE dishes
                    SET deleted_at = NOW(), updated_at = NOW()

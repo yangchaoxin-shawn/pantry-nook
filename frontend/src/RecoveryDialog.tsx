@@ -1,9 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { api, type RecoveryPreview, type RecoveryRequest } from './api';
-import { canConvertUnits } from './batch-ingredient-logic';
-
-const factors: Record<string, number> = { g: 1, kg: 1000, 斤: 500, ml: 1, L: 1000 };
-const converted = (value: number, from: string, to: string) => from === to ? value : value * factors[from] / factors[to];
+import { canConvertUnits, convertUnitValue } from './batch-ingredient-logic';
 
 export type RecoveryDraft = { units: Record<number, string>; totals: Record<number, string> };
 
@@ -53,7 +50,7 @@ export function RecoveryDialog({ kind, id, draft, onDraft, onPending, onSuccess 
         const unit = units[r.source_ingredient_id] || r.target_unit || r.restored_unit;
         const automatic = canConvertUnits(r.restored_unit, r.target_unit);
         const total = r.target_value !== null && r.target_unit && automatic
-          ? converted(r.target_value, r.target_unit, unit) + converted(r.restored_value, r.restored_unit, unit) : null;
+          ? convertUnitValue(r.target_value, r.target_unit, unit)! + convertUnitValue(r.restored_value, r.restored_unit, unit)! : null;
         return <fieldset key={r.source_ingredient_id}><legend>{r.name}</legend>
           <p>本次恢复 {r.restored_value}{r.restored_unit}</p>
           {r.target_ingredient_id !== null ? <>

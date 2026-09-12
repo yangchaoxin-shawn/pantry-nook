@@ -95,7 +95,9 @@ CREATE TABLE IF NOT EXISTS daily_battle_preparations (
   daily_battle_dish_id BIGINT NOT NULL REFERENCES daily_battle_dishes(id) ON DELETE CASCADE,
   ingredient_id BIGINT REFERENCES ingredients(id) ON DELETE RESTRICT,
   pending_ingredient_name VARCHAR(255),
-  planned_quantity_text VARCHAR(255), position INTEGER NOT NULL CHECK (position >= 0),
+  planned_quantity_text VARCHAR(255),
+  planned_quantity_unit VARCHAR(50),
+  position INTEGER NOT NULL CHECK (position >= 0),
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   UNIQUE (daily_battle_dish_id, ingredient_id),
   CONSTRAINT daily_battle_preparations_source_check CHECK (

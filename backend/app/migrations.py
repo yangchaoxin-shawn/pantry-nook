@@ -43,6 +43,7 @@ async def _is_current_schema(conn) -> bool:
         ("meal_plans", "dish_signature"),
         ("daily_battles", "meal_slot"),
         ("daily_battle_preparations", "pending_ingredient_name"),
+        ("daily_battle_preparations", "planned_quantity_unit"),
     }
     legacy = {
         ("ingredients", "quantity_text"),

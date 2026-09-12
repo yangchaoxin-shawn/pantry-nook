@@ -130,9 +130,16 @@ async def apply(conn, kind, ident, body, root, rows):
             text = required_text(entry.get('final_stock_text'), 'final_stock_text') if manual else render_stock(value)
             await conn.execute("UPDATE ingredients SET stock_value=$1,stock_text=$2,stock_unit=$3,status='active',ended_at=NULL,updated_at=NOW() WHERE id=$4", value, text, unit, target['id'])
             # 多菜共用一项食材时，各来源保留各自恢复量；目标快照是同一事务的整体前后值。
+            event_amounts = []
             for event in row['events']:
-                prefix = 'stock' if kind == 'adjustment' else 'remaining'
-                restored = event[prefix+'_before_value'] - event[prefix+'_after_value']
+                if kind == 'adjustment':
+                    event_amounts.append(Decimal(event['stock_before_value']) - Decimal(event['stock_after_value']))
+                else:
+                    event_amounts.append(Decimal(event['quantity_value'] or 0))
+            if event_amounts:
+                # 分数按六位存储时，把汇总尾差归到最后一条，确保逐项审计之和等于实际恢复总量。
+                event_amounts[-1] += Decimal(row['restored_value']) - sum(event_amounts, Decimal(0))
+            for event, restored in zip(row['events'], event_amounts):
                 await conn.execute('''INSERT INTO inventory_recovery_merges
                     (adjustment_id,consumption_id,source_ingredient_id,target_ingredient_id,restored_text,restored_value,restored_unit,
                      target_before_text,target_before_value,target_before_unit,target_after_text,target_after_value,target_after_unit,calculation_mode)

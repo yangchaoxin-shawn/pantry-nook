@@ -12,7 +12,7 @@ def choices(preview):
 
 def wasted(name, amount=3, unit='个'):
     i = t.ingredient(name, value=amount, unit=unit)
-    a = t.data('POST', f"/api/ingredients/{i['id']}/waste", {'stock_value':amount,'stock_unit':unit,'reason':'spoiled','expected_updated_at':i['updated_at']},201)
+    a = t.data('POST', f"/api/ingredients/{i['id']}/waste", {'stock_text':str(amount),'stock_value':amount,'stock_unit':unit,'reason':'spoiled','expected_updated_at':i['updated_at']},201)
     return i, a['adjustment']
 
 
