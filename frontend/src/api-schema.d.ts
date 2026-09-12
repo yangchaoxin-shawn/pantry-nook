@@ -898,7 +898,7 @@ export interface components {
             final_stock_text?: string;
             final_stock_value?: number;
         };
-        /** @description 合并时必须提交预览版本和所有冲突选择；可换算时后端计算，不接受客户端恢复量。预览过期返回 RECORD_CHANGED，未选择返回 MERGE_REQUIRED。 */
+        /** @description 库存变化后恢复必须提交预览版本和所有选择；报废支持同一 ID 按本次报废量加回当前库存，整餐仍执行保守版本校验。可换算时后端计算，不接受客户端恢复量。预览过期返回 RECORD_CHANGED，未选择返回 MERGE_REQUIRED。 */
         RecoveryRequest: {
             /** Format: date-time */
             expected_updated_at?: string;

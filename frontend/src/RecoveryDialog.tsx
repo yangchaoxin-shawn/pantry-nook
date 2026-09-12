@@ -57,10 +57,10 @@ export function RecoveryDialog({ kind, id, draft, onDraft, onPending, onSuccess 
         return <fieldset key={r.source_ingredient_id}><legend>{r.name}</legend>
           <p>本次恢复 {r.restored_value}{r.restored_unit}</p>
           {r.target_ingredient_id !== null ? <>
-            <p>当前库存 {r.target_value}{r.target_unit}，恢复后合并到这一条库存。</p>
+            <p>当前库存 {r.target_value}{r.target_unit}，本次恢复量将加回这条库存。</p>
             <label>合并单位<select aria-label={`${r.name}合并单位`} value={unit} disabled={busy} onChange={e => { const next = { ...units, [r.source_ingredient_id]: e.target.value }; setUnits(next); onDraft({ units: next, totals }); }}>
               {[...new Set([r.target_unit!, r.restored_unit])].map(u => <option key={u}>{u}</option>)}</select></label>
-            {total !== null ? <p>合并后：{total.toLocaleString('zh-CN', { maximumFractionDigits: 6 })}{unit}</p>
+            {total !== null ? <p>恢复后：{total.toLocaleString('zh-CN', { maximumFractionDigits: 6 })}{unit}</p>
               : <label>合并后的实际数量（{unit}）<input aria-label={`${r.name}合并后的实际数量`} type="number" min="0.000001" step="0.000001" inputMode="decimal" disabled={busy}
                 value={totals[r.source_ingredient_id] ?? ''} onChange={e => { const next = { ...totals, [r.source_ingredient_id]: e.target.value }; setTotals(next); onDraft({ units, totals: next }); }} /><span className="form-hint">单位不能自动换算，请按实际库存填写最终量。</span></label>}
           </> : <p className="muted">恢复到原库存记录。</p>}

@@ -271,5 +271,5 @@ CREATE TABLE inventory_recovery_merges (
  calculation_mode TEXT NOT NULL CHECK(calculation_mode IN ('converted','manual')),
  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
  CHECK ((adjustment_id IS NULL) <> (consumption_id IS NULL)),
- CHECK (source_ingredient_id <> target_ingredient_id)
+ CONSTRAINT recovery_target_identity CHECK (source_ingredient_id <> target_ingredient_id OR adjustment_id IS NOT NULL)
 );

@@ -46,13 +46,19 @@ async def load(conn, kind, ident):
     for iid, group in sorted(groups.items()):
         old = await conn.fetchrow('SELECT * FROM ingredients WHERE id=$1', iid)
         first, last = group[0], group[-1]
-        if old is None or old['updated_at'] != stamp or old['stock_value'] != last[prefix+'_after_value'] or old['stock_text'] != last[prefix+'_after_text'] or old['status'] != last['ingredient_status_after'] or old['ended_at'] != last['ingredient_ended_at_after']:
+        if old is None:
+            raise not_found('原食材记录')
+        unchanged = old['updated_at'] == stamp and old['stock_value'] == last[prefix+'_after_value'] and old['stock_text'] == last[prefix+'_after_text'] and old['status'] == last['ingredient_status_after'] and old['ended_at'] == last['ingredient_ended_at_after']
+        if kind == 'battle' and not unchanged:
             raise conflict('相关库存已有后续变更，不能安全撤销；请到库存核对')
         unit = first['stock_before_unit'] if kind == 'adjustment' else first['quantity_unit']
         restored = Decimal(first[prefix+'_before_value']) - Decimal(last[prefix+'_after_value'])
         target = await conn.fetchrow("SELECT * FROM ingredients WHERE status='active' AND LOWER(btrim(name))=LOWER(btrim($1)) AND id<>$2", old['name'], iid)
         if target and (old['status'] == 'active' or old['stock_value'] != 0):
             raise conflict('旧库存状态异常，不能合并恢复')
+        # 报废撤销补回该次数量，不覆盖之后的补货、消耗或盘点结果。
+        if kind == 'adjustment' and not target and not unchanged:
+            target = old
         rows.append({'source': dict(old), 'target': dict(target) if target else None,
                      'events': group, 'restored_value': restored, 'restored_unit': unit,
                      'before_value': first[prefix+'_before_value'], 'before_text': first[prefix+'_before_text'],
@@ -90,7 +96,7 @@ async def apply(conn, kind, ident, body, root, rows):
     if choices.keys() - required:
         raise changed()
     if required - choices.keys():
-        raise AppError(409, 'MERGE_REQUIRED', '发现同名新库存，请核对合并恢复数量')
+        raise AppError(409, 'MERGE_REQUIRED', '库存已有变化，请核对本次恢复数量')
     if required or 'expected_updated_at' in body:
         try:
             assert_version(body.get('expected_updated_at'), root['updated_at'])
@@ -122,7 +128,7 @@ async def apply(conn, kind, ident, body, root, rows):
                 raise validation_error('请填写合并后的实际库存量')
             optional_number(value, '合并后的数量', min_value=0, exclusive_min=True)
             text = required_text(entry.get('final_stock_text'), 'final_stock_text') if manual else render_stock(value)
-            await conn.execute('UPDATE ingredients SET stock_value=$1,stock_text=$2,stock_unit=$3,updated_at=NOW() WHERE id=$4', value, text, unit, target['id'])
+            await conn.execute("UPDATE ingredients SET stock_value=$1,stock_text=$2,stock_unit=$3,status='active',ended_at=NULL,updated_at=NOW() WHERE id=$4", value, text, unit, target['id'])
             # 多菜共用一项食材时，各来源保留各自恢复量；目标快照是同一事务的整体前后值。
             for event in row['events']:
                 prefix = 'stock' if kind == 'adjustment' else 'remaining'

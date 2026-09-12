@@ -184,7 +184,7 @@ def build_schemas() -> dict:
         'final_stock_text':REQUIRED_TEXT, 'final_stock_value':{**NUMBER,'exclusiveMinimum':0}},
         ['source_ingredient_id','target_ingredient_id','source_updated_at','target_updated_at','stock_unit'])
     schemas['RecoveryRequest'] = obj({'expected_updated_at':TIME,'merge_resolutions':array(ref('MergeResolution'),maxItems=500)}, [],
-        description='合并时必须提交预览版本和所有冲突选择；可换算时后端计算，不接受客户端恢复量。预览过期返回 RECORD_CHANGED，未选择返回 MERGE_REQUIRED。')
+        description='库存变化后恢复必须提交预览版本和所有选择；报废支持同一 ID 按本次报废量加回当前库存，整餐仍执行保守版本校验。可换算时后端计算，不接受客户端恢复量。预览过期返回 RECORD_CHANGED，未选择返回 MERGE_REQUIRED。')
     schemas['BattleRevoke']['properties'].update(schemas['RecoveryRequest']['properties'])
     for name in ['Consumption','BattleConsumption','IngredientConsumption','InventoryAdjustment']:
         schemas[name]['properties']['recovery_merges'] = array(ref('RecoveryMerge'))
