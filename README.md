@@ -11,7 +11,7 @@
 - [Claude → Codex 适配](docs/agent-transition.md)：遗留配置保留方式；CLAUDE.md 只导入共享规则。
 - [测试说明](backend/TESTING.md)：隔离验证命令；[Git 约定](docs/git.md)：版本与提交。
 
-当前核心功能已有开发和 agent 验证记录，用户尚未开始本轮验收；完整状态不在多个 README 重复维护。
+当前核心模块已进入阶段验收；最新结果见 [前端重构前审查](docs/phase-gate-audit-2026-09-12.md)，代码职责与整理计划见 [项目结构](docs/project-map.md)。是否通过以状态表为准。
 
 ## 技术栈
 
