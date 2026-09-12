@@ -23,9 +23,9 @@ async def _is_current_schema(conn) -> bool:
              FROM information_schema.tables
             WHERE table_schema = 'public'
               AND table_name = ANY($1::text[])""",
-        ["daily_battle_preparations", "inventory_adjustments"],
+        ["daily_battle_preparations", "inventory_adjustments", "inventory_recovery_merges"],
     )
-    if tables != 2:
+    if tables != 3:
         return False
 
     columns = await conn.fetch(

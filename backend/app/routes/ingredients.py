@@ -123,19 +123,29 @@ async def waste(ingredient_id:int,request:Request):
 async def history(ingredient_id:int):
  pid=parse_id(ingredient_id);pool=await get_pool()
  if not await pool.fetchrow("SELECT id FROM ingredients WHERE id=$1",pid):raise not_found("食材")
- return ok([dict(x) for x in await pool.fetch("SELECT a.*,i.name AS ingredient_name,i.category FROM inventory_adjustments a JOIN ingredients i ON i.id=a.ingredient_id WHERE a.ingredient_id=$1 ORDER BY a.created_at DESC,a.id DESC",pid)])
+ rows=[dict(x) for x in await pool.fetch("SELECT a.*,i.name AS ingredient_name,i.category FROM inventory_adjustments a JOIN ingredients i ON i.id=a.ingredient_id WHERE a.ingredient_id=$1 ORDER BY a.created_at DESC,a.id DESC",pid)]
+ from ..recovery import attach_merges
+ return ok(await attach_merges(pool,rows,"adjustment"))
+@router.get("/adjustments/{adjustment_id}/recovery-preview")
+async def recovery_preview(adjustment_id:int):
+ from .. import recovery
+ pool=await get_pool()
+ async with pool.acquire() as c, c.transaction():
+  await lock_inventory_workflow(c)
+  root,rows=await recovery.load(c,"adjustment",parse_id(adjustment_id))
+  return ok(recovery.preview(root,rows))
+
 @router.post("/adjustments/{adjustment_id}/revoke")
-async def revoke(adjustment_id:int):
+async def revoke(adjustment_id:int,request:Request):
+ from .. import recovery
  aid=parse_id(adjustment_id);pool=await get_pool()
- async with pool.acquire() as c:
-  async with c.transaction():
-   await lock_inventory_workflow(c);a=await c.fetchrow("SELECT * FROM inventory_adjustments WHERE id=$1 FOR UPDATE",aid)
-   if a is None:raise not_found("库存处理记录")
-   if a["status"]!="active":raise conflict("这条库存处理已撤销")
-   old=await c.fetchrow("SELECT * FROM ingredients WHERE id=$1 FOR UPDATE",a["ingredient_id"])
-   if old is None:raise not_found("食材")
-   if old["updated_at"]!=a["stock_after_updated_at"]:raise conflict("该食材已有后续库存变更，不能安全撤销")
-   if a["ingredient_status_before"]=="active":await assert_stock_name_available(c,old["name"],old["id"])
-   row=await c.fetchrow("UPDATE ingredients SET stock_text=$1,stock_value=$2,stock_unit=$3,status=$4,ended_at=$5,updated_at=NOW() WHERE id=$6 RETURNING *",a["stock_before_text"],a["stock_before_value"],a["stock_before_unit"],a["ingredient_status_before"],a["ingredient_ended_at_before"],old["id"])
-   a=await c.fetchrow("UPDATE inventory_adjustments SET status='reversed',reversed_at=NOW(),updated_at=NOW() WHERE id=$1 RETURNING *",aid)
- return ok({"inventory":dto(row),"adjustment":dict(a)})
+ body=ensure_object_body(await request.json()) if await request.body() else {}
+ async with pool.acquire() as c, c.transaction():
+  await lock_inventory_workflow(c)
+  root,rows=await recovery.load(c,"adjustment",aid)
+  await recovery.apply(c,"adjustment",aid,body,root,rows)
+  iid=(rows[0]["target"] or rows[0]["source"])["id"]
+  inventory=await c.fetchrow("SELECT * FROM ingredients WHERE id=$1",iid)
+  a=dict(await c.fetchrow("SELECT * FROM inventory_adjustments WHERE id=$1",aid))
+  await recovery.attach_merges(c,[a],"adjustment")
+  return ok({"inventory":dto(inventory),"adjustment":a})

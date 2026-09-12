@@ -90,6 +90,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/ingredients/adjustments/{adjustment_id}/recovery-preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Recovery Preview */
+        get: operations["recovery_preview_api_ingredients_adjustments__adjustment_id__recovery_preview_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/ingredients/adjustments/{adjustment_id}/revoke": {
         parameters: {
             query?: never;
@@ -297,6 +314,23 @@ export interface paths {
         put?: never;
         /** Confirm Battle */
         post: operations["confirm_battle_api_daily_battles__battle_id__confirm_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/daily-battles/{battle_id}/recovery-preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Recovery Preview */
+        get: operations["recovery_preview_api_daily_battles__battle_id__recovery_preview_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -567,6 +601,7 @@ export interface components {
             /** @enum {string} */
             category: "碳水" | "蔬菜" | "蛋白质" | "水果" | "其他";
             daily_battle_dish_name: string | null;
+            recovery_merges?: components["schemas"]["RecoveryMerge"][];
         };
         IngredientConsumption: {
             id: number;
@@ -599,6 +634,7 @@ export interface components {
             /** @enum {string} */
             battle_status: "planned" | "confirmed" | "cancelled";
             daily_battle_dish_name: string | null;
+            recovery_merges?: components["schemas"]["RecoveryMerge"][];
         };
         Consumption: {
             id: number;
@@ -634,6 +670,7 @@ export interface components {
             ingredient_name: string;
             /** @enum {string} */
             category: "碳水" | "蔬菜" | "蛋白质" | "水果" | "其他";
+            recovery_merges?: components["schemas"]["RecoveryMerge"][];
         };
         IngredientCreate: {
             /** @description 去除首尾空白后不能为空。 */
@@ -713,6 +750,7 @@ export interface components {
             created_at: string;
             /** Format: date-time */
             updated_at: string;
+            recovery_merges?: components["schemas"]["RecoveryMerge"][];
         };
         DishInput: {
             /** @description 去除首尾空白后不能为空。 */
@@ -783,6 +821,9 @@ export interface components {
              * @enum {string}
              */
             target_status?: "planned" | "cancelled";
+            /** Format: date-time */
+            expected_updated_at?: string;
+            merge_resolutions?: components["schemas"]["MergeResolution"][];
         };
         PaginationMeta: {
             total: number;
@@ -801,6 +842,67 @@ export interface components {
             status: "ok";
             /** @enum {string} */
             database: "connected";
+        };
+        RecoveryMerge: {
+            id: number;
+            adjustment_id: number | null;
+            consumption_id: number | null;
+            source_ingredient_id: number;
+            target_ingredient_id: number;
+            target_name: string;
+            restored_text: string;
+            restored_value: number;
+            restored_unit: string;
+            target_before_text: string;
+            target_before_value: number;
+            target_before_unit: string;
+            target_after_text: string;
+            target_after_value: number;
+            target_after_unit: string;
+            /** @enum {string} */
+            calculation_mode: "converted" | "manual";
+            /** Format: date-time */
+            created_at: string;
+        };
+        RecoveryItem: {
+            source_ingredient_id: number;
+            /** Format: date-time */
+            source_updated_at: string;
+            name: string;
+            restored_value: number;
+            restored_unit: string;
+            target_ingredient_id: number | null;
+            target_updated_at: string | null;
+            target_value: number | null;
+            target_unit: string | null;
+            suggested_value: number | null;
+        };
+        RecoveryPreview: {
+            /** Format: date-time */
+            expected_updated_at: string;
+            items: components["schemas"]["RecoveryItem"][];
+        };
+        RecoveryPreviewResponse: {
+            data: components["schemas"]["RecoveryPreview"];
+        };
+        MergeResolution: {
+            source_ingredient_id: number;
+            target_ingredient_id: number;
+            /** Format: date-time */
+            source_updated_at: string;
+            /** Format: date-time */
+            target_updated_at: string;
+            /** @description 去除首尾空白后不能为空。 */
+            stock_unit: string;
+            /** @description 去除首尾空白后不能为空。 */
+            final_stock_text?: string;
+            final_stock_value?: number;
+        };
+        /** @description 合并时必须提交预览版本和所有冲突选择；可换算时后端计算，不接受客户端恢复量。预览过期返回 RECORD_CHANGED，未选择返回 MERGE_REQUIRED。 */
+        RecoveryRequest: {
+            /** Format: date-time */
+            expected_updated_at?: string;
+            merge_resolutions?: components["schemas"]["MergeResolution"][];
         };
         IngredientResponse: {
             data: components["schemas"]["Ingredient"];
@@ -851,6 +953,7 @@ export interface components {
             created_at: string;
             /** Format: date-time */
             updated_at: string;
+            recovery_merges: components["schemas"]["RecoveryMerge"][];
         };
         InventoryAdjustmentList: {
             data: components["schemas"]["InventoryAdjustmentRecord"][];
@@ -1238,7 +1341,7 @@ export interface operations {
             };
         };
     };
-    revoke_api_ingredients_adjustments__adjustment_id__revoke_post: {
+    recovery_preview_api_ingredients_adjustments__adjustment_id__recovery_preview_get: {
         parameters: {
             query?: never;
             header?: never;
@@ -1248,6 +1351,59 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description 请求成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecoveryPreviewResponse"];
+                };
+            };
+            /** @description 请求参数或 JSON 格式不正确 */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description 服务器内部错误 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    revoke_api_ingredients_adjustments__adjustment_id__revoke_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                adjustment_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["RecoveryRequest"];
+            };
+        };
         responses: {
             /** @description 请求成功 */
             200: {
@@ -2390,6 +2546,55 @@ export interface operations {
             };
             /** @description 当前业务状态不允许该操作 */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description 服务器内部错误 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    recovery_preview_api_daily_battles__battle_id__recovery_preview_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                battle_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 请求成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecoveryPreviewResponse"];
+                };
+            };
+            /** @description 请求参数或 JSON 格式不正确 */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

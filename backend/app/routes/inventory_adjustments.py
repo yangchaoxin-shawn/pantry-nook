@@ -54,4 +54,6 @@ async def list_adjustments(request: Request):
     records = [dict(row) for row in rows]
     for record in records:
         record.pop("total_count", None)
+    from ..recovery import attach_merges
+    await attach_merges(pool, records, "adjustment")
     return ok(records, {"total": int(total), "limit": limit, "offset": offset})

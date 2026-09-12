@@ -10,6 +10,8 @@ export type IngredientCreate = components["schemas"]["IngredientCreate"];
 export type IngredientUpdate = components["schemas"]["IngredientUpdate"];
 export type InventoryAdjustment = components["schemas"]["InventoryAdjustment"];
 export type InventoryAdjustmentRecord = components["schemas"]["InventoryAdjustmentRecord"];
+export type RecoveryPreview = components['schemas']['RecoveryPreview'];
+export type RecoveryRequest = components['schemas']['RecoveryRequest'];
 export type IngredientUnitResolution = { ingredient_id: number; unit: string };
 export type IngredientCategoryResolution = { ingredient_id: number; category: (typeof CATEGORIES)[number] };
 export type IngredientManualTotal = { ingredient_id: number; stock_text: string; stock_value: number; unit: string; expected_updated_at: string };
@@ -99,6 +101,10 @@ async function list<T>(path: string, signal?: AbortSignal): Promise<T[]> {
   }
 }
 export const api = {
+  recoveryPreview: (kind: 'adjustment' | 'battle', id: number, signal?: AbortSignal) => request<RecoveryPreview>(
+    kind === 'adjustment' ? `/api/ingredients/adjustments/${id}/recovery-preview` : `/api/daily-battles/${id}/recovery-preview`, 'GET', undefined, signal),
+  recover: (kind: 'adjustment' | 'battle', id: number, body: RecoveryRequest) => request<unknown>(
+    kind === 'adjustment' ? `/api/ingredients/adjustments/${id}/revoke` : `/api/daily-battles/${id}/revoke-confirmation`, 'POST', body),
   battle: (id: number, signal?: AbortSignal) => request<Battle>(`/api/daily-battles/${id}`, 'GET', undefined, signal),
   ingredients: (s?: AbortSignal) =>
     list<Ingredient>("/api/ingredients", s),

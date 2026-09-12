@@ -20,7 +20,8 @@ from app.db import _db_config
 from app.migrations import migrate
 
 TABLES = ('ingredients', 'dishes', 'meal_plans', 'meal_plan_dishes',
-          'daily_battles', 'daily_battle_dishes', 'consumptions')
+          'daily_battles', 'daily_battle_dishes', 'consumptions',
+          'inventory_adjustments', 'daily_battle_preparations')
 
 
 async def snapshot(conn):
@@ -89,6 +90,7 @@ async def main(backup, expect_plan_deduplication=False):
     conn = await asyncpg.connect(**{**config, 'database': database})
     try:
         before = await snapshot(conn)
+        slots_before = await conn.fetch('SELECT id,meal_slot FROM daily_battles ORDER BY id')
         plan_before = await plan_deduplication_state(conn) if expect_plan_deduplication else None
         await migrate(conn)
         if expect_plan_deduplication:
@@ -103,9 +105,9 @@ async def main(backup, expect_plan_deduplication=False):
         if expect_plan_deduplication:
             print('PASS: duplicate plans merged; menu references retained; unrelated data unchanged; migration re-run unchanged.')
         else:
-            assert await conn.fetchval('SELECT count(*) FROM daily_battles WHERE meal_slot IS NOT NULL') == 0
-            assert await conn.fetchval('SELECT count(*) FROM daily_battle_preparations') == 0
-            print('PASS: backup restored; 7 original tables unchanged; migration re-run unchanged; old meal slots/preparations not invented.')
+            assert await conn.fetch('SELECT id,meal_slot FROM daily_battles ORDER BY id') == slots_before
+            assert await conn.fetchval("SELECT to_regclass('inventory_recovery_merges')") is not None
+            print('PASS: backup restored; 9 business tables and meal slots unchanged; recovery table present; migration re-run unchanged.')
         print('Isolated database retained:', database)
     finally:
         await conn.close()

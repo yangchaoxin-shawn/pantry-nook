@@ -79,6 +79,8 @@ async def list_consumptions(request: Request):
     items = [dict(r) for r in rows]
     for item in items:
         item.pop("total_count", None)
+    from ..recovery import attach_merges
+    await attach_merges(pool, items, "battle")
     return ok(items, {"total": int(total), "limit": limit, "offset": offset})
 
 
@@ -99,4 +101,7 @@ async def get_consumption(consumption_id: int):
     )
     if result is None:
         raise not_found("消耗记录")
+    from ..recovery import attach_merges
+    result = dict(result)
+    await attach_merges(pool, [result], "battle")
     return ok(result)

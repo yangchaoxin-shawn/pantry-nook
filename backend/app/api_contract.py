@@ -166,6 +166,28 @@ def build_schemas() -> dict:
         "Health": obj({"status": {"type": "string", "enum": ["ok"]},
                        "database": {"type": "string", "enum": ["connected"]}}),
     }
+    schemas["RecoveryMerge"] = obj({
+        'id': ID, 'adjustment_id': nullable(ID), 'consumption_id': nullable(ID),
+        'source_ingredient_id': ID, 'target_ingredient_id': ID, 'target_name': TEXT,
+        'restored_text': TEXT, 'restored_value': NUMBER, 'restored_unit': TEXT,
+        'target_before_text': TEXT, 'target_before_value': NUMBER, 'target_before_unit': TEXT,
+        'target_after_text': TEXT, 'target_after_value': NUMBER, 'target_after_unit': TEXT,
+        'calculation_mode': {'type':'string','enum':['converted','manual']}, 'created_at': TIME})
+    schemas['RecoveryItem'] = obj({'source_ingredient_id': ID, 'source_updated_at': TIME, 'name': TEXT,
+        'restored_value': NUMBER, 'restored_unit': TEXT, 'target_ingredient_id': nullable(ID),
+        'target_updated_at': nullable(TIME), 'target_value': nullable(NUMBER), 'target_unit': nullable(TEXT),
+        'suggested_value': nullable({'type':'number'})})
+    schemas['RecoveryPreview'] = obj({'expected_updated_at': TIME, 'items': array(ref('RecoveryItem'))})
+    schemas['RecoveryPreviewResponse'] = obj({'data':ref('RecoveryPreview')})
+    schemas['MergeResolution'] = obj({'source_ingredient_id':ID, 'target_ingredient_id':ID,
+        'source_updated_at':TIME, 'target_updated_at':TIME, 'stock_unit':REQUIRED_TEXT,
+        'final_stock_text':REQUIRED_TEXT, 'final_stock_value':{**NUMBER,'exclusiveMinimum':0}},
+        ['source_ingredient_id','target_ingredient_id','source_updated_at','target_updated_at','stock_unit'])
+    schemas['RecoveryRequest'] = obj({'expected_updated_at':TIME,'merge_resolutions':array(ref('MergeResolution'),maxItems=500)}, [],
+        description='合并时必须提交预览版本和所有冲突选择；可换算时后端计算，不接受客户端恢复量。预览过期返回 RECORD_CHANGED，未选择返回 MERGE_REQUIRED。')
+    schemas['BattleRevoke']['properties'].update(schemas['RecoveryRequest']['properties'])
+    for name in ['Consumption','BattleConsumption','IngredientConsumption','InventoryAdjustment']:
+        schemas[name]['properties']['recovery_merges'] = array(ref('RecoveryMerge'))
     for name in ["Ingredient", "Dish", "MealPlan", "MealPlanRecord", "DailyBattle", "DailyBattleRecord",
                  "ConfirmedBattle", "Consumption"]:
         schemas[f"{name}Response"] = obj({"data": ref(name)})
@@ -176,7 +198,7 @@ def build_schemas() -> dict:
                          "stock_before_unit": TEXT, "stock_after_text": TEXT, "stock_after_value": NUMBER,
                          "stock_after_unit": TEXT, "status": ADJUSTMENT_STATUS,
                          "reversed_at": nullable(TIME), "ingredient_name": TEXT, "category": CATEGORY, **TIMESTAMPS}
-    schemas["InventoryAdjustmentRecord"] = obj(adjustment_record)
+    schemas["InventoryAdjustmentRecord"] = obj({**adjustment_record, "recovery_merges":array(ref("RecoveryMerge"))})
     schemas["InventoryAdjustmentList"] = obj({"data": array(ref("InventoryAdjustmentRecord"))})
     schemas["InventoryAdjustmentPage"] = obj({"data": array(ref("InventoryAdjustmentRecord")), "meta": ref("PaginationMeta")})
     schemas["InventoryWasteResponse"] = obj({"data": obj({"inventory": ref("Ingredient"), "adjustment": ref("InventoryAdjustment")})})
@@ -201,6 +223,8 @@ def install_openapi(app: FastAPI) -> None:
     """集中挂接契约描述，保留原路由的手动校验和 JSONResponse 行为。"""
     # path, method, success schema, body schema, body required, success code
     operations = [
+        ("/api/ingredients/adjustments/{adjustment_id}/recovery-preview", "get", "RecoveryPreviewResponse", None, False, 200),
+        ("/api/daily-battles/{battle_id}/recovery-preview", "get", "RecoveryPreviewResponse", None, False, 200),
         ("/health", "get", "Health", None, False, 200),
         ("/api/ingredients", "get", "IngredientList", None, False, 200),
         ("/api/ingredients/batch", "post", "IngredientBatchResponse", "IngredientBatchCreate", True, 201),
@@ -209,7 +233,7 @@ def install_openapi(app: FastAPI) -> None:
         ("/api/ingredients/{ingredient_id}", "patch", "IngredientResponse", "IngredientUpdate", True, 200),
         ("/api/ingredients/{ingredient_id}/waste", "post", "InventoryWasteResponse", "InventoryWaste", True, 201),
         ("/api/ingredients/{ingredient_id}/adjustments", "get", "InventoryAdjustmentList", None, False, 200),
-        ("/api/ingredients/adjustments/{adjustment_id}/revoke", "post", "InventoryWasteResponse", None, False, 200),
+        ("/api/ingredients/adjustments/{adjustment_id}/revoke", "post", "InventoryWasteResponse", "RecoveryRequest", False, 200),
         ("/api/dishes", "get", "DishList", None, False, 200),
         ("/api/dishes", "post", "DishResponse", "DishInput", True, 201),
         ("/api/dishes/{dish_id}", "get", "DishResponse", None, False, 200),

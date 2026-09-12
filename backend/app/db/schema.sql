@@ -258,3 +258,18 @@ EXECUTE FUNCTION enforce_daily_battle_slot_unique();
 
 CREATE TABLE IF NOT EXISTS inventory_adjustments (id BIGSERIAL PRIMARY KEY, ingredient_id BIGINT NOT NULL REFERENCES ingredients(id) ON DELETE RESTRICT, reason VARCHAR(20) NOT NULL CHECK (reason IN ('spoiled','damaged','other')), note TEXT, stock_before_text VARCHAR(255) NOT NULL, stock_before_value NUMERIC(15,6) NOT NULL, stock_before_unit VARCHAR(50) NOT NULL, stock_after_text VARCHAR(255) NOT NULL, stock_after_value NUMERIC(15,6) NOT NULL, stock_after_unit VARCHAR(50) NOT NULL, stock_after_updated_at TIMESTAMPTZ NOT NULL, ingredient_status_before VARCHAR(20) NOT NULL, ingredient_ended_at_before TIMESTAMPTZ, ingredient_status_after VARCHAR(20) NOT NULL, ingredient_ended_at_after TIMESTAMPTZ, status VARCHAR(20) NOT NULL DEFAULT 'active' CHECK(status IN ('active','reversed')), reversed_at TIMESTAMPTZ, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW());
 CREATE INDEX IF NOT EXISTS inventory_adjustments_ingredient_idx ON inventory_adjustments(ingredient_id,created_at DESC);
+
+CREATE TABLE inventory_recovery_merges (
+ id BIGSERIAL PRIMARY KEY,
+ adjustment_id BIGINT UNIQUE REFERENCES inventory_adjustments(id),
+ consumption_id BIGINT UNIQUE REFERENCES consumptions(id),
+ source_ingredient_id BIGINT NOT NULL REFERENCES ingredients(id),
+ target_ingredient_id BIGINT NOT NULL REFERENCES ingredients(id),
+ restored_text TEXT NOT NULL, restored_value NUMERIC(15,6) NOT NULL CHECK(restored_value >= 0), restored_unit TEXT NOT NULL,
+ target_before_text TEXT NOT NULL, target_before_value NUMERIC(15,6) NOT NULL, target_before_unit TEXT NOT NULL,
+ target_after_text TEXT NOT NULL, target_after_value NUMERIC(15,6) NOT NULL CHECK(target_after_value > 0), target_after_unit TEXT NOT NULL,
+ calculation_mode TEXT NOT NULL CHECK(calculation_mode IN ('converted','manual')),
+ created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+ CHECK ((adjustment_id IS NULL) <> (consumption_id IS NULL)),
+ CHECK (source_ingredient_id <> target_ingredient_id)
+);

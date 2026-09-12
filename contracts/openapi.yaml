@@ -484,6 +484,69 @@
         }
       }
     },
+    "/api/ingredients/adjustments/{adjustment_id}/recovery-preview": {
+      "get": {
+        "tags": [
+          "ingredients"
+        ],
+        "summary": "Recovery Preview",
+        "operationId": "recovery_preview_api_ingredients_adjustments__adjustment_id__recovery_preview_get",
+        "parameters": [
+          {
+            "name": "adjustment_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9007199254740991
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "请求成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecoveryPreviewResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "请求参数或 JSON 格式不正确",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "资源不存在",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "服务器内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/ingredients/adjustments/{adjustment_id}/revoke": {
       "post": {
         "tags": [
@@ -551,6 +614,16 @@
                 "schema": {
                   "$ref": "#/components/schemas/Error"
                 }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecoveryRequest"
               }
             }
           }
@@ -2081,6 +2154,69 @@
         }
       }
     },
+    "/api/daily-battles/{battle_id}/recovery-preview": {
+      "get": {
+        "tags": [
+          "daily-battles"
+        ],
+        "summary": "Recovery Preview",
+        "operationId": "recovery_preview_api_daily_battles__battle_id__recovery_preview_get",
+        "parameters": [
+          {
+            "name": "battle_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9007199254740991
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "请求成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecoveryPreviewResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "请求参数或 JSON 格式不正确",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "资源不存在",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "服务器内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/daily-battles/{battle_id}/revoke-confirmation": {
       "post": {
         "tags": [
@@ -3422,6 +3558,12 @@
                 "type": "null"
               }
             ]
+          },
+          "recovery_merges": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RecoveryMerge"
+            }
           }
         },
         "required": [
@@ -3652,6 +3794,12 @@
                 "type": "null"
               }
             ]
+          },
+          "recovery_merges": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RecoveryMerge"
+            }
           }
         },
         "required": [
@@ -3896,6 +4044,12 @@
               "水果",
               "其他"
             ]
+          },
+          "recovery_merges": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RecoveryMerge"
+            }
           }
         },
         "required": [
@@ -4317,6 +4471,12 @@
           "updated_at": {
             "type": "string",
             "format": "date-time"
+          },
+          "recovery_merges": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RecoveryMerge"
+            }
           }
         },
         "required": [
@@ -4661,6 +4821,17 @@
               "cancelled"
             ],
             "default": "planned"
+          },
+          "expected_updated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "merge_resolutions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MergeResolution"
+            },
+            "maxItems": 500
           }
         },
         "required": []
@@ -4732,6 +4903,320 @@
           "status",
           "database"
         ]
+      },
+      "RecoveryMerge": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "adjustment_id": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "consumption_id": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "source_ingredient_id": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "target_ingredient_id": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "target_name": {
+            "type": "string",
+            "maxLength": 255
+          },
+          "restored_text": {
+            "type": "string",
+            "maxLength": 255
+          },
+          "restored_value": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 999999999.999999,
+            "multipleOf": 1e-06
+          },
+          "restored_unit": {
+            "type": "string",
+            "maxLength": 255
+          },
+          "target_before_text": {
+            "type": "string",
+            "maxLength": 255
+          },
+          "target_before_value": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 999999999.999999,
+            "multipleOf": 1e-06
+          },
+          "target_before_unit": {
+            "type": "string",
+            "maxLength": 255
+          },
+          "target_after_text": {
+            "type": "string",
+            "maxLength": 255
+          },
+          "target_after_value": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 999999999.999999,
+            "multipleOf": 1e-06
+          },
+          "target_after_unit": {
+            "type": "string",
+            "maxLength": 255
+          },
+          "calculation_mode": {
+            "type": "string",
+            "enum": [
+              "converted",
+              "manual"
+            ]
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "adjustment_id",
+          "consumption_id",
+          "source_ingredient_id",
+          "target_ingredient_id",
+          "target_name",
+          "restored_text",
+          "restored_value",
+          "restored_unit",
+          "target_before_text",
+          "target_before_value",
+          "target_before_unit",
+          "target_after_text",
+          "target_after_value",
+          "target_after_unit",
+          "calculation_mode",
+          "created_at"
+        ]
+      },
+      "RecoveryItem": {
+        "type": "object",
+        "properties": {
+          "source_ingredient_id": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "source_updated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 255
+          },
+          "restored_value": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 999999999.999999,
+            "multipleOf": 1e-06
+          },
+          "restored_unit": {
+            "type": "string",
+            "maxLength": 255
+          },
+          "target_ingredient_id": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "target_updated_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "target_value": {
+            "anyOf": [
+              {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 999999999.999999,
+                "multipleOf": 1e-06
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "target_unit": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 255
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "suggested_value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "source_ingredient_id",
+          "source_updated_at",
+          "name",
+          "restored_value",
+          "restored_unit",
+          "target_ingredient_id",
+          "target_updated_at",
+          "target_value",
+          "target_unit",
+          "suggested_value"
+        ]
+      },
+      "RecoveryPreview": {
+        "type": "object",
+        "properties": {
+          "expected_updated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RecoveryItem"
+            }
+          }
+        },
+        "required": [
+          "expected_updated_at",
+          "items"
+        ]
+      },
+      "RecoveryPreviewResponse": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/RecoveryPreview"
+          }
+        },
+        "required": [
+          "data"
+        ]
+      },
+      "MergeResolution": {
+        "type": "object",
+        "properties": {
+          "source_ingredient_id": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "target_ingredient_id": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "source_updated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "target_updated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "stock_unit": {
+            "type": "string",
+            "maxLength": 255,
+            "minLength": 1,
+            "description": "去除首尾空白后不能为空。"
+          },
+          "final_stock_text": {
+            "type": "string",
+            "maxLength": 255,
+            "minLength": 1,
+            "description": "去除首尾空白后不能为空。"
+          },
+          "final_stock_value": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 999999999.999999,
+            "multipleOf": 1e-06,
+            "exclusiveMinimum": 0
+          }
+        },
+        "required": [
+          "source_ingredient_id",
+          "target_ingredient_id",
+          "source_updated_at",
+          "target_updated_at",
+          "stock_unit"
+        ]
+      },
+      "RecoveryRequest": {
+        "type": "object",
+        "properties": {
+          "expected_updated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "merge_resolutions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MergeResolution"
+            },
+            "maxItems": 500
+          }
+        },
+        "required": [],
+        "description": "合并时必须提交预览版本和所有冲突选择；可换算时后端计算，不接受客户端恢复量。预览过期返回 RECORD_CHANGED，未选择返回 MERGE_REQUIRED。"
       },
       "IngredientResponse": {
         "type": "object",
@@ -4934,6 +5419,12 @@
           "updated_at": {
             "type": "string",
             "format": "date-time"
+          },
+          "recovery_merges": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RecoveryMerge"
+            }
           }
         },
         "required": [
@@ -4952,7 +5443,8 @@
           "ingredient_name",
           "category",
           "created_at",
-          "updated_at"
+          "updated_at",
+          "recovery_merges"
         ]
       },
       "InventoryAdjustmentList": {

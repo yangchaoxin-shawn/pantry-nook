@@ -15,7 +15,7 @@ from typing import Any
 import asyncpg
 from fastapi import APIRouter, Request
 
-from ..db import get_pool, lock_inventory_workflow, assert_stock_name_available
+from ..db import get_pool, lock_inventory_workflow
 from ..errors import conflict, not_found, validation_error
 from ..responses import created, ok
 from ..menu_workflow import attach_preparations, save_preparations, assert_version
@@ -246,7 +246,8 @@ async def _get_battle_consumptions(client, id: int) -> list[dict]:
            ORDER BY c.created_at ASC, c.id ASC""",
         id,
     )
-    return [dict(r) for r in rows]
+    from ..recovery import attach_merges
+    return await attach_merges(client, [dict(r) for r in rows], "battle")
 
 
 async def _source_dishes(client, input_: dict) -> list[dict]:
@@ -588,109 +589,32 @@ async def confirm_battle(battle_id: int, request: Request):
     return ok(result)
 
 
+@router.get("/{battle_id}/recovery-preview")
+async def recovery_preview(battle_id: int):
+    from .. import recovery
+    pool = await get_pool()
+    async with pool.acquire() as conn, conn.transaction():
+        await lock_inventory_workflow(conn)
+        root, rows = await recovery.load(conn, 'battle', parse_id(battle_id))
+        return ok(recovery.preview(root, rows))
+
+
 @router.post("/{battle_id}/revoke-confirmation")
 async def revoke_confirmation(battle_id: int, request: Request):
+    from .. import recovery
     pid = parse_id(battle_id)
-    body = {}
-    raw = await request.body()
-    if raw:
-        body = ensure_object_body(await request.json())
-    target_status = body.get("target_status", "planned")
-    target_status = enum_value(target_status, "target_status", REVOCATION_STATUSES)
-
+    body = ensure_object_body(await request.json()) if await request.body() else {}
+    target_status = enum_value(body.get('target_status', 'planned'), 'target_status', REVOCATION_STATUSES)
     pool = await get_pool()
-    async with pool.acquire() as conn:
-        async with conn.transaction():
-            await lock_inventory_workflow(conn)
-            battle = await conn.fetchrow("SELECT * FROM daily_battles WHERE id = $1 FOR UPDATE", pid)
-            if battle is None:
-                raise not_found("今日作战")
-            if battle["status"] != "confirmed":
-                raise conflict("只有已确认的今日作战可以撤销确认")
-            if target_status == 'planned':
-                await assert_slot_available(conn, battle['battle_date'], battle['meal_slot'], pid)
-
-            consumptions = await conn.fetch(
-                """SELECT * FROM consumptions
-                   WHERE daily_battle_id = $1 AND status = 'active'
-                   ORDER BY id DESC
-                   FOR UPDATE""",
-                pid,
-            )
-            ingredient_ids = list({int(r["ingredient_id"]) for r in consumptions})
-            ingredient_rows = []
-            if ingredient_ids:
-                ingredient_rows = await conn.fetch(
-                    """SELECT * FROM ingredients
-                       WHERE id = ANY($1::bigint[])
-                       ORDER BY id
-                       FOR UPDATE""",
-                    ingredient_ids,
-                )
-            ingredients = {int(r["id"]): dict(r) for r in ingredient_rows}
-            # 只恢复确认之后没有再变更的库存，避免同量覆盖、换单位等绕过快照检查。
-            if any(r["updated_at"] != battle["confirmed_at"] for r in ingredient_rows):
-                raise conflict("相关库存已有后续变更，不能安全撤销本餐；请到库存核对调整")
-
-            for consumption in consumptions:
-                cid = int(consumption["ingredient_id"])
-                ing = ingredients.get(cid)
-                later_active = await conn.fetchval(
-                    """SELECT EXISTS(SELECT 1 FROM consumptions
-                       WHERE ingredient_id = $1 AND status = 'active'
-                         AND id > $2 AND daily_battle_id <> $3)""",
-                    cid, consumption["id"], pid,
-                )
-                if later_active:
-                    raise conflict("该食材存在后续有效消耗，请先撤销后续确认，再恢复本次库存")
-                ended_after = consumption["ingredient_ended_at_after"]
-                ing_ended = ing["ended_at"] if ing else None
-                ends_match = ing_ended == ended_after
-                if (
-                    ing is None
-                    or ing["stock_text"] != consumption["remaining_after_text"]
-                    or ing["stock_value"] != consumption["remaining_after_value"]
-                    or ing["status"] != consumption["ingredient_status_after"]
-                    or not ends_match
-                ):
-                    name = ing["name"] if ing else str(consumption["ingredient_id"])
-                    raise conflict(f"食材“{name}”状态已变化，无法可靠恢复，请手动确认剩余数量")
-
-                if consumption["ingredient_status_before"] == "active":
-                    await assert_stock_name_available(conn, ing["name"], cid)
-                await conn.execute(
-                    """UPDATE ingredients
-                       SET stock_text = $1, stock_value = $2, status = $3, ended_at = $4, updated_at = NOW()
-                       WHERE id = $5""",
-                    consumption["remaining_before_text"], consumption["remaining_before_value"],
-                    consumption["ingredient_status_before"], consumption["ingredient_ended_at_before"], cid,
-                )
-
-                await conn.execute(
-                    """UPDATE consumptions
-                       SET status = 'reversed', reversed_at = NOW(), updated_at = NOW()
-                       WHERE id = $1""",
-                    consumption["id"],
-                )
-                # 同一食材可有多条消耗，下一条反向恢复须基于刚恢复的状态。
-                ing.update(
-                    stock_text=consumption["remaining_before_text"],
-                    stock_value=consumption["remaining_before_value"],
-                    status=consumption["ingredient_status_before"],
-                    ended_at=consumption["ingredient_ended_at_before"],
-                )
-
-            await conn.execute(
-                """UPDATE daily_battles
-                   SET status = $1::varchar,
-                       confirmed_at = NULL,
-                       cancelled_at = CASE WHEN $1::varchar = 'cancelled' THEN NOW() ELSE NULL END,
-                       updated_at = NOW()
-                   WHERE id = $2""",
-                target_status, pid,
-            )
-            result = await _get_battle(conn, pid)
-    return ok(result)
+    async with pool.acquire() as conn, conn.transaction():
+        await lock_inventory_workflow(conn)
+        root, rows = await recovery.load(conn, 'battle', pid)
+        if target_status == 'planned':
+            await assert_slot_available(conn, root['battle_date'], root['meal_slot'], pid)
+        await recovery.apply(conn, 'battle', pid, body, root, rows)
+        await conn.execute("""UPDATE daily_battles SET status=$1, confirmed_at=NULL,
+            cancelled_at=CASE WHEN $1::varchar='cancelled' THEN NOW() ELSE NULL END,updated_at=NOW() WHERE id=$2""", target_status, pid)
+        return ok(await _get_battle(conn, pid))
 
 
 @router.delete("/{battle_id}")

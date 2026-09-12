@@ -21,6 +21,7 @@ import {
   type MealPlanInput,
 } from "./api";
 import "./App.css";
+import { RecoveryDialog, type RecoveryDraft } from "./RecoveryDialog";
 import "./menu-workflow.css";
 import { MenuTimeline, MenuEditor, MenuConfirm } from "./MenuWorkflow";
 import { canConvertUnits, startedBatchRows } from "./batch-ingredient-logic";
@@ -240,7 +241,7 @@ function InventoryAdjustmentLedger({ busy, refreshKey, revoke }: { busy: boolean
   const label = (text: string, unit: string) => text.includes(unit) ? text : `${text}${unit}`;
   const render = (record: import("./api").InventoryAdjustmentRecord) => <article className="list-row adjustment-ledger-row" key={record.id}>
     <div><strong>{record.ingredient_name} · {wasteReasonText[record.reason]}</strong><p className="muted">{label(record.stock_before_text, record.stock_before_unit)} → {label(record.stock_after_text, record.stock_after_unit)}{record.note ? ` · ${record.note}` : ""}</p></div>
-    {record.status === "active" ? <button className="btn-primary" disabled={busy} onClick={() => revoke(record.id)}>撤销处理</button> : <span className="muted">已撤销</span>}
+    {record.status === "active" ? <button className="btn-primary" disabled={busy} onClick={() => revoke(record.id)}>撤销处理</button> : <span className="muted">已撤销{record.recovery_merges?.map(m => <span key={m.id}> · 已合并恢复到{m.target_name}（{m.target_after_value}{m.target_after_unit}）</span>)}</span>}
   </article>;
   const active = records.filter((record) => record.status === "active");
   const reversed = records.filter((record) => record.status === "reversed");
@@ -289,6 +290,7 @@ function DishPicker({
   );
 }
 type Modal =
+  | { kind: "recovery"; recoveryKind: "adjustment" | "battle"; id: number }
   | { kind: "ingredient"; item: Ingredient }
   | { kind: "ingredientSingle" }
   | { kind: "ingredientBatch"; suggestedNames?: string[] }
@@ -324,6 +326,7 @@ export default function App() {
     [notice, setNotice] = useState("");
   const [editConflict, setEditConflict] = useState<Ingredient | Dish | MealPlan | null>(null);
   const mutationLock = useRef(false);
+  const [recoveryDrafts, setRecoveryDrafts] = useState<Record<string, RecoveryDraft>>({});
   const [date, setDate] = useState(localDate),
     [search, setSearch] = useState("");
   const [category, setCategory] = useState("全部"),
@@ -601,7 +604,7 @@ export default function App() {
                     : open({kind: 'battle', item: b, notice: confirmationNotice(b)})}
                   copy={b => open({kind: 'battle', copyFrom: b})}
                   cancel={b => open({kind: 'action', title: '取消这份菜单？', message: '菜单保留在历史中，不产生消耗，不改变库存。', run: () => api.battleAction(b.id, 'cancel')})}
-                  revoke={b => open({kind: 'action', title: '撤销这次确定？', message: '恢复本次确认前的库存，菜单回到待完成。如果存在后续变化，会提示你先核对。', run: () => api.battleAction(b.id, 'revoke-confirmation', {target_status: 'planned'})})}
+                  revoke={b => open({kind: 'recovery', recoveryKind: 'battle', id: b.id})}
                   remove={b => open({kind: 'action', title: '删除这份未执行菜单？', message: '没有消耗历史的菜单会被删除，无法恢复。库存不变。', run: () => api.deleteBattle(b.id)})}
                 />
               )}
@@ -677,7 +680,7 @@ export default function App() {
               )}
               {page === "adjustments" && (
                 <InventoryAdjustmentLedger busy={busy} refreshKey={revision}
-                  revoke={(id) => void mutate(() => api.revokeAdjustment(id), "已撤销库存处理")} />
+                  revoke={(id) => open({kind: "recovery", recoveryKind: "adjustment", id})} />
               )}
               {page === "dishes" && (
                 <>
@@ -874,7 +877,7 @@ export default function App() {
       {modal && data && (
         <Dialog
           key={modal.kind}
-          title={
+          title={modal.kind === "recovery" ? "核对恢复库存" :
             modal.kind === "action"
               ? modal.title
               : modal.kind === "confirm"
@@ -906,6 +909,10 @@ export default function App() {
           onClose={() => { setModal(null); setEditConflict(null); }}
           busy={busy}
         >
+          {modal.kind === "recovery" && <RecoveryDialog kind={modal.recoveryKind} id={modal.id}
+            draft={recoveryDrafts[`${modal.recoveryKind}:${modal.id}`]}
+            onDraft={draft => setRecoveryDrafts(current => ({ ...current, [`${modal.recoveryKind}:${modal.id}`]: draft }))}
+            onPending={setBusy} onSuccess={() => { setRecoveryDrafts(current => { const next = { ...current }; delete next[`${modal.recoveryKind}:${modal.id}`]; return next; }); setModal(null); setNotice("已撤销，库存已恢复"); reload(); }} />}
           {actionError && (
             <p className="form-error" role="alert">
               {actionError}
