@@ -1,66 +1,65 @@
-# 食隅记 · 有滋有味的厨房手账
+# 食隅记 · 小厨房的拙趣日常
 
-2026-09-13，设计预览 02，待用户评审。设计依据见 [第二轮说明](iteration-02.md)；第一轮研究保留在 [analysis.md](analysis.md)。
-
-新增 [插画方向提案 03](http://127.0.0.1:5194/heytea-direction/)：根据用户明确的“喜茶风格插画”补充实图与动图研究，提供水粉绘本与“食物拼贴＋拙趣线稿”的对照、三个可点击动作。研究与调整清单见 [说明](heytea-direction/research.md)。这是一份候选方向，完整原型仍是第二版。
+2026-09-13，完整设计预览 04，待用户评审。用户已认可第三轮的插画方向；本轮将它融入完整页面，设计取舍见 [第四轮说明](iteration-04.md)。
 
 ## 打开
 
-- [本地交互预览](http://127.0.0.1:5194/?v=2)。顶部应显示“设计预览 02”。
-- 服务已启动在 5194，不要重复启动。若已关闭，在本目录运行 `python -m http.server 5194 --bind 127.0.0.1`。
-- 请通过本地服务打开。外部 SVG 符号需要同源读取，直接双击 HTML 不作为本轮支持方式。
+- [第四版完整原型](http://127.0.0.1:5194/?v=4)，顶部应显示“设计预览 04”。
+- [第二版保留稿](http://127.0.0.1:5194/v2/)，用于比较上一套水粉与叠纸效果。
+- [第三轮插画方向对照](http://127.0.0.1:5194/heytea-direction/)。
+- 5194 服务原本已运行，本轮沿用。服务关闭后，在本目录运行 `python -m http.server 5194 --bind 127.0.0.1`。
 
-这是独立设计原型；数字都是内存示例，刷新即还原。正式 React 前端、真实 API、数据库和用户验收数据不受影响。
+这是独立设计原型；所有数字驻留本页内存，刷新还原。未连接 API、未写浏览器持久化，也未修改正式应用或用户数据库。
 
 ## 重点试看
 
-1. 点击首页的小锅，观察轻摇、蒸汽和涂鸦反馈。
-2. 切换餐安排、库存和菜品，观察导航滑块与纸卡出现。
-3. 打开、关闭详情和核对弹窗；点击保存，观察完成反馈。
-4. 点击“暂停动效”；系统减少动态效果开启时，页面自动静止。
-5. 库存批量只填一行；今天午餐查看缺货提示，再去库存处理后返回核对。
-6. 切换亮暗主题和顶部空数据、加载、读取失败场景。
+1. 切换餐安排、库存、菜品：三幅食物拼贴与线稿人物形成不同的小故事。
+2. 点击页头插画，看主图的轻微位移、小人或装饰的短动作。
+3. 打开库存详情、批量录入、安排餐与核对，观察纸面材质和不同的场景小画。
+4. 切换日间与夜间：暖纸、细织纹、柔和光影，以及夜间的深绿纸底与浅色插画纸片。
+5. 顶部切换空数据、加载、读取失败；点击暂停动效或使用系统减少动态效果。
+6. 试填一行批量食材；今天晚餐用 1/3 西兰花确认；今天午餐查看缺货与去库存处理入口。
 
-## 本轮定向验证
+## 本轮验证
 
-| 检查 | 结果与边界 |
+| 检查 | 本轮结果 |
 |---|---|
-| 脚本 | `node --check preview.js`、`node --check motion.js` 通过 |
-| 本地资源 | 使用本地 CSS、JS、PNG 和 SVG；无远程字体 / 插画依赖 |
-| 桌面 1440×900 | 餐安排、库存、菜品/搭配、亮暗，页面无横向溢出 |
-| 平板 768×1024 | 餐安排亮色、库存暗色；两栏和两列清单正常 |
-| 手机 390×844 | 首屏插画、紧凑库存、亮暗、详情 / 批量 / 核对 / 缺货引导弹窗正常 |
-| 实际动效 | 点击插画后读到非静止变换矩阵与蒸汽位移；暂停后为 `none` |
-| 系统减少动态效果 | 浏览器模拟 reduce 后控件禁用、脚本及蒸汽动画停用；测试后已恢复 |
-| 原型交互 | 批量只填 1 行保存；1/3 实际量确认进入历史；库存不足禁确认；跳去修改库存并返回继续核对；按钮与 Escape 关闭 |
-| 状态示意 | 加载、空数据、读取失败与重试；属于选择器演示，不是网络故障注入 |
+| 语法 | preview.js、motion.js、artwork.js 的 node --check 通过 |
+| 桌面 1440×900 | 三主页面亮色、搭配暗色；资源正常，无横向溢出 |
+| 平板 768×1024 | 餐安排亮色、库存暗色；两栏与分组清单正常，无横向溢出 |
+| 手机 390×844 | 三主入口、亮暗、详情／批量／核对／安排用料弹窗；无横向溢出 |
+| 原型流程 | 批量只填一行保存成功；1/3 确认进入历史；不足时阻止确认，进入库存并返回核对 |
+| 动效 | 主图变换和小人动画生效；手动暂停及系统 reduce 后停止；测试后恢复 |
 | 控制台 | 本轮所查 warning / error 为空 |
-| 正式应用检查 | React runtime、typecheck / lint / build、后端、migration、OpenAPI 本轮不适用，未重跑 |
+| 范围外 | React runtime、正式 typecheck / lint / build、真实 API、后端、migration 与并发事务本轮不适用、未重跑 |
 
-原型交互不代表并发、事务、单位快照与安全撤销验证。正式应用的后端约束与历史验证另见项目状态。
+加载、空态和错误来自预览选择器，不代表真实网络故障注入。素材、实现文件、完整边界见 [本轮设计记录](iteration-04.md)。
 
-## 第二轮截图
+## 截图
 
-- [桌面餐安排 · 亮色](evidence/v2-desktop-menu-light.png)
-- [桌面库存 · 亮色](evidence/v2-desktop-stock-light.png)
-- [桌面常用搭配 · 暗色](evidence/v2-desktop-plans-dark.png)
-- [平板餐安排 · 亮色](evidence/v2-tablet-menu-light.png)
-- [平板库存 · 暗色](evidence/v2-tablet-stock-dark.png)
-- [手机餐安排 · 亮色](evidence/v2-mobile-menu-light.png)
-- [手机库存 · 亮色](evidence/v2-mobile-stock-light.png)
-- [手机批量记录 · 亮色](evidence/v2-mobile-batch-light.png)
-- [手机核对用量 · 暗色](evidence/v2-mobile-review-dark.png)
+- [桌面餐安排亮色](evidence/v4-desktop-menu-light.png)
+- [桌面库存亮色](evidence/v4-desktop-stock-light.png)
+- [桌面菜品亮色](evidence/v4-desktop-catalog-light.png)
+- [桌面搭配暗色](evidence/v4-desktop-plans-dark.png)
+- [平板餐安排亮色](evidence/v4-tablet-menu-light.png)
+- [平板库存暗色](evidence/v4-tablet-stock-dark.png)
+- [手机餐安排亮色](evidence/v4-mobile-menu-light.png) · [暗色](evidence/v4-mobile-menu-dark.png)
+- [手机库存亮色](evidence/v4-mobile-stock-light.png)
+- [手机菜品暗色](evidence/v4-mobile-catalog-dark.png)
+- [手机库存详情](evidence/v4-mobile-detail-light.png)
+- [手机批量记录](evidence/v4-mobile-batch-light.png)
+- [手机核对用量](evidence/v4-mobile-review-light.png)
+- [手机安排用料暗色](evidence/v4-mobile-arrange-dark.png)
+- [手机读取失败暗色](evidence/v4-mobile-error-dark.png)
 
-截图记录浏览器 viewport 验证；输出可能不含滚动条外缘。静态截图不能展示动效，请打开预览体验。
+## 当前结构与历史
 
-## 文件
+- `index.html`、`preview.js`：原型骨架与内存交互；不是业务实现来源。
+- `preview.css`：基础布局；`artful.css`：第四轮统一视觉层。
+- `artwork.js`：9 个原创 SVG 场景；`motion.js`：动画、暂停和弹窗反馈。
+- `assets/`：纸纹与原创插画；无远程字体或图片依赖。
+- `v2/`：第二版快照，仅为历史比较；使用旧素材，不继续修改。
+- `heytea-direction/`：第三轮插画研究与对照，主餐页复用其中已认可的插画。
+- [第一轮参考分析](analysis.md) · [第二轮历史说明](iteration-02.md) · [第三轮插画研究](heytea-direction/research.md)。
 
-- `index.html`：页面骨架和基础图标。
-- `preview.css`：第一轮组件及响应式基础。
-- `texture.css`：第二轮材质、配色、插画排版、主题与 CSS 动效。
-- `motion.js`：交互动画、动效偏好和弹窗退出保护。
-- `preview.js`：内存示例与交互流程。
-- `assets/`：本轮原创插画。
-- `iteration-02.md`：参考证据、设计取舍、动效与边界。
-
-当前仍为设计候选。用户确认方向后再进入正式 React 前端改造。
+旧结果仅为历史证据。当前待用户评审，正式 React 重构与联调尚未实施。

@@ -90,11 +90,12 @@
   document.addEventListener('click', event => {
     const button = event.target.closest('button');
     if (!button || button.disabled) return;
-    if (button.dataset.action === 'stir-pot') {
-      const painting = button.querySelector('.kitchen-painting');
-      animate(painting, [{ transform: 'rotate(0) translateY(0)' }, { transform: 'rotate(-3deg) translateY(-5px)', offset: .3 }, { transform: 'rotate(2deg) translateY(-2px)', offset: .6 }, { transform: 'rotate(0) translateY(0)' }], { duration: 750, easing: 'ease-in-out' });
-      button.classList.remove('is-stirring');
-      requestAnimationFrame(() => { button.classList.add('is-stirring'); setTimeout(() => button.classList.remove('is-stirring'), 1300); });
+    if (button.dataset.action === 'play-scene') {
+      if (!enabled()) return;
+      const painting = button.querySelector('.story-image');
+      animate(painting, [{ transform: 'translateY(0) rotate(0)' }, { transform: 'translateY(-3px) rotate(-.8deg)', offset: .35 }, { transform: 'translateY(1px) rotate(.4deg)', offset: .7 }, { transform: 'translateY(0) rotate(0)' }], { duration: 1200, easing: 'steps(5,end)' });
+      button.classList.remove('scene-playing');
+      requestAnimationFrame(() => requestAnimationFrame(() => { button.classList.add('scene-playing'); setTimeout(() => button.classList.remove('scene-playing'), 1300); }));
     } else if (button.id === 'theme-button') {
       animate(button.querySelector('svg'), [{ transform: 'rotate(-45deg) scale(.7)' }, { transform: 'rotate(0) scale(1)' }], { duration: 400, easing: 'ease-out' });
     } else if (button.isConnected && !button.closest('nav')) {
