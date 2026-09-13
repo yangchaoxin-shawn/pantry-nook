@@ -1,0 +1,332 @@
+[
+  {
+    "file": "assets/cutouts/kitchen-team.png",
+    "mode": "RGBA",
+    "size": [
+      1440,
+      503
+    ],
+    "transparentPercent": 64.56,
+    "opaquePercent": 28.03,
+    "bytes": 616284
+  },
+  {
+    "file": "assets/cutouts/kitchen-team.webp",
+    "mode": "RGBA",
+    "size": [
+      960,
+      335
+    ],
+    "transparentPercent": 64.0,
+    "opaquePercent": 27.36,
+    "bytes": 71358
+  },
+  {
+    "file": "assets/cutouts/pantry-home.png",
+    "mode": "RGBA",
+    "size": [
+      1283,
+      945
+    ],
+    "transparentPercent": 54.7,
+    "opaquePercent": 38.78,
+    "bytes": 1152463
+  },
+  {
+    "file": "assets/cutouts/pantry-home.webp",
+    "mode": "RGBA",
+    "size": [
+      960,
+      707
+    ],
+    "transparentPercent": 54.05,
+    "opaquePercent": 38.19,
+    "bytes": 150748
+  },
+  {
+    "file": "assets/cutouts/recipe-time.png",
+    "mode": "RGBA",
+    "size": [
+      1440,
+      722
+    ],
+    "transparentPercent": 51.07,
+    "opaquePercent": 39.59,
+    "bytes": 930756
+  },
+  {
+    "file": "assets/cutouts/recipe-time.webp",
+    "mode": "RGBA",
+    "size": [
+      960,
+      481
+    ],
+    "transparentPercent": 50.75,
+    "opaquePercent": 39.21,
+    "bytes": 88740
+  },
+  {
+    "file": "assets/cutouts/breakfast.png",
+    "mode": "RGBA",
+    "size": [
+      1440,
+      695
+    ],
+    "transparentPercent": 53.0,
+    "opaquePercent": 43.9,
+    "bytes": 1005873
+  },
+  {
+    "file": "assets/cutouts/breakfast.webp",
+    "mode": "RGBA",
+    "size": [
+      960,
+      463
+    ],
+    "transparentPercent": 52.68,
+    "opaquePercent": 43.47,
+    "bytes": 89762
+  },
+  {
+    "file": "assets/cutouts/chicken-greens.png",
+    "mode": "RGBA",
+    "size": [
+      1377,
+      914
+    ],
+    "transparentPercent": 47.84,
+    "opaquePercent": 48.78,
+    "bytes": 1492792
+  },
+  {
+    "file": "assets/cutouts/chicken-greens.webp",
+    "mode": "RGBA",
+    "size": [
+      960,
+      637
+    ],
+    "transparentPercent": 47.28,
+    "opaquePercent": 48.24,
+    "bytes": 158158
+  },
+  {
+    "file": "assets/cutouts/hotpot-friends.png",
+    "mode": "RGBA",
+    "size": [
+      1402,
+      951
+    ],
+    "transparentPercent": 49.1,
+    "opaquePercent": 49.16,
+    "bytes": 1135118
+  },
+  {
+    "file": "assets/cutouts/hotpot-friends.webp",
+    "mode": "RGBA",
+    "size": [
+      960,
+      651
+    ],
+    "transparentPercent": 48.37,
+    "opaquePercent": 48.49,
+    "bytes": 114812
+  },
+  {
+    "file": "assets/cutouts/market-basket.png",
+    "mode": "RGBA",
+    "size": [
+      1440,
+      943
+    ],
+    "transparentPercent": 48.09,
+    "opaquePercent": 48.97,
+    "bytes": 1398369
+  },
+  {
+    "file": "assets/cutouts/market-basket.webp",
+    "mode": "RGBA",
+    "size": [
+      960,
+      629
+    ],
+    "transparentPercent": 47.68,
+    "opaquePercent": 48.48,
+    "bytes": 144914
+  },
+  {
+    "file": "assets/cutouts/noodle-duo.png",
+    "mode": "RGBA",
+    "size": [
+      1440,
+      738
+    ],
+    "transparentPercent": 57.06,
+    "opaquePercent": 37.85,
+    "bytes": 958025
+  },
+  {
+    "file": "assets/cutouts/noodle-duo.webp",
+    "mode": "RGBA",
+    "size": [
+      960,
+      492
+    ],
+    "transparentPercent": 56.6,
+    "opaquePercent": 37.03,
+    "bytes": 98108
+  },
+  {
+    "file": "assets/cutouts/pantry-jars.png",
+    "mode": "RGBA",
+    "size": [
+      1419,
+      741
+    ],
+    "transparentPercent": 50.17,
+    "opaquePercent": 46.83,
+    "bytes": 1044687
+  },
+  {
+    "file": "assets/cutouts/pantry-jars.webp",
+    "mode": "RGBA",
+    "size": [
+      960,
+      501
+    ],
+    "transparentPercent": 49.2,
+    "opaquePercent": 45.91,
+    "bytes": 105822
+  },
+  {
+    "file": "assets/cutouts/pineapple-rice.png",
+    "mode": "RGBA",
+    "size": [
+      1440,
+      754
+    ],
+    "transparentPercent": 66.51,
+    "opaquePercent": 29.21,
+    "bytes": 898885
+  },
+  {
+    "file": "assets/cutouts/pineapple-rice.webp",
+    "mode": "RGBA",
+    "size": [
+      960,
+      503
+    ],
+    "transparentPercent": 66.0,
+    "opaquePercent": 28.67,
+    "bytes": 104452
+  },
+  {
+    "file": "assets/cutouts/recipe-afternoon.png",
+    "mode": "RGBA",
+    "size": [
+      1440,
+      832
+    ],
+    "transparentPercent": 41.78,
+    "opaquePercent": 53.44,
+    "bytes": 1284201
+  },
+  {
+    "file": "assets/cutouts/recipe-afternoon.webp",
+    "mode": "RGBA",
+    "size": [
+      960,
+      555
+    ],
+    "transparentPercent": 41.5,
+    "opaquePercent": 52.88,
+    "bytes": 104816
+  },
+  {
+    "file": "assets/cutouts/supper-duo.png",
+    "mode": "RGBA",
+    "size": [
+      1440,
+      375
+    ],
+    "transparentPercent": 52.65,
+    "opaquePercent": 39.99,
+    "bytes": 628092
+  },
+  {
+    "file": "assets/cutouts/supper-duo.webp",
+    "mode": "RGBA",
+    "size": [
+      960,
+      250
+    ],
+    "transparentPercent": 51.85,
+    "opaquePercent": 39.29,
+    "bytes": 78056
+  },
+  {
+    "file": "assets/cutouts/three-bowls.png",
+    "mode": "RGBA",
+    "size": [
+      1440,
+      799
+    ],
+    "transparentPercent": 57.49,
+    "opaquePercent": 36.1,
+    "bytes": 1036018
+  },
+  {
+    "file": "assets/cutouts/three-bowls.webp",
+    "mode": "RGBA",
+    "size": [
+      960,
+      533
+    ],
+    "transparentPercent": 57.15,
+    "opaquePercent": 35.66,
+    "bytes": 97834
+  },
+  {
+    "file": "assets/cutouts/tofu-soup.png",
+    "mode": "RGBA",
+    "size": [
+      1107,
+      869
+    ],
+    "transparentPercent": 42.25,
+    "opaquePercent": 54.89,
+    "bytes": 1059843
+  },
+  {
+    "file": "assets/cutouts/tofu-soup.webp",
+    "mode": "RGBA",
+    "size": [
+      917,
+      720
+    ],
+    "transparentPercent": 41.96,
+    "opaquePercent": 54.58,
+    "bytes": 124462
+  },
+  {
+    "file": "assets/cutouts/tomato-egg.png",
+    "mode": "RGBA",
+    "size": [
+      1440,
+      794
+    ],
+    "transparentPercent": 40.41,
+    "opaquePercent": 52.38,
+    "bytes": 1377364
+  },
+  {
+    "file": "assets/cutouts/tomato-egg.webp",
+    "mode": "RGBA",
+    "size": [
+      960,
+      529
+    ],
+    "transparentPercent": 40.17,
+    "opaquePercent": 52.01,
+    "bytes": 119082
+  }
+]
