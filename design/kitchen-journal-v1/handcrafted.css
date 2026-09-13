@@ -1,18 +1,25 @@
-/* 06：实际手写字、细密纸纤维，以及与菜名无关的小人装饰。 */
+/* 07：哑光背景、清晰表面层次；保留手写字与自动小人。 */
 :root {
   --hand:'Pantry Hand','Microsoft YaHei',sans-serif;
   --data-font:system-ui,'Microsoft YaHei',sans-serif;
-  --font:var(--hand);--canvas:#f4ebd5;--paper:#fcf5e3;--surface:#f7efdc;
-  --ink:#344e40;--green:#567161;--green-strong:#3d5b49;--muted:#687564;--line:#c9c9af;
-  --fiber:url('assets/paper-grain-v6.webp');--person-fill:#faf3e1;--person-accent:#b5c49b;
+  --font:var(--hand);--canvas:#f5f4ee;--paper:#fffdf7;--surface:#f0f2e9;--soft:#e5ebdf;
+  --ink:#344e40;--green:#567161;--green-strong:#3d5b49;--muted:#687564;--line:#d4dacb;
+  --hero-tone:#e4ebdc;--hero-glow:#f0f4e8;--fiber:none;
+  --person-fill:var(--paper);--person-accent:#b5c49b;
 }
-body {font-family:var(--hand);font-size:15px;background-image:linear-gradient(#f7efd940,#f7efd940),url('assets/paper-v6.webp');background-size:auto,640px;}
+body {font-family:var(--hand);font-size:15px;background-color:var(--canvas);background-image:radial-gradient(ellipse 1100px 620px at 100% 0%,#dbe4d52e,transparent 70%);background-size:auto;}
 body::before,body::after {display:none;}
-body.dark {--canvas:#27382f;--paper:#304034;--surface:#2c3c31;--ink:#f3eedb;--muted:#c1c7b1;--line:#62705b;--fiber:url('assets/paper-grain-v6.webp');--person-fill:#304034;--person-accent:#81986c;background-color:var(--canvas);background-image:var(--fiber);background-blend-mode:multiply;}
-.hero,.catalog-item,.stock-group,.plan-note,.side-note,.menu-card,dialog,.art-library-footer,.icon-button {background-image:linear-gradient(#fcf5e345,#fcf5e345),var(--fiber);background-size:auto,640px;}
-.dark .hero,.dark .catalog-item,.dark .stock-group,.dark .plan-note,.dark .side-note,.dark .menu-card,.dark dialog,.dark .art-library-footer,.dark .icon-button {background-color:var(--paper);background-image:var(--fiber);background-blend-mode:multiply;}
-.hero {border-color:#afb8985c;box-shadow:0 2px 2px #615c3410;}
-.hero::before {border-color:#9ca88126;}
+html:has(body.dark) {background:#222e28;}
+body.dark {--canvas:#222e28;--paper:#304036;--surface:#29382f;--soft:#3b4a3c;--ink:#f3eedb;--muted:#c1c7b1;--line:#506456;--hero-tone:#3b5143;--hero-glow:#34483c;--fiber:none;--person-fill:var(--paper);--person-accent:#81986c;background-color:var(--canvas);background-image:radial-gradient(ellipse 1100px 620px at 100% 0%,#7695790c,transparent 70%);background-blend-mode:normal;}
+.catalog-item,.stock-group,.plan-note,.menu-card,dialog,.art-library-footer,.icon-button {background-color:var(--paper);background-image:none;}
+.hero,.dark .hero {background-color:var(--hero-tone);background-image:linear-gradient(115deg,var(--hero-tone),var(--hero-glow));border-color:var(--line);box-shadow:0 1px 1px #28423306,0 9px 24px #2842330a;}
+.hero::before {display:none;}
+.hero::after {background:var(--soft);}
+.search {background-color:var(--paper);background-image:none;}
+.stock-group,.catalog-item,.plan-note,.menu-card,.dark .menu-card {border-color:var(--line);box-shadow:0 1px 2px #28423305,0 4px 12px #28423305;}
+.side-note,.dark .side-note {background-color:var(--soft);background-image:repeating-linear-gradient(0deg,transparent 0 27px,#64794e08 27px 28px);box-shadow:2px 3px 0 #74836312;}
+dialog,.dark dialog {border-color:var(--line);box-shadow:0 8px 24px #132d2324,0 25px 75px #132d2338;}
+.field input,.field select,.field textarea,.input,.amount {background-color:var(--paper);}
 .brand>span,.hero h1,.hero.stock h1,.hero.catalog h1,.hero-scribble,.story-caption,.section-title h2,.date-line strong,.stock-group h2,.plan-note h3,.side-note h2,.dialog-heading h2,.art-library-heading h2,.art-candidate-title,h1,h2,h3,.quiet-footer {font-family:var(--hand);font-weight:400;}
 .brand>span {font-size:29px;}.hero h1 {font-size:43px;letter-spacing:.01em;line-height:1.35;}.hero.stock h1,.hero.catalog h1 {font-size:38px;}
 .hero p {font-size:16px;margin-top:12px;}.hero-scribble {font-size:17px;}.story-caption {font-size:17px;}
@@ -37,14 +44,14 @@ nav button {font-size:17px;padding-left:16px;padding-right:16px;white-space:nowr
 .little-person[data-person='swing'] .person-prop {transform-origin:50% 0;animation:person-swing 2.1s ease-in-out 1;}
 .little-person[data-person='dance'] .person-body,.little-person[data-person='skate'] .person-body {animation:person-dance 1.9s steps(4,end) 1;}
 .little-person[data-person='music'] .person-prop,.little-person[data-person='nap'] .person-prop {animation:person-air 2.1s ease-in-out 1;}
-.plan-note .cloth {height:133px;border-bottom:1px dashed var(--line);background-image:linear-gradient(90deg,#bac29b12,transparent),var(--fiber);background-size:auto,640px;}
+.plan-note .cloth {height:133px;border-bottom:1px solid var(--line);background-color:var(--soft);background-image:none;}
 .plan-note .cloth>.little-person {width:185px;height:127px;padding:0;background:none;border-radius:0;transform:none;}
-.dark .plan-note .cloth {background-color:var(--paper);background-image:var(--fiber);background-blend-mode:multiply;}
+.dark .plan-note .cloth {background-color:var(--soft);background-image:none;background-blend-mode:normal;}
 .plan-note h3 {font-size:27px;}.plan-note p {font-size:16px;}.plan-shortcut .shortcut-person {width:64px;height:53px;float:right;margin:-6px 0 0 7px;}
 .dish-tag {display:inline-flex;align-items:center;gap:5px;}.dish-tag::before {display:none;}.dish-tag .little-person {width:38px;height:31px;flex:none;}
 .editor-dish h3 {display:flex;align-items:center;gap:6px;}.editor-dish h3 .little-person {width:49px;height:38px;flex:none;}
-.art-surface-paper {background-image:var(--fiber);background-color:#faf2df;background-size:640px;}
-.art-surface-night {background-image:var(--fiber);background-color:#29382d;background-blend-mode:multiply;--person-fill:#29382d;--person-accent:#81986c;}
+.art-surface-paper {background-image:none;background-color:#fffdf7;--person-fill:#fffdf7;}
+.art-surface-night {background-image:none;background-color:#29382d;background-blend-mode:normal;--person-fill:#29382d;--person-accent:#81986c;}
 .art-surface-check {--person-fill:#faf3e1;--person-accent:#b5c49b;}
 .art-thumb .little-person,.art-stage .little-person {--ink:currentColor;}
 .art-candidate-title {font-size:27px;}.art-library-heading h2 {font-size:32px;}
