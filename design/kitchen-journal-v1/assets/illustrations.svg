@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <filter id="grain"><feTurbulence type="fractalNoise" baseFrequency=".62" numOctaves="3" stitchTiles="stitch"/><feColorMatrix type="saturate" values="0"/><feComponentTransfer><feFuncA type="linear" slope=".14"/></feComponentTransfer><feComposite in2="SourceAlpha" operator="in" result="clipped-grain"/><feBlend in="SourceGraphic" in2="clipped-grain" mode="multiply"/></filter>
+    <linearGradient id="sage" x2=".8" y2="1"><stop stop-color="#aec29e"/><stop offset="1" stop-color="#6f906e"/></linearGradient>
+    <linearGradient id="tomato" x2=".8" y2="1"><stop stop-color="#e5a082"/><stop offset="1" stop-color="#bc6551"/></linearGradient>
+    <linearGradient id="butter" x2=".8" y2="1"><stop stop-color="#f5deb0"/><stop offset="1" stop-color="#cfab69"/></linearGradient>
+  </defs>
+  <symbol id="pantry" viewBox="0 0 320 225">
+    <ellipse cx="164" cy="200" rx="128" ry="12" fill="#344c3d" opacity=".09"/>
+    <g stroke="#536947" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round">
+      <path d="m54 85 199-4-7 105-184 5Z" fill="#d8bd8c" filter="url(#grain)"/>
+      <path d="m58 90 26 97m13-99 13 99m22-99 4 98m29-99-7 99m38-101-18 100m45-102-24 100m-162-75 191-3M64 146l183-2m-181 26 178-5" fill="none" opacity=".27"/>
+      <g transform="rotate(-9 100 82)"><path d="M64 77q-10-56 28-66 5 18 0 40 13-43 31-39 16 23-6 54 29-32 44-15 0 29-29 48Z" fill="url(#sage)" filter="url(#grain)"/><path d="m92 27 14 77m25-68-25 68m37-41-37 41" fill="none" opacity=".7"/></g>
+      <path d="M154 57q-9-15 1-22l46-2q13 5 9 21l12 54-71 4Z" fill="#f1e4c2" filter="url(#grain)"/><path d="m153 33 48-2 2 9-50 3Z" fill="#668260"/>
+      <path d="m163 69 40-2 4 30-43 2Z" fill="#d7c59d" stroke="none"/><path d="M178 92V74m0 8-7-5m7 10 9-7" fill="none"/>
+      <path d="M118 112c-22-33 31-57 50-24 27 7 24 45 1 56-30 15-55-5-51-32Z" fill="url(#tomato)" filter="url(#grain)"/><path d="m145 80-10-12 17 9 13-9-5 16 14 7-22-4-9 7Z" fill="#557b51" stroke="none"/>
+      <path d="M224 97q35-70 45-58 11 19-29 71Z" fill="url(#butter)" filter="url(#grain)"/><path d="m260 42-4-23m3 20 19-16m-11 14 19-2" fill="none" stroke="#6f8b59" stroke-width="4"/>
+      <path d="M49 102q100 11 208-4l-4 26q-105 18-200 5Z" fill="#b99e72" filter="url(#grain)"/>
+      <path d="M111 125q42 11 90-2l-1 38q-46 11-86 2Z" fill="#fbf0d8" transform="rotate(-4 153 143)"/>
+      <path d="m128 143 6 6 14-15m10 7h27m-28 10h19" fill="none" stroke="#667d56"/>
+      <path d="m31 69 3 8 8 2-8 3-2 8-3-8-7-2 8-3Z" fill="#c69863" stroke="none"/>
+      <path d="m275 143 6 7m-7-1 9-5" fill="none"/>
+    </g>
+  </symbol>
+  <symbol id="recipe" viewBox="0 0 320 225">
+    <ellipse cx="172" cy="195" rx="116" ry="12" fill="#344c3d" opacity=".08"/>
+    <g stroke="#536947" stroke-width="1.7" stroke-linejoin="round" stroke-linecap="round">
+      <g transform="rotate(-9 137 107)"><path d="M68 30q63-10 129 2l3 165q-62-13-130-4Z" fill="#71886d"/><path d="M76 26q60-10 127 2l3 161q-68-10-128-3Z" fill="#f7ecd1" filter="url(#grain)"/><path d="M90 27v155" fill="none" opacity=".4"/>
+        <path d="M120 28v45l12-9 11 10-1-47" fill="#c77f63" stroke="none"/>
+        <path d="M115 98q34-16 64 0l-2 40q-25 20-58-1Z" fill="url(#butter)"/><path d="M112 98q36 14 70-1m-62-10q27-16 53 0m-43-15q-12-8 0-20m25 20q-10-9 0-20" fill="none"/>
+        <path d="M112 155h66m-62 9h52" fill="none" opacity=".5"/>
+        <path d="M69 46q16-11 20 0M70 78q16-11 20 0m-20 33q16-11 20 0m-19 33q16-11 20 0m-18 29q16-11 20 0" fill="none"/>
+      </g>
+      <g transform="rotate(11 233 164)"><ellipse cx="235" cy="158" rx="62" ry="27" fill="#e7d8b5"/><ellipse cx="235" cy="158" rx="50" ry="20" fill="#faf0d7"/>
+        <path d="M202 155q-9-25 16-20 6-18 23-2 21-10 26 10 20 9 1 20-16 15-32 4-20 12-34-12Z" fill="#ebd5a0" filter="url(#grain)"/>
+        <path d="m225 138 5 12m17-10-4 10m-18 13 9-8m26-3-7 9" stroke="#76926a" stroke-width="4"/>
+      </g>
+      <path d="m231 110 27-79q8-16 15-8 6 8-8 26l-25 65Z" fill="#c2a376" filter="url(#grain)"/>
+      <path d="m43 124-7 4m7 6-7-2M216 26l4-8m4 13 9-3" fill="none"/>
+    </g>
+  </symbol>
+  <symbol id="pot" viewBox="0 0 320 225">
+    <ellipse cx="160" cy="192" rx="110" ry="10" fill="#344c3d" opacity=".1"/>
+    <g stroke="#536947" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="m64 164 186-9 17 38-208 5Z" fill="#c2cea9" filter="url(#grain)"/>
+      <path d="M79 108q3 71 83 74 72 2 77-72Z" fill="url(#sage)" filter="url(#grain)"/><path d="M79 111q-45 0-24 25l30 5m150-29q44-3 26 20l-25 9" fill="none" stroke-width="8"/>
+      <ellipse cx="159" cy="110" rx="81" ry="17" fill="#648561"/><path d="M78 102q83-81 163 0Z" fill="url(#sage)" filter="url(#grain)"/><path d="M148 69q-9-16 9-16 21-1 13 16" fill="#536e4b"/>
+      <path d="M112 145q42 18 84 0" fill="none" stroke="#c4d0ac" stroke-width="3"/><path d="M123 44c-24-20 17-22-4-41m51 34c-24-20 17-22-4-41m46 49c-24-20 17-22-4-41" fill="none" opacity=".5"/>
+      <path d="m44 74 3 9 10 2-10 4-2 9-4-9-9-3 9-3Z" fill="#d5b16e" stroke="none"/>
+    </g>
+  </symbol>
+</svg>
