@@ -1,0 +1,62 @@
+[
+  {
+    "file": "handwriting.css",
+    "sourceCommit": "c94717f",
+    "sourceSha256": "82f0efaebf5f9dc12e6762e7c73bf59d84527a34a1758b78041d336e77e80dde",
+    "adaptation": "Only relative asset and document paths"
+  },
+  {
+    "file": "preview.css",
+    "sourceCommit": "c94717f",
+    "sourceSha256": "e9fdf977cd30615656d833490b2fa48f0b8b559f5e59ea7614e9f6e24a57ba1f",
+    "adaptation": "Only relative asset and document paths"
+  },
+  {
+    "file": "artful.css",
+    "sourceCommit": "c94717f",
+    "sourceSha256": "b8914b61be0074d86ad12c377b0f6636c1718ddaf4f9a9801053dde49ebb4186",
+    "adaptation": "Only relative asset and document paths"
+  },
+  {
+    "file": "illustrations.css",
+    "sourceCommit": "c94717f",
+    "sourceSha256": "72a0f2b1d7052b1a55fe65eb9ce98b90330da72096bdf665b2b858c4a69d14f6",
+    "adaptation": "Only relative asset and document paths"
+  },
+  {
+    "file": "handcrafted.css",
+    "sourceCommit": "c94717f",
+    "sourceSha256": "0def2dcdf06fd13e70cd9d85825069869e1c3c4a098b5d08e1d5c883eab58732",
+    "adaptation": "Only relative asset and document paths"
+  },
+  {
+    "file": "artwork.js",
+    "sourceCommit": "c94717f",
+    "sourceSha256": "1db31b6aafeb2395745b9edc3f47dd15490acb6531a175ceb4426dc3c01cdb72",
+    "adaptation": "Only relative asset and document paths"
+  },
+  {
+    "file": "little-people.js",
+    "sourceCommit": "c94717f",
+    "sourceSha256": "d14f4f8e1c1acfc86282ca095d675f196e69d14c1cf4c8bbc2a557742868d375",
+    "adaptation": "Only relative asset and document paths"
+  },
+  {
+    "file": "motion.js",
+    "sourceCommit": "c94717f",
+    "sourceSha256": "d56d7569edceff95a81dfccbcbf6e83abf12330eebf05e3f9001f43d54054bd3",
+    "adaptation": "Only relative asset and document paths"
+  },
+  {
+    "file": "illustration-library.js",
+    "sourceCommit": "c94717f",
+    "sourceSha256": "3a1417629a49fa1aa4b9f21397c39f17d88d1b3fee6307fc94ef4e3cc4df4f21",
+    "adaptation": "Only relative asset and document paths"
+  },
+  {
+    "file": "preview.js",
+    "sourceCommit": "c94717f",
+    "sourceSha256": "5cbf61e198e405dc400d8b54dcf9fe35c1610f8a7a6246e678b673314fa64f8b",
+    "adaptation": "Only relative asset and document paths"
+  }
+]
