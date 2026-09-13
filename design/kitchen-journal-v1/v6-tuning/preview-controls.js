@@ -4,8 +4,9 @@
   render();
   window.addEventListener('message', event => {
     if (event.origin !== location.origin || event.source !== parent || event.data?.type !== 'pantry-texture-mode') return;
-    if (!['original', 'gentle'].includes(event.data.mode)) return;
+    if (!['original', 'gentle', 'half'].includes(event.data.mode)) return;
     document.body.classList.toggle('tune-gentle', event.data.mode === 'gentle');
+    document.body.classList.toggle('tune-half', event.data.mode === 'half');
     parent.postMessage({ type:'pantry-texture-applied', mode:event.data.mode }, location.origin);
   });
   parent.postMessage({ type:'pantry-texture-ready' }, location.origin);

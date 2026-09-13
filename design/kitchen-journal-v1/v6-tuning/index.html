@@ -6,19 +6,20 @@
   <title>第六版 · 轻微减淡对照</title>
   <link rel="icon" href="data:,">
   <link rel="stylesheet" href="comparison.css?v=1">
-  <script src="comparison.js?v=1" defer></script>
+  <script src="comparison.js?v=3" defer></script>
 </head>
 <body>
   <header class="comparison-header">
     <div class="intro"><h1>第六版，只淡一点</h1><p>保留暖纸色、边框和插画，只比较纹理强弱。</p></div>
     <div class="controls">
       <div class="modes" role="group" aria-label="纹理方案">
-        <button type="button" data-mode="original" aria-pressed="false">第六版原样</button>
-        <button type="button" data-mode="gentle" aria-pressed="true">稍淡一点 · 建议</button>
+        <button type="button" data-mode="original" aria-pressed="false">原样 100%</button>
+        <button type="button" data-mode="gentle" aria-pressed="false">保留 75%</button>
+        <button type="button" data-mode="half" aria-pressed="true">保留 50%</button>
       </div>
-      <p id="mode-caption" role="status">当前：纹理约保留 75% · 仅供对齐，未替换主原型</p>
+      <p id="mode-caption" role="status">当前：纹理约保留 50% · 仅供对齐，未替换主原型</p>
     </div>
   </header>
-  <iframe id="preview" title="第六版纹理对照预览" src="preview.html?v=2"></iframe>
+  <iframe id="preview" title="第六版纹理对照预览" src="preview.html?v=3"></iframe>
 </body>
 </html>

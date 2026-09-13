@@ -8,3 +8,12 @@ body.tune-gentle.dark {
   --fiber:url('/v6-tuning/grain-75.svg');
   background-image:var(--fiber);
 }
+body.tune-half {
+  --fiber:url('/v6-tuning/grain-50.svg');
+  /* 原遮罩 alpha 64/255；保留 (255-160)/(255-64)，约 49.74% 的纹理对比。 */
+  background-image:linear-gradient(#f7efd9a0,#f7efd9a0),url('../assets/paper-v6.webp');
+}
+body.tune-half.dark {
+  --fiber:url('/v6-tuning/grain-50.svg');
+  background-image:var(--fiber);
+}
