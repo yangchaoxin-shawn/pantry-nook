@@ -1,6 +1,6 @@
 # 项目结构与整理清单
 
-2026-09-12。当前为前端重构前的阶段审查；缺陷清单和验证证据见 [阶段审查](phase-gate-audit-2026-09-12.md)。
+2026-09-13。前端业务结构已按模块拆分；缺陷清单和业务冻结证据见 [阶段审查](phase-gate-audit-2026-09-12.md)。
 
 ## 当前唯一有效入口
 
@@ -31,21 +31,23 @@ backend/migrations/       不可改写的历史增量迁移
 backend/scripts/          服务、迁移、真实 API 测试和人工数据脚本
 backend/tests/            契约、数量单元测试
 frontend/src/
-  App.tsx                 当前页面、弹窗、库存/菜品/搭配表单
-  MenuWorkflow.tsx         菜单编辑、核对、时间线
-  RecoveryDialog.tsx       撤销预览和合并
-  api.ts / api-schema.d.ts 请求层与生成类型
-  *logic.ts / *.test.ts    已抽取的计算和测试
-  App.css 等              当前样式
+  app/                    应用数据加载、导航、动作编排、弹窗调度和跨模块类型
+  features/inventory/     库存页面、录入/编辑、报废记录、单位与冲突计算
+  features/menu/          菜单时间线、编辑、核对用料、消耗历史与相关测试
+  features/catalog/       菜品和常用搭配页面及编辑器
+  features/recovery/      报废与整餐撤销预览、合并恢复
+  shared/api/             API 请求层、请求测试和 OpenAPI 生成类型
+  shared/ui/              无业务含义的通用弹窗、字段、空状态和图标
+  App.css 等              现有样式；统一新 UI 阶段再按设计系统重建
 ```
 
-## 建议的整理批次（未执行文件搬迁）
+## 整理状态与后续批次
 
-1. **先固定业务**：修阶段审查的问题。事务和历史代码保留单独可审查提交。
-2. **拆前端职责**：`features/inventory`、`features/menu`、`features/catalog` 承载页面与流程；`shared/ui` 放通用弹窗/按钮，`shared/api` 放请求与生成类型；计算规则独立。移动文件时先不改视觉和行为。
+1. **业务冻结已完成**：阶段审查问题已修复，事务和历史代码保留独立提交。
+2. **前端职责拆分已完成**：业务页面、表单、计算、恢复、共享 UI 和 API 已按上述目录归位；`App.tsx` 从约 1490 行降至 400 行。本批不改变业务、接口和视觉。
 3. **整理后端**：保留现有 `routes` 入口，逐步抽取 service 和请求模型；不为了目录整齐增加无实际用途的多层抽象，不改现有 API 命名。
 4. **归档历史资料**：旧交付/审计、根目录 `design-prototype*.html` 等可归档，并同步所有链接。先确认依赖引用再移动；原型不是业务规格。
-5. **清理确认无引用的脚手架资源**：`frontend/src/assets/react.svg`、`vite.svg` 当前源码搜索未发现引用，列为候选；本轮未删除。
+5. **待设计阶段处理**：`frontend/src/assets/react.svg`、`vite.svg` 当前源码搜索未发现引用；与旧样式一起在新 UI 落地后清理，避免结构提交混入视觉资源删除。
 6. **隔离运维资料**：Docker/Nginx、DEPLOY 仍是后置部署资料，不作为本地启动路径；部署阶段统一审查，暂不启用。
 
 ## 保护与维护

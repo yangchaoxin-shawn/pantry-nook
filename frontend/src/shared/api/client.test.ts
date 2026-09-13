@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, expectTypeOf, it, vi } from 'vitest'
-import { api, ApiError, type Ingredient, type IngredientUpdate } from './api'
-import { startedBatchRows } from './batch-ingredient-logic'
-import { applyDefaultUnit, orderedUnits, recommendedUnits } from './inventory-units'
+import { api, ApiError, type Ingredient, type IngredientUpdate } from './client'
+import { startedBatchRows } from '../../features/inventory/batch-ingredient-logic'
+import { applyDefaultUnit, orderedUnits, recommendedUnits } from '../../features/inventory/inventory-units'
 
 const fetchMock = vi.fn<typeof fetch>()
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } })

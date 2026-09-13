@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { initialUsage, inventoryVersion, usageValue } from './menu-confirm-logic';
-import type { Battle } from './api';
+import type { Battle } from '../../shared/api/client';
 
 describe('核对实际用量', () => {
   it.each([['200g', 'g', '200'], ['1个', '个', '1'], [' 2.5 kg ', 'kg', '2.5'], ['5KG', 'kg', '5'], ['1/3个', '个', '1/3'], ['0', '个', '0'], ['.5', 'kg', '.5']])('带入 %s，单位 %s', (text, unit, expected) => expect(initialUsage(text, unit)).toBe(expected));

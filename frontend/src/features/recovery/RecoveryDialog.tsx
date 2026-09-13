@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { api, type RecoveryPreview, type RecoveryRequest } from './api';
-import { canConvertUnits, convertUnitValue } from './batch-ingredient-logic';
+import { api, type RecoveryPreview, type RecoveryRequest } from '../../shared/api/client';
+import { canConvertUnits, convertUnitValue } from '../inventory/batch-ingredient-logic';
 
 export type RecoveryDraft = { units: Record<number, string>; totals: Record<number, string> };
 

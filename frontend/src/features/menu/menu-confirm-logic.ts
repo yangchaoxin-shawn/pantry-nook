@@ -1,4 +1,4 @@
-import type { Battle, Ingredient } from './api';
+import type { Battle, Ingredient } from '../../shared/api/client';
 
 const USAGE = /^(?:(?:0|[1-9]\d*)(?:\.\d+)?|\.\d+|(?:0|[1-9]\d*)\/[1-9]\d*)$/;
 

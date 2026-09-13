@@ -1,7 +1,7 @@
 import { initialUsage, inventoryVersion, usageValue } from './menu-confirm-logic';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
-import { api, localDate, type Battle, type BattleInput, type BattleConfirm, type Dish, type Ingredient, type MealPlan, type Consumption } from './api';
-import { canConvertUnits, convertUnitValue } from './batch-ingredient-logic';
+import { api, localDate, type Battle, type BattleInput, type BattleConfirm, type Dish, type Ingredient, type MealPlan, type Consumption } from '../../shared/api/client';
+import { canConvertUnits, convertUnitValue } from '../inventory/batch-ingredient-logic';
 
 const MEALS = { breakfast: '早餐', lunch: '午餐', dinner: '晚餐' } as const;
 type Meal = keyof typeof MEALS;

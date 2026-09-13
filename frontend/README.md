@@ -26,7 +26,7 @@ npm run typecheck
 npm run lint
 npm test
 npm run build
-npm run generate:api -- --check
+npm run generate:api
 ```
 
 生产构建产物位于 `dist/`。
@@ -35,7 +35,7 @@ npm run generate:api -- --check
 
 菜单、库存、菜品三个主入口使用真实 FastAPI 数据：库存录入/编辑/分类与位置筛选，菜品和搭配维护，菜单备餐、实际用料确认、撤销、取消及历史。写入期间防止重复提交；通信中断时提示先核对结果，不自动重试写入。
 
-请求层在 `src/api.ts`；实体和写入类型来自 `src/api-schema.d.ts`，由 `contracts/openapi.yaml` 生成。全部分页读取完成后再展示，避免漏掉第 100 条以后的未确认计划。修改后端契约后执行 `npm run generate:api`。
+请求层在 `src/shared/api/client.ts`；实体和写入类型来自 `src/shared/api/schema.d.ts`，由 `contracts/openapi.yaml` 生成。页面按 `features/inventory`、`features/menu`、`features/catalog` 和 `features/recovery` 组织，应用加载与动作编排位于 `src/app`。全部分页读取完成后再展示，避免漏掉第 100 条以后的未确认计划。修改后端契约后执行 `npm run generate:api`。
 
 主题默认跟随系统，可通过右上角切换；主题选择仅保持当前页面会话。业务数据不使用 localStorage。餐次已经实现；临期、统计和反馈等后置能力不显示演示业务数据。
 

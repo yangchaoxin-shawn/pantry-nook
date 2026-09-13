@@ -64,7 +64,7 @@ npm run generate:api
 ```
 
 contracts/openapi.yaml 是 app.openapi() 的可重复导出，当前含人工字段描述；
-frontend/src/api-schema.d.ts 由它生成，不手改。归档一致性检查不等于所有真实响应与业务都已验证。
+frontend/src/shared/api/schema.d.ts 由它生成，不手改。归档一致性检查不等于所有真实响应与业务都已验证。
 
 ## 目录
 
