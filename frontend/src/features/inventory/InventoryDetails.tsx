@@ -5,9 +5,13 @@ import { stockLabel } from "./inventory-format";
 import { QuantityInput } from "../../shared/ui/QuantityInput";
 import { quantityInputError } from "../../shared/ui/quantity-input-logic";
 import {
+  groupInventoryAdjustmentRecords,
+  inventoryAdjustmentMomentLabel,
+  inventoryAdjustmentTimeLabel,
   readInventoryAdjustmentLedger,
   type InventoryAdjustmentLedgerState,
 } from "./inventory-adjustment-ledger";
+import "./inventory-adjustment-ledger.css";
 
 export function IngredientDetail({ item, busy, edit, waste }: { item: Ingredient; busy: boolean; edit: () => void; waste: () => void }) {
   return <div className="ingredient-detail">
@@ -56,19 +60,75 @@ export function InventoryAdjustmentLedger({ busy, refreshKey, revoke }: { busy: 
     return () => { alive = false; };
   }, [requestKey]);
   const state: InventoryAdjustmentLedgerState = result.key === requestKey ? result.state : { status: "loading" };
-  if (state.status === "error") return <section className="card error-state" role="alert"><h2>暂时没能打开处理记录</h2><p>{state.message}</p><button type="button" className="btn-primary" onClick={() => setRetryKey((value) => value + 1)}>重新读取</button></section>;
-  if (state.status === "loading") return <p className="muted" role="status">正在读取库存处理记录…</p>;
+  if (state.status === "error") return <section className="pn-adjustment-ledger-state pn-adjustment-ledger-state--error" role="alert">
+    <span className="pn-adjustment-ledger-state-mark" aria-hidden="true">!</span>
+    <div><p className="pn-adjustment-ledger-kicker">记录簿暂时合上了</p><h2>没能打开处理记录</h2><p>{state.message}</p></div>
+    <button type="button" className="btn-primary" onClick={() => setRetryKey((value) => value + 1)}>重新读取</button>
+  </section>;
+  if (state.status === "loading") return <div className="pn-adjustment-ledger-state pn-adjustment-ledger-state--loading" role="status">
+    <span className="pn-adjustment-ledger-pulse" aria-hidden="true" />
+    <div><p className="pn-adjustment-ledger-kicker">正在翻找</p><p>正在读取库存处理记录…</p></div>
+  </div>;
   const records = state.records;
-  if (!records.length) return <Empty title="还没有库存处理记录">变质或损坏处理会出现在这里。</Empty>;
+  if (!records.length) return <section className="pn-adjustment-ledger-empty">
+    <div className="pn-adjustment-ledger-empty-date" aria-hidden="true"><span>—</span><strong>空</strong></div>
+    <Empty title="这本记录簿还是空的">变质或损坏处理会按发生时间留在这里。</Empty>
+  </section>;
   const label = (text: string, unit: string) => text.includes(unit) ? text : `${text}${unit}`;
-  const render = (record: InventoryAdjustmentRecord) => <article className="list-row adjustment-ledger-row" key={record.id}>
-    <div><strong>{record.ingredient_name} · {wasteReasonText[record.reason]}</strong><p className="muted">{label(record.stock_before_text, record.stock_before_unit)} → {label(record.stock_after_text, record.stock_after_unit)}{record.note ? ` · ${record.note}` : ""}</p></div>
-    {record.status === "active" ? <button className="btn-primary" disabled={busy} onClick={() => revoke(record.id)}>撤销处理</button> : <span className="muted">已撤销{record.recovery_merges?.map(merge => <span key={merge.id}> · 已合并恢复到{merge.target_name}（{merge.target_after_value}{merge.target_after_unit}）</span>)}</span>}
-  </article>;
   const active = records.filter((record) => record.status === "active");
   const reversed = records.filter((record) => record.status === "reversed");
-  return <div className="adjustment-ledger">
-    <section className="card"><div className="section-heading"><h2>可撤销处理</h2><span className="muted">{active.length} 条</span></div>{active.length ? active.map(render) : <p className="muted">没有可撤销的处理。</p>}</section>
-    {reversed.length > 0 && <section className="card"><div className="section-heading"><h2>处理历史</h2><span className="muted">{reversed.length} 条</span></div>{reversed.map(render)}</section>}
+  const renderRecord = (record: InventoryAdjustmentRecord) => {
+    const titleId = `adjustment-record-${record.id}`;
+    return <article className={`pn-adjustment-record pn-adjustment-record--${record.status}`} key={record.id} aria-labelledby={titleId}>
+      <div className="pn-adjustment-record-time">
+        <time dateTime={record.created_at}>{inventoryAdjustmentTimeLabel(record.created_at)}</time>
+        <span aria-hidden="true" />
+      </div>
+      <div className="pn-adjustment-record-sheet">
+        <header>
+          <div className="pn-adjustment-record-title">
+            <span className="pn-adjustment-record-reason">{wasteReasonText[record.reason]}</span>
+            <h4 id={titleId}>{record.ingredient_name}</h4>
+          </div>
+          <span className={`pn-adjustment-record-status pn-adjustment-record-status--${record.status}`}>{record.status === "active" ? "可撤销" : "已撤销"}</span>
+        </header>
+        <div className="pn-adjustment-record-quantity" aria-label={`库存从${label(record.stock_before_text, record.stock_before_unit)}变为${label(record.stock_after_text, record.stock_after_unit)}`}>
+          <span>{label(record.stock_before_text, record.stock_before_unit)}</span>
+          <span className="pn-adjustment-record-arrow" aria-hidden="true">→</span>
+          <strong>{label(record.stock_after_text, record.stock_after_unit)}</strong>
+        </div>
+        {record.note && <p className="pn-adjustment-record-note"><span>备注</span>{record.note}</p>}
+        {record.status === "active" ? <div className="pn-adjustment-record-action">
+          <span>处理仍可安全撤回</span>
+          <button className="btn-primary" disabled={busy} onClick={() => revoke(record.id)} aria-label={`撤销${record.ingredient_name}的${wasteReasonText[record.reason]}处理`}>撤销处理</button>
+        </div> : <div className="pn-adjustment-record-reversal">
+          <p>{record.reversed_at ? <><time dateTime={record.reversed_at}>{inventoryAdjustmentMomentLabel(record.reversed_at)}</time> 已撤销</> : "已撤销"}</p>
+          {record.recovery_merges?.map(merge => <p key={merge.id}>恢复数量已合并到<strong>{merge.target_name}</strong>，合并后 {merge.target_after_value}{merge.target_after_unit}</p>)}
+        </div>}
+      </div>
+    </article>;
+  };
+  const renderGroups = (source: InventoryAdjustmentRecord[], lane: "active" | "history") => groupInventoryAdjustmentRecords(source).map((group) => <section className="pn-adjustment-day" key={group.key} aria-labelledby={`adjustment-${lane}-day-${group.key}`}>
+    <h3 id={`adjustment-${lane}-day-${group.key}`}>{group.label}</h3>
+    <div className="pn-adjustment-day-records">{group.records.map(renderRecord)}</div>
+  </section>);
+  return <div className="pn-adjustment-ledger" aria-busy={busy || undefined}>
+    <header className="pn-adjustment-ledger-overview">
+      <div><p className="pn-adjustment-ledger-kicker">库存处理时间线</p><h2>每一次处理，都有来处</h2><p>按发生时间留档；仍可撤销的记录放在前面，方便及时找回。</p></div>
+      <dl>
+        <div><dt>仍可撤销</dt><dd>{active.length}</dd></div>
+        <div><dt>已撤销</dt><dd>{reversed.length}</dd></div>
+      </dl>
+    </header>
+    <div className={`pn-adjustment-ledger-lanes${reversed.length ? "" : " pn-adjustment-ledger-lanes--single"}`}>
+      <section className="pn-adjustment-ledger-lane pn-adjustment-ledger-lane--active" aria-labelledby="active-adjustments-heading">
+        <header><div><p>NOW / 现在</p><h2 id="active-adjustments-heading">仍可撤销</h2></div><span>{active.length} 条</span></header>
+        {active.length ? renderGroups(active, "active") : <p className="pn-adjustment-ledger-lane-empty">目前没有可撤销的处理。</p>}
+      </section>
+      {reversed.length > 0 && <section className="pn-adjustment-ledger-lane pn-adjustment-ledger-lane--history" aria-labelledby="reversed-adjustments-heading">
+        <header><div><p>ARCHIVE / 归档</p><h2 id="reversed-adjustments-heading">已经撤销</h2></div><span>{reversed.length} 条</span></header>
+        {renderGroups(reversed, "history")}
+      </section>}
+    </div>
   </div>;
 }

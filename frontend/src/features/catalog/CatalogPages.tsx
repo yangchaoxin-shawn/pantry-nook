@@ -34,11 +34,36 @@ export function DishesPage({ dishes, search, setSearch, edit, remove }: { dishes
 
 export function PlansPage({ plans, onUsePlan, edit, remove }: { plans: MealPlan[]; onUsePlan: (plan: MealPlan) => void; edit: (plan: MealPlan) => void; remove: (plan: MealPlan) => void }) {
   return <>
-    <div className="inventory-grid">{plans.map((plan) => <article className="card plan-card" key={plan.id}>
-      <div className="plan-card-heading"><div><span className="eyebrow">喜欢的组合</span><h2>{plan.name || "未命名搭配"}</h2></div><LittlePerson namespace="plan" businessId={plan.id} className="plan-card-person" /></div>
-      <div className="dish-tags">{plan.dishes.map((dish) => <span key={dish.id}>{dish.name}</span>)}</div>
-      <div className="actions"><button className="btn-primary" onClick={() => onUsePlan(plan)}>用这个搭配</button><button className="text-button" onClick={() => edit(plan)}>编辑</button><button className="text-button danger" onClick={() => remove(plan)}>删除</button></div>
-    </article>)}</div>
-    {!plans.length && <section className="card"><Empty title="存一份喜欢的搭配">选几道菜组成模板，下次可以直接安排。</Empty></section>}
+    <section className={`plan-composer${plans.length ? '' : ' plan-composer-empty'}`} aria-labelledby="plan-composer-title">
+      <header className="plan-composer-heading">
+        <div>
+          <span className="eyebrow">KITCHEN SET LIST</span>
+          <h2 id="plan-composer-title">厨房搭配编排册</h2>
+        </div>
+        <p><b>{plans.length}</b><span>份顺手组合</span></p>
+      </header>
+      {plans.length > 0 ? <div className="plan-composer-list">{plans.map((plan, index) => {
+        const planName = plan.name || "未命名搭配";
+        return <article className={`plan-strip plan-strip-${index % 3}`} key={plan.id} aria-labelledby={`plan-title-${plan.id}`}>
+          <div className="plan-strip-index" aria-hidden="true"><span>NO.</span><b>{String(index + 1).padStart(2, '0')}</b></div>
+          <div className="plan-strip-main">
+            <div className="plan-strip-title">
+              <span className="plan-strip-caption">这一餐，照着搭</span>
+              <h3 id={`plan-title-${plan.id}`}>{planName}</h3>
+            </div>
+            <ol className="plan-dish-route" aria-label={`${planName}包含的菜品`}>
+              {plan.dishes.map((dish) => <li key={dish.id}><span>{dish.name}</span></li>)}
+            </ol>
+            <div className="plan-strip-actions">
+              <button type="button" className="plan-use" onClick={() => onUsePlan(plan)} aria-label={`用${planName}安排一餐`}><span>用这份</span><b>安排一餐</b></button>
+              <button type="button" className="plan-edit" onClick={() => edit(plan)} aria-label={`编辑${planName}`}>编辑搭配</button>
+              <button type="button" className="plan-delete" onClick={() => remove(plan)} aria-label={`删除${planName}`}>删除</button>
+            </div>
+          </div>
+          <LittlePerson namespace="plan" businessId={plan.id} className="plan-strip-person" />
+        </article>;
+      })}</div> : <div className="plan-composer-empty-state"><Empty title="存一份喜欢的搭配">选几道菜组成模板，下次可以直接安排。</Empty></div>}
+      <footer className="plan-composer-foot" aria-hidden="true"><span>先把喜欢的味道排在一起</span><i>↝</i></footer>
+    </section>
   </>;
 }
