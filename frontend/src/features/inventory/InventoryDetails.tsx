@@ -6,6 +6,7 @@ import { QuantityInput } from "../../shared/ui/QuantityInput";
 import { quantityInputError } from "../../shared/ui/quantity-input-logic";
 import {
   groupInventoryAdjustmentRecords,
+  inventoryAdjustmentAmountLabel,
   inventoryAdjustmentMomentLabel,
   inventoryAdjustmentTimeLabel,
   readInventoryAdjustmentLedger,
@@ -74,7 +75,6 @@ export function InventoryAdjustmentLedger({ busy, refreshKey, revoke }: { busy: 
     <div className="pn-adjustment-ledger-empty-date" aria-hidden="true"><span>—</span><strong>空</strong></div>
     <Empty title="这本记录簿还是空的">变质或损坏处理会按发生时间留在这里。</Empty>
   </section>;
-  const label = (text: string, unit: string) => text.includes(unit) ? text : `${text}${unit}`;
   const active = records.filter((record) => record.status === "active");
   const reversed = records.filter((record) => record.status === "reversed");
   const renderRecord = (record: InventoryAdjustmentRecord) => {
@@ -92,10 +92,9 @@ export function InventoryAdjustmentLedger({ busy, refreshKey, revoke }: { busy: 
           </div>
           <span className={`pn-adjustment-record-status pn-adjustment-record-status--${record.status}`}>{record.status === "active" ? "可撤销" : "已撤销"}</span>
         </header>
-        <div className="pn-adjustment-record-quantity" aria-label={`库存从${label(record.stock_before_text, record.stock_before_unit)}变为${label(record.stock_after_text, record.stock_after_unit)}`}>
-          <span>{label(record.stock_before_text, record.stock_before_unit)}</span>
-          <span className="pn-adjustment-record-arrow" aria-hidden="true">→</span>
-          <strong>{label(record.stock_after_text, record.stock_after_unit)}</strong>
+        <div className="pn-adjustment-record-quantity" aria-label={`本次处理数量${inventoryAdjustmentAmountLabel(record)}`}>
+          <span>本次处理</span>
+          <strong>{inventoryAdjustmentAmountLabel(record)}</strong>
         </div>
         {record.note && <p className="pn-adjustment-record-note"><span>备注</span>{record.note}</p>}
         {record.status === "active" ? <div className="pn-adjustment-record-action">

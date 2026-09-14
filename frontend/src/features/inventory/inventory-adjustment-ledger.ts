@@ -43,6 +43,13 @@ export function inventoryAdjustmentMomentLabel(value: string): string {
   return `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日 ${inventoryAdjustmentTimeLabel(value)}`;
 }
 
+export function inventoryAdjustmentAmountLabel(record: InventoryAdjustmentRecord): string {
+  if (record.stock_before_unit !== record.stock_after_unit) return "数量待确认";
+  const amount = record.stock_before_value - record.stock_after_value;
+  if (!Number.isFinite(amount) || amount < 0) return "数量待确认";
+  return `${Number(amount.toFixed(6))}${record.stock_before_unit}`;
+}
+
 export function groupInventoryAdjustmentRecords(
   records: InventoryAdjustmentRecord[],
   today = new Date(),

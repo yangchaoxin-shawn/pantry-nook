@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { InventoryAdjustmentRecord } from "../../shared/api/client";
 import {
   groupInventoryAdjustmentRecords,
+  inventoryAdjustmentAmountLabel,
   inventoryAdjustmentDateLabel,
   inventoryAdjustmentMomentLabel,
   inventoryAdjustmentTimeLabel,
@@ -53,5 +54,29 @@ describe("库存处理记录时间线", () => {
   it("遇到无法识别的时间仍给出可理解的占位", () => {
     expect(inventoryAdjustmentDateLabel("invalid")).toBe("日期待确认");
     expect(inventoryAdjustmentTimeLabel("invalid")).toBe("时间待确认");
+  });
+
+  it("只显示本次处理数量，并收起计算产生的小数尾差", () => {
+    expect(inventoryAdjustmentAmountLabel({
+      stock_before_value: 0.3,
+      stock_after_value: 0.1,
+      stock_before_unit: "kg",
+      stock_after_unit: "kg",
+    } as InventoryAdjustmentRecord)).toBe("0.2kg");
+    expect(inventoryAdjustmentAmountLabel({
+      stock_before_value: 3,
+      stock_after_value: 0,
+      stock_before_unit: "斤",
+      stock_after_unit: "斤",
+    } as InventoryAdjustmentRecord)).toBe("3斤");
+  });
+
+  it("快照单位不一致时不猜测处理数量", () => {
+    expect(inventoryAdjustmentAmountLabel({
+      stock_before_value: 1,
+      stock_after_value: 500,
+      stock_before_unit: "kg",
+      stock_after_unit: "g",
+    } as InventoryAdjustmentRecord)).toBe("数量待确认");
   });
 });
