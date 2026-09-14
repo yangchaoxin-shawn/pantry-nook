@@ -1547,6 +1547,10 @@ p {
     margin-top: 8px;
     z-index: 5;
   }
+  .ingredient-editor .submit {
+    position: static;
+    padding-block: 9px;
+  }
   dialog {
     width: min(100%, calc(100vw - 16px));
     padding: 18px;

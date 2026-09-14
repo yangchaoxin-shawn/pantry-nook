@@ -4,6 +4,10 @@ import { Empty, Field } from "../../shared/ui/Primitives";
 import { stockLabel } from "./inventory-format";
 import { QuantityInput } from "../../shared/ui/QuantityInput";
 import { quantityInputError } from "../../shared/ui/quantity-input-logic";
+import {
+  readInventoryAdjustmentLedger,
+  type InventoryAdjustmentLedgerState,
+} from "./inventory-adjustment-ledger";
 
 export function IngredientDetail({ item, busy, edit, waste }: { item: Ingredient; busy: boolean; edit: () => void; waste: () => void }) {
   return <div className="ingredient-detail">
@@ -39,15 +43,22 @@ export function WasteEditor({ item, busy, save }: { item: Ingredient; busy: bool
 }
 
 export function InventoryAdjustmentLedger({ busy, refreshKey, revoke }: { busy: boolean; refreshKey: number; revoke: (id: number) => void }) {
-  const [records, setRecords] = useState<InventoryAdjustmentRecord[] | null>(null);
-  const [error, setError] = useState("");
+  const [retryKey, setRetryKey] = useState(0);
+  const requestKey = `${refreshKey}:${retryKey}`;
+  const [result, setResult] = useState<{ key: string; state: InventoryAdjustmentLedgerState }>({
+    key: "",
+    state: { status: "loading" },
+  });
   useEffect(() => {
     let alive = true;
-    api.inventoryAdjustments().then((response) => alive && setRecords(response)).catch((cause) => alive && setError(cause instanceof Error ? cause.message : "读取失败"));
+    void readInventoryAdjustmentLedger(() => api.inventoryAdjustments())
+      .then((next) => { if (alive) setResult({ key: requestKey, state: next }); });
     return () => { alive = false; };
-  }, [refreshKey]);
-  if (error) return <section className="card error-state" role="alert"><p>{error}</p></section>;
-  if (!records) return <p className="muted">正在读取库存处理记录…</p>;
+  }, [requestKey]);
+  const state: InventoryAdjustmentLedgerState = result.key === requestKey ? result.state : { status: "loading" };
+  if (state.status === "error") return <section className="card error-state" role="alert"><h2>暂时没能打开处理记录</h2><p>{state.message}</p><button type="button" className="btn-primary" onClick={() => setRetryKey((value) => value + 1)}>重新读取</button></section>;
+  if (state.status === "loading") return <p className="muted" role="status">正在读取库存处理记录…</p>;
+  const records = state.records;
   if (!records.length) return <Empty title="还没有库存处理记录">变质或损坏处理会出现在这里。</Empty>;
   const label = (text: string, unit: string) => text.includes(unit) ? text : `${text}${unit}`;
   const render = (record: InventoryAdjustmentRecord) => <article className="list-row adjustment-ledger-row" key={record.id}>

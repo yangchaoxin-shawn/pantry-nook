@@ -38,9 +38,12 @@ uv run python scripts/regression_test.py 3010
 uv run python scripts/smoke_test.py 3010
 uv run python scripts/menu_workflow_test.py 3010
 uv run python scripts/concurrent_inventory_test.py 3010
+uv run python scripts/success_response_contract_test.py 3010
 ```
 
 concurrent_inventory_test.py 覆盖备餐期间录入/报废/撤销、过期编辑与确认、两人同时确认、不同餐争用库存、不足回滚、多菜同耗材撤销及单位历史。仅允许带测试标记的服务，保留测试历史。
+
+`success_response_contract_test.py` 必须单独在全新空白隔离库运行。它先核对隔离库响应头、空库状态和运行中 OpenAPI，再通过真实业务链路调用归档中的全部 34 个成功 operation，并使用 Python 标准库按 `contracts/openapi.yaml` 逐个校验实际 JSON 响应；不安装额外校验包。脚本结束时把撤销后的菜单转为已取消，不给隔离库留下待完成菜单。
 
 如本机 uv 缓存受限，可使用 `uv --cache-dir .uv-cache run --no-sync ...` 与已有 `.venv`。
 
@@ -56,9 +59,23 @@ npm run build
 ```
 
 前端契约变更还需在 backend/ 导出 OpenAPI，然后在 frontend/ 执行 npm run generate:api，检查生成差异。
-当前契约测试检查归档与 OpenAPI 一致、引用可解析及部分错误结构，不覆盖所有真实响应 schema。
+`tests/test_api_contract.py` 检查归档与 OpenAPI 一致、引用可解析及部分错误结构；全部真实成功响应 schema 由上面的独立数据库脚本覆盖。
 浏览器操作使用独立验收环境；普通文档改动不需要运行上述前后端检查。
 涉及浏览器时记录实际尺寸/主题、成功与错误路径、控制台及 React runtime 情况；未测明确写未测。
+
+### 候选版本地浏览器关键路径
+
+`browser_candidate_test.py` 使用后端开发依赖中锁定的 Python Playwright 1.61.0，不新增前端依赖，也不升级既有后端依赖。脚本会先检查前端与后端 `/health` 是否返回同一个 `X-Pantry-Nook-Test-Database`，并在每次浏览器写请求前重新检查；地址不是本机、标记缺失或变化、前后端标记不一致时立即阻断。脚本还固定拒绝文档中已有的 3000、3018、3019、5173、5200、5201 用户或人工验收端口。
+
+为它单独启动全新的隔离后端和 Vite，例如后端 3045、前端 5215。Vite 必须把 `/api` 和 `/health` 代理到这次独立后端，不复用正在验收的服务。先同步锁定的开发依赖；如果当前运行机还没有 Playwright Chromium，再安装对应浏览器，然后执行：
+
+```powershell
+uv sync --frozen --group dev
+uv run playwright install chromium
+uv run python scripts/browser_candidate_test.py --base-url http://127.0.0.1:5215 --api-url http://127.0.0.1:3045
+```
+
+脚本每次生成唯一食材、菜品、搭配与待购名称，不依赖演示 ID；覆盖桌面库存新增后待补位置、只改单位，菜品到常用搭配及返回，以及手机餐安排核对、补货、安全自动关联并回核对。它同时检查关键页面横向溢出、本地请求失败、控制台 error 和页面运行错误。运行完成后关闭这次自建的 Vite 与隔离后端；测试库保留供核查，不自动删除。
 
 ## 本地人工验收数据（单独授权，非自动回归准备步骤）
 
@@ -78,6 +95,7 @@ uv run python scripts/seed_demo_data.py
 - `regression_test.py`：同名入库合并与分类冲突选择、批量原子性、搭配内容/名称唯一及并发保存、搭配引用、待完成菜单的库存保护、确认事务、重复确认和撤销历史。
 - `menu_workflow_test.py`：每道菜先贴库存耗材或待购买食材、草稿允许稍后补预计量、待购买项补货后关联库存、菜单版本校验、实际用量核对、库存版本冲突整体回滚、确认和撤销恢复。
 - `tests/test_api_contract.py`：统一错误结构与已归档 OpenAPI 契约。
+- `success_response_contract_test.py`：在全新隔离库串行覆盖 34/34 个成功 operation，按归档 OpenAPI 校验每个实际 JSON 响应，并在操作数变化时要求同步扩展场景。
 - `boundary_audit_test.py`：改名冲突、分页越界、合并溢出/超精度、同名重新入库后的两类撤销、菜单缺失版本、搭配引用与删除并发。使用独立服务执行 `python scripts/boundary_audit_test.py <端口>`。
 - `edit_conflict_test.py`：在全新独立库验证含零数量整批拒绝、人工合并必须正数、库存/菜品/搭配编辑缺失版本、过期版本、最新快照、核对后重试和并发仅保存一次。`python scripts/edit_conflict_test.py <端口>`；先运行此脚本，再在同库运行 regression，不能倒序。
 - `recovery_merge_test.py`：48 项检查，覆盖报废与整餐合并撤销、单位换算、人工数量、过期预览、双人重复撤销、部分失败整体回滚、历史审计、耗材重新关联及清空预计量。`python scripts/recovery_merge_test.py <独立端口>`，固定使用 2036-01-02 晚餐。

@@ -271,7 +271,7 @@ export function IngredientEditor({
     save(patch);
   }
   return (
-    <form onSubmit={submit}>
+    <form className="ingredient-editor" onSubmit={submit}>
       <div className="form-grid">
         <Field label="食材名称">
           <input
