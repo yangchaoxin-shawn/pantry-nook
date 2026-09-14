@@ -21,10 +21,12 @@ import { InventoryAdjustmentsPage, InventoryPage } from "../features/inventory/I
 import { DishesPage, PlansPage } from "../features/catalog/CatalogPages";
 import { ConsumptionPage } from "../features/menu/ConsumptionPage";
 import { AppModal } from "./AppModal";
+import { JournalHero, KitchenSketch } from '../shared/ui/JournalArt';
+import '../styles/journal.css';
 import type { AppData, Modal, Page } from "./types";
 
 const NAV = [
-  ["battles", "菜单", "sun"],
+  ["battles", "餐安排", "sun"],
   ["ingredients", "库存", "pantry"],
   ["dishes", "菜品", "book"],
 ] as const;
@@ -121,6 +123,7 @@ export default function App() {
     setNotice("");
   }
   function chooseInventoryLocation(location: Ingredient["location"]) {
+    if (location === inventoryLocation) return;
     setInventoryLocation(location);
     setLocationError("");
     setLocationItems(null);
@@ -216,6 +219,13 @@ export default function App() {
       {text}
     </button>
   );
+  const inventoryActions = <>
+    <button className="btn-ghost" disabled={loading || !!loadError} onClick={() => open({ kind: 'ingredientSingle' })}>
+      <Icon name="plus" />单个记录
+    </button>
+    {addButton('批量记录', { kind: 'ingredientBatch' })}
+  </>;
+  const activePage = page === 'adjustments' ? 'ingredients' : page === 'plans' ? 'dishes' : page === 'consumptions' ? 'battles' : page;
   return (
     <div className="app">
       <a className="skip-link" href="#main">
@@ -238,8 +248,8 @@ export default function App() {
           {NAV.map(([key, title, icon]) => (
             <button
               key={key}
-              className={page === key ? "nav-item active" : "nav-item"}
-              aria-current={page === key ? "page" : undefined}
+              className={activePage === key ? "nav-item active" : "nav-item"}
+              aria-current={activePage === key ? "page" : undefined}
               onClick={() => navigate(key)}
             >
               <Icon name={icon} />
@@ -257,7 +267,7 @@ export default function App() {
         </button>
       </header>
       <main id="main" className="main">
-        <div className="page-heading">
+        {page === 'ingredients' ? <JournalHero /> : <div className="page-heading">
           <div>
             <p className="eyebrow">
               {page === "battles" ? dateLabel : "PANTRY NOOK · 厨房里的小日常"}
@@ -276,18 +286,6 @@ export default function App() {
                   查看库存
                 </button>
               </>
-            ) : page === "ingredients" ? (
-              <>
-                {addButton("批量记录", { kind: "ingredientBatch" })}
-                <button
-                  className="btn-ghost"
-                  disabled={loading || !!loadError}
-                  onClick={() => open({ kind: "ingredientSingle" })}
-                >
-                  单个记录
-                </button>
-                <button className="btn-ghost" onClick={() => navigate("adjustments")}>库存处理记录</button>
-              </>
             ) : page === "dishes" ? (
               <>{addButton("添加菜品", { kind: "dish" })}<button className="btn-ghost" onClick={() => navigate("plans")}>常用搭配</button></>
             ) : page === "plans" ? (
@@ -298,22 +296,23 @@ export default function App() {
               </button>
             )}
           </div>
-        </div>
+        </div>}
         {loading ? (
           <div
             className="loading-state"
             role="status"
             aria-label="正在加载厨房数据"
           >
-            <div className="skeleton wide" />
+            <KitchenSketch kind="loading" />
+            <p>正在打开你的厨房…</p>
             <div className="loading-grid">
               <div className="skeleton tall" />
               <div className="skeleton tall" />
             </div>
-            <p>正在打开你的厨房…</p>
           </div>
         ) : loadError ? (
           <section className="card error-state" role="alert">
+            <KitchenSketch kind="error" />
             <h2>厨房暂时连接不上</h2>
             <p>{loadError}</p>
             <button className="btn-primary" onClick={reload}>
@@ -348,6 +347,7 @@ export default function App() {
                 chooseLocation={chooseInventoryLocation}
                 retry={reload}
                 openIngredient={(item) => open({ kind: "ingredientDetail", item })}
+                actions={inventoryActions}
               />}
               {page === "adjustments" && <InventoryAdjustmentsPage busy={busy} refreshKey={revision}
                 revoke={(id) => open({ kind: "recovery", recoveryKind: "adjustment", id })} />}
@@ -363,6 +363,7 @@ export default function App() {
             </>
           )
         )}
+        {page === 'ingredients' && <div className="inventory-ledger-link"><button onClick={() => navigate('adjustments')}>变质 / 损坏记录 <Icon name="arrow" size={17} /></button></div>}
         <footer className="footer">
           <Icon name="bowl" size={16} />
           一隅烟火，三餐日常。<span>食隅记 Pantry Nook</span>

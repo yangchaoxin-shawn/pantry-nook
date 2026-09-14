@@ -31,3 +31,6 @@ Thumbs.db
 CLAUDE.local.md
 .claude/settings.local.json
 .claude/worktrees/
+
+# 本地 UI 评审环境进程记录与日志
+.review/

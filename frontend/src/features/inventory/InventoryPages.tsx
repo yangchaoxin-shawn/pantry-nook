@@ -1,9 +1,23 @@
-import { CATEGORIES, LOCATIONS, type Ingredient } from "../../shared/api/client";
-import { Empty, Icon } from "../../shared/ui/Primitives";
+import type { ReactNode } from "react";
+import { CATEGORIES, type Ingredient } from "../../shared/api/client";
+import { Empty } from "../../shared/ui/Primitives";
 import { InventoryAdjustmentLedger } from "./InventoryDetails";
 import { stockLabel } from "./inventory-format";
+import { inventoryView, LOCATION_OPTIONS } from "./inventory-view";
+import "./inventory-view.css";
 
-export function InventoryPage({ ingredients, locationItems, inventoryLocation, locationError, search, category, setSearch, setCategory, chooseLocation, retry, openIngredient }: {
+function CategoryMark({ category }: { category: string }) {
+  const paths: Record<string, ReactNode> = {
+    碳水: <path d="m6 20 12-16M9 16c-5 0-5-4-5-4 5-1 6 2 5 4Zm3-4c-4-1-3-5-3-5 4 0 5 2 3 5Zm3-4c-1-4 3-6 3-6 2 3 0 6-3 6ZM12 12c4-2 6 0 6 0-1 4-4 4-6 3" />,
+    蔬菜: <path d="M5 19C-1 5 13 3 20 4c1 10-3 17-13 14M5 20 16 8M10 14l-1-5m1 5 5 1" />,
+    蛋白质: <><path d="M12 3c-4 0-7 7-7 11a7 7 0 0 0 14 0c0-4-3-11-7-11Z" /><path d="M8 13c-1 3 0 4 2 5" /></>,
+    水果: <path d="M12 8C3 1 1 13 6 19c2 3 4 0 6 1 2-1 4 2 6-1 5-6 3-18-6-11Zm0 0c-1-3 0-5 2-6m0 3c3 1 4-1 5-3-3-1-5 0-5 3" />,
+    其他: <path d="M4 10h16c0 7-4 10-8 10S4 17 4 10ZM8 7c-2-2 2-2 0-4m8 4c-2-2 2-2 0-4" />,
+  };
+  return <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{paths[category]}</svg>;
+}
+
+export function InventoryPage({ ingredients, locationItems, inventoryLocation, locationError, search, category, setSearch, setCategory, chooseLocation, retry, openIngredient, actions }: {
   ingredients: Ingredient[];
   locationItems: Ingredient[] | null;
   inventoryLocation: Ingredient["location"];
@@ -15,28 +29,44 @@ export function InventoryPage({ ingredients, locationItems, inventoryLocation, l
   chooseLocation: (value: Ingredient["location"]) => void;
   retry: () => void;
   openIngredient: (item: Ingredient) => void;
+  actions?: ReactNode;
 }) {
-  const inventories = (inventoryLocation ? locationItems : ingredients)?.filter((item) =>
-    (category === "全部" || item.category === category) && `${item.name} ${item.location ?? ""}`.includes(search.trim()),
-  ) ?? [];
-  return <>
-    <div className="filter-bar"><input type="search" aria-label="搜索食材" placeholder="搜索食材或存放位置" value={search} onChange={(event) => setSearch(event.target.value)} /></div>
-    <div className="chips" aria-label="食材分类">{["全部", ...CATEGORIES].map((itemCategory) => <button className={category === itemCategory ? "chip active" : "chip"} aria-pressed={category === itemCategory} key={itemCategory} onClick={() => setCategory(itemCategory)}>{itemCategory}</button>)}</div>
-    <div className="chips location-chips" aria-label="存放位置">{["全部位置", ...LOCATIONS].map((location) => {
-      const value = location === "全部位置" ? null : location as Ingredient["location"];
-      const selected = inventoryLocation === value;
-      return <button className={selected ? "chip active" : "chip"} aria-pressed={selected} key={location} onClick={() => chooseLocation(value)}>{location}</button>;
-    })}</div>
-    {locationError && <div className="error-state-inline" role="alert"><p className="form-error">{locationError}</p><button className="btn-ghost" onClick={retry}>重新读取</button></div>}
-    <div className="inventory-groups">{CATEGORIES.map((group) => {
-      const items = inventories.filter((item) => item.category === group);
-      return items.length > 0 && <section className="inventory-group" key={group} aria-label={`${group}库存`}>
-        <div className="section-heading"><h2>{group}</h2><span className="muted">{items.length} 项</span></div>
-        <div className="inventory-list">{items.map((item) => <button type="button" className="ingredient-row ingredient-compact" key={item.id} aria-label={`查看${item.name}，余量${item.stock_text}`} onClick={() => openIngredient(item)}><span className="ingredient-name">{item.name}</span><span className="ingredient-quantity">{stockLabel(item)}</span><span className="ingredient-row-arrow" aria-hidden="true"><Icon name="arrow" size={15} /></span></button>)}</div>
-      </section>;
-    })}</div>
-    {!locationError && inventories.length === 0 && <section className="card"><Empty title={search || category !== "全部" || inventoryLocation ? "没有找到这些食材" : "这里还没有食材"}>{search || category !== "全部" || inventoryLocation ? "试试其他名称，或切换分类。" : "记下家里现有的食材，让下一顿有个着落。"}</Empty></section>}
-  </>;
+  const view = inventoryView({ ingredients, locationItems, inventoryLocation, locationError, search, category });
+  const filtered = Boolean(search.trim() || category !== "全部" || inventoryLocation);
+  const locationLabel = LOCATION_OPTIONS.find((option) => option.value === inventoryLocation)?.label;
+  return <section className="pn-inventory" aria-label="库存清单">
+    <div className="pn-inventory-toolbar">
+      <label className="pn-inventory-search">
+        <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" /><path d="m16 16 5 5" /></svg>
+        <input type="search" aria-label="搜索食材" placeholder="找找家里的食材" value={search} onChange={(event) => setSearch(event.target.value)} />
+      </label>
+      {actions && <div className="pn-inventory-actions">{actions}</div>}
+    </div>
+    <div className="pn-inventory-locations" role="group" aria-label="存放位置">
+      {LOCATION_OPTIONS.map(({ value, label }) => <button type="button" aria-pressed={inventoryLocation === value} key={label} onClick={() => {
+        // 重复点击不清空列表，避免父组件依赖未变化时不再发起请求。
+        if (inventoryLocation !== value) chooseLocation(value);
+      }}>{label}</button>)}
+    </div>
+    <div className="pn-inventory-categories" role="group" aria-label="食材分类">
+      {["全部", ...CATEGORIES].map((value) => <button type="button" aria-pressed={category === value} key={value} onClick={() => setCategory(value)}>{value}</button>)}
+    </div>
+    <div className="pn-inventory-results" aria-busy={view.status === "loading"}>
+      {view.status === "loading" ? <div className="pn-inventory-loading" role="status">
+        <p>正在读取{inventoryLocation ? locationLabel : "库存"}食材…</p>
+        <div className="pn-inventory-skeletons" aria-hidden="true">{[0, 1].map((key) => <div className="pn-inventory-skeleton" key={key}><i /><i /><i /></div>)}</div>
+      </div> : view.status === "error" ? <div className="pn-inventory-state" role="alert">
+        <h2>暂时没能打开这份清单</h2><p>{view.message}</p><button type="button" className="btn-ghost" onClick={retry}>重新读取</button>
+      </div> : view.status === "empty" ? <div className="pn-inventory-state">
+        <Empty title={filtered ? "没有找到这些食材" : "这里还没有食材"}>{filtered ? "试试其他名称，或切换位置和分类。" : "记下家里现有的食材，让下一顿有个着落。"}</Empty>
+      </div> : <div className="pn-inventory-groups">{view.groups.map(({ category: group, items }) => <section className="pn-inventory-group" key={group} aria-label={`${group}库存`}>
+        <h2><CategoryMark category={group} />{group}</h2>
+        <div className="pn-inventory-list">{items.map((item) => <button type="button" className="pn-inventory-row" key={item.id} aria-label={`查看${item.name}，余量${stockLabel(item)}`} onClick={() => openIngredient(item)}>
+          <span className="pn-inventory-name">{item.name}</span><span className="pn-inventory-quantity">{stockLabel(item)}</span>
+        </button>)}</div>
+      </section>)}</div>}
+    </div>
+  </section>;
 }
 
 export function InventoryAdjustmentsPage({ busy, refreshKey, revoke }: { busy: boolean; refreshKey: number; revoke: (id: number) => void }) {

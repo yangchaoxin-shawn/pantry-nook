@@ -1,4 +1,5 @@
 import { useEffect, useRef, type ReactNode } from "react";
+import { KitchenSketch } from './JournalArt';
 
 export type IconName = "sun" | "pantry" | "book" | "plus" | "moon" | "bowl" | "arrow" | "close" | "grid" | "history";
 
@@ -19,7 +20,7 @@ export function Icon({ name, size = 20 }: { name: IconName; size?: number }) {
 }
 
 export function Empty({ title, children }: { title: string; children: ReactNode }) {
-  return <div className="empty"><span className="empty-icon"><Icon name="bowl" size={32} /></span><h3>{title}</h3><p>{children}</p></div>;
+  return <div className="empty"><KitchenSketch /><h3>{title}</h3><p>{children}</p></div>;
 }
 
 export function Field({ label, children }: { label: string; children: ReactNode }) {

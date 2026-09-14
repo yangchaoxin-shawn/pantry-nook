@@ -1,12 +1,16 @@
 import react from '@vitejs/plugin-react'
-import { defineConfig } from 'vite'
+import { defineConfig, loadEnv } from 'vite'
 
-export default defineConfig({
-  plugins: [react()],
-  server: {
-    proxy: {
-      '/api': 'http://localhost:3000',
-      '/health': 'http://localhost:3000',
+export default defineConfig(({ mode }) => {
+  const env = loadEnv(mode, '.', '')
+  const apiTarget = env.PANTRY_API_PROXY_TARGET || 'http://localhost:3000'
+  return {
+    plugins: [react()],
+    server: {
+      proxy: {
+        '/api': apiTarget,
+        '/health': apiTarget,
+      },
     },
-  },
+  }
 })
