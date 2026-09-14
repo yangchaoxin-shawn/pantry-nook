@@ -253,7 +253,7 @@ def scenario_restock(
     target: SafeTestTarget,
     token: str,
     dish: dict[str, Any],
-) -> None:
+) -> dict[str, Any]:
     pending_name = f"候选补货{token}"
     battle_date, meal = next_free_slot(target.list_all("/api/daily-battles"))
     battle = target.api(
@@ -309,8 +309,78 @@ def scenario_restock(
     ]
     if len(ingredients) != 1 or preparations[0]["ingredient_id"] != ingredients[0]["id"]:
         raise AssertionError("菜单关联的不是本次补入的唯一同名库存")
+
+    target.assert_live()
+    dialog.get_by_role("button", name="确定", exact=True).click()
+    expect(dialog).to_be_hidden()
+    confirmed = target.api("GET", f"/api/daily-battles/{battle['id']}")
+    if confirmed["status"] != "confirmed":
+        raise AssertionError("核对实际用量后，菜单没有进入已完成状态")
+    refreshed = [
+        item
+        for item in target.list_all("/api/ingredients")
+        if item["name"] == pending_name
+    ]
+    if len(refreshed) != 1 or refreshed[0]["stock_value"] != 3:
+        raise AssertionError("确认菜单后，没有按实际用量扣减补入库存")
     assert_no_horizontal_overflow(page, "手机餐安排核对页")
-    dialog.get_by_role("button", name="关闭弹窗").click()
+    return refreshed[0]
+
+
+def scenario_waste_recovery(
+    page: Page,
+    target: SafeTestTarget,
+    ingredient: dict[str, Any],
+) -> None:
+    ingredient_name = ingredient["name"]
+    navigation = page.get_by_role("navigation", name="主导航")
+    navigation.get_by_role("button", name="库存", exact=True).click()
+    row = page.locator(".pn-inventory-row", has_text=ingredient_name)
+    expect(row).to_be_visible()
+    expect(row).to_contain_text("3个")
+    row.get_by_role("button", name=re.compile(f"^查看{re.escape(ingredient_name)}")).click()
+    dialog = page.get_by_role("dialog")
+    dialog.get_by_role("button", name="处理变质/损坏", exact=True).click()
+    expect(dialog.get_by_role("heading", name=f"处理变质/损坏 · {ingredient_name}")).to_be_visible()
+    dialog.get_by_role("button", name="处理部分", exact=True).click()
+    dialog.get_by_role("spinbutton", name="处理数量（个）", exact=True).fill("1")
+    target.assert_live()
+    dialog.get_by_role("button", name="确认处理", exact=True).click()
+    expect(dialog).to_be_hidden()
+    expect(row).to_contain_text("2个")
+
+    page.get_by_role("button", name="变质 / 损坏记录", exact=True).click()
+    record = page.locator("article", has_text=ingredient_name).filter(
+        has=page.get_by_role("button", name=re.compile(f"^撤销{re.escape(ingredient_name)}"))
+    )
+    expect(record).to_be_visible()
+    expect(record).to_contain_text("本次处理1个")
+    expect(record).not_to_contain_text("→")
+    record.get_by_role("button", name=re.compile(f"^撤销{re.escape(ingredient_name)}")).click()
+    recovery = page.get_by_role("dialog")
+    expect(recovery.get_by_role("heading", name="核对恢复库存", exact=True)).to_be_visible()
+    expect(recovery.get_by_text("本次恢复 1个", exact=True)).to_be_visible()
+    target.assert_live()
+    recovery.get_by_role("button", name="确认撤销", exact=True).click()
+    expect(recovery).to_be_hidden()
+
+    page.get_by_role("button", name="返回库存", exact=True).click()
+    expect(row).to_contain_text("3个")
+    adjustments = [
+        item
+        for item in target.list_all("/api/inventory-adjustments")
+        if item["ingredient_name"] == ingredient_name
+    ]
+    refreshed = [
+        item
+        for item in target.list_all("/api/ingredients")
+        if item["name"] == ingredient_name
+    ]
+    if len(adjustments) != 1 or adjustments[0]["status"] != "reversed":
+        raise AssertionError("撤销处理后，库存处理记录没有进入已撤销状态")
+    if len(refreshed) != 1 or refreshed[0]["stock_value"] != 3:
+        raise AssertionError("撤销处理后，库存数量没有恢复")
+    assert_no_horizontal_overflow(page, "手机库存处理与撤销页")
 
 
 def run_check(name: str, callback: Callable[[], None], results: list[str]) -> None:
@@ -362,9 +432,20 @@ def run_browser(browser: Browser, target: SafeTestTarget, timeout_ms: int) -> No
         dish = scenario_catalog(page, target, token)
         results.append("菜品、常用搭配与返回路径")
         print("[PASS] 菜品、常用搭配与返回路径", flush=True)
+        restocked = None
+        def restock_and_confirm() -> None:
+            nonlocal restocked
+            restocked = scenario_restock(page, target, token, dish)
         run_check(
-            "餐安排核对、补货、安全自动关联并回核对",
-            lambda: scenario_restock(page, target, token, dish),
+            "餐安排补货、安全自动关联并确认扣减",
+            restock_and_confirm,
+            results,
+        )
+        if restocked is None:
+            raise AssertionError("补货确认场景没有返回库存记录")
+        run_check(
+            "确认扣减、处理变质并安全撤销",
+            lambda: scenario_waste_recovery(page, target, restocked),
             results,
         )
         if blocked_writes:
