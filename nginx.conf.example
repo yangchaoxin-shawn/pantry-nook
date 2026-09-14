@@ -17,17 +17,17 @@ server {
     index index.html;
     include /etc/nginx/mime.types;
 
-    # 如果项目放在路径前缀，例如 https://yourdomain.com/A/
+    # 如果项目放在路径前缀，例如 https://yourdomain.com/pantry-nook/
     # 可开启下列鉴权块（只对该项目生效）：
-    # location = /A {
-    #     return 302 /A/;
+    # location = /pantry-nook {
+    #     return 302 /pantry-nook/;
     # }
     #
-    # location /A/api/ {
+    # location /pantry-nook/api/ {
     #     auth_basic "Private Area";
     #     auth_basic_user_file /usr/local/nginx/.pantry-nook.htpasswd;
-    #     # 将 /A/api/... 重写到后端的 /api/...，兼容前端以 /A 作为 API 基址的情况
-    #     rewrite ^/A/api/(.*)$ /$1 break;
+    #     # 将 /pantry-nook/api/... 重写到后端的 /api/...，兼容前端以 /pantry-nook 作为 API 基址的情况
+    #     rewrite ^/pantry-nook/api/(.*)$ /$1 break;
     #     proxy_pass http://127.0.0.1:8014;
     #     proxy_http_version 1.1;
     #     proxy_set_header Upgrade $http_upgrade;
@@ -38,10 +38,10 @@ server {
     #     proxy_set_header X-Forwarded-Proto $scheme;
     # }
     #
-    # location ^~ /A/ {
+    # location ^~ /pantry-nook/ {
     #     auth_basic "Private Area";
     #     auth_basic_user_file /usr/local/nginx/.pantry-nook.htpasswd;
-    #     try_files $uri $uri/ /A/index.html;
+    #     try_files $uri $uri/ /pantry-nook/index.html;
     # }
 
     # 不把不存在的脚本请求回退成 HTML。
