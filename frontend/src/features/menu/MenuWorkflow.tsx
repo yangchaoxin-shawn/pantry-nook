@@ -1,8 +1,9 @@
 import { initialUsage, inventoryVersion, resolvePlannedQuantity, usageValue } from './menu-confirm-logic';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
-import { api, localDate, type Battle, type BattleInput, type BattleConfirm, type Dish, type Ingredient, type MealPlan } from '../../shared/api/client';
+import { api, CATEGORIES, localDate, type Battle, type BattleInput, type BattleConfirm, type Dish, type Ingredient, type MealPlan } from '../../shared/api/client';
 import { canConvertUnits, convertUnitValue } from '../inventory/batch-ingredient-logic';
 import { restoreReviewRows, restockSuggestions, type ReviewDraft, type ReviewUsage } from './review-draft';
+import { ALL_INGREDIENT_CATEGORIES, ingredientCandidates, type IngredientCategoryFilter } from './ingredient-category-filter';
 
 const MEALS = { breakfast: '早餐', lunch: '午餐', dinner: '晚餐' } as const;
 type Meal = keyof typeof MEALS;
@@ -49,6 +50,7 @@ export function MenuEditor({ item, sourceDishes, plans, ingredients, initialPlan
   const [expectedVersion, setExpectedVersion] = useState(item?.updated_at);
   const [conflict, setConflict] = useState<Battle | null>(null);
   const [unitReview, setUnitReview] = useState<{ key: string; lines: string[] } | null>(null);
+  const [ingredientCategoryByDish, setIngredientCategoryByDish] = useState<Record<number, IngredientCategoryFilter>>({});
   const activeForm = useRef(true);
   const saving = useRef(false);
   useEffect(() => { activeForm.current = true; return () => { activeForm.current = false; }; }, []);
@@ -73,7 +75,16 @@ export function MenuEditor({ item, sourceDishes, plans, ingredients, initialPlan
       setSelected(s => s.includes(dish.id) ? s : [...s, dish.id]); onDishAdded(dish); setName('');
     } catch(e) { setError(message(e)); } finally { creating.current = false; setAdding(false); }
   }
-  function toggle(did: number) { setSelected(s => s.includes(did) ? s.filter(id => id !== did) : [...s, did]); setPreps(p => p.filter(v => v.dish_id !== did)); }
+  function toggle(did: number) {
+    const removing = selected.includes(did);
+    setSelected(current => removing ? current.filter(id => id !== did) : [...current, did]);
+    setPreps(current => current.filter(value => value.dish_id !== did));
+    if (removing) setIngredientCategoryByDish(current => {
+      const next = { ...current };
+      delete next[did];
+      return next;
+    });
+  }
   async function submit(e: FormEvent) {
     e.preventDefault();
     if (busy || checking || conflict || saving.current) return;
@@ -156,13 +167,35 @@ export function MenuEditor({ item, sourceDishes, plans, ingredients, initialPlan
     {error && <p className="form-error" role="alert">{error}</p>}
     <fieldset><legend>这餐吃什么</legend><div className="dish-choice-list">{dishes.filter(d => selected.includes(d.id) || d.name.includes(name.trim())).map(d => <label className="choice" key={d.id}><input type="checkbox" checked={selected.includes(d.id)} onChange={() => toggle(d.id)} />{d.name}</label>)}</div>{!dishes.length && <p className="muted">输入菜名后加入</p>}</fieldset>
     {unavailable.length > 0 && <p className="form-error">存在失效菜品<button type="button" className="text-button" onClick={() => { setSelected(s => s.filter(id => !unavailable.includes(id))); setPreps(p => p.filter(v => !unavailable.includes(v.dish_id))); }}>移除失效菜品</button></p>}
-    {validSelected.map(did => <fieldset key={did}><legend>{dishes.find(d => d.id === did)?.name} · 备餐</legend>
-      <div className="actions prep-add-actions"><label className="field">从库存添加耗材<select aria-label={`为${dishes.find(d => d.id === did)?.name}选择库存耗材`} value="" onChange={e => { if(e.target.value) setPreps(p => [...p, inventoryPrep(did, Number(e.target.value))]); }}><option value="">选择库存食材</option>{active.filter(i => !preps.some(p => p.dish_id === did && p.ingredient_id === i.id)).map(i => <option key={i.id} value={i.id}>{i.name} · 库存 {stockLabel(i)}</option>)}</select></label><button type="button" className="btn-ghost" onClick={() => setPreps(p => [...p, pendingPrep(did)])}>添加待购买食材</button></div>
-      {preps.filter(p => p.dish_id === did).map((p, index) => { const ing = ingredients.find(i => i.id === p.ingredient_id); const unit = ing?.stock_unit; const plannedUnit = p.planned_quantity_unit ?? unit; const unitChanged = !!p.planned_quantity_unit && !!unit && p.planned_quantity_unit !== unit; const total = p.ingredient_id == null ? null : plannedTotals.get(p.ingredient_id) ?? 0; const shortage = ing && total !== null && total > ing.stock_value; const inventory = isInventoryPrep(p); return <div className={`prep-row ${inventory ? 'prep-row--inventory' : 'prep-row--pending'}`} key={`${p.ingredient_id ?? 'pending'}-${index}`}>
-        {inventory ? <><span>{ing?.name ?? '已不在库'}{unit ? ` · 当前库存单位 ${unit}` : ''}{shortage && <small className="prep-shortage">本餐预计 {total}{unit}，库存只有 {stockLabel(ing)}</small>}</span>{!ing && <label className="field">替换失效的库存关联<select aria-label={`为${dishes.find(d => d.id === did)?.name}替换失效食材`} value="" onChange={e => { const target = active.find(value => value.id === Number(e.target.value)); if (target) setPreps(ps => ps.map(value => value === p ? { ...inventoryPrep(did, target.id, p.planned_quantity_unit === target.stock_unit ? p.planned_quantity_text : '', target.stock_unit), previous_quantity_label: plannedLabel(p.planned_quantity_text, p.planned_quantity_unit) } : value)); }}><option value="">选择这次使用的在库食材</option>{active.filter(value => !preps.some(prep => prep.dish_id === did && prep.ingredient_id === value.id)).map(value => <option key={value.id} value={value.id}>{value.name} · 库存 {stockLabel(value)}</option>)}</select></label>}{p.previous_quantity_label && <small className="form-hint">原预计 {p.previous_quantity_label}；请核对这次使用的食材及当前单位。</small>}<label className="field">预计用量{plannedUnit ? `（${unitChanged ? `保存时 ${plannedUnit}` : plannedUnit}）` : ''}<input aria-label={`${dishes.find(d => d.id === did)?.name}的预计${ing?.name ?? '食材'}用量`} placeholder={`预计用量${plannedUnit ? `（${plannedUnit}）` : ''}`} maxLength={255} value={p.planned_quantity_text ?? ''} onChange={e => setPreps(ps => ps.map(v => v === p ? { ...v, planned_quantity_text: e.target.value, planned_quantity_unit: unit } : v))} /></label>{unitChanged && <small className="muted">当前库存已改为 {unit}；保留原值会按 {plannedUnit} 核对，修改后按 {unit} 保存。</small>}</> : <><label className="field">待购买食材<input aria-label={`${dishes.find(d => d.id === did)?.name}的待购食材`} placeholder="例如菠萝" maxLength={255} value={p.pending_ingredient_name} onChange={e => setPreps(ps => ps.map(v => v === p ? pendingPrep(v.dish_id, e.target.value, v.planned_quantity_text) : v))} /></label><label className="field">预计用量<input aria-label={`${dishes.find(d => d.id === did)?.name}的预计待购食材用量`} placeholder="例如 1个" maxLength={255} value={p.planned_quantity_text ?? ''} onChange={e => setPreps(ps => ps.map(v => v === p ? { ...v, planned_quantity_text: e.target.value } : v))} /></label><label className="field prep-link">已经入库？<select aria-label={`为${dishes.find(d => d.id === did)?.name}关联已入库食材`} value="" onChange={e => { if (e.target.value) { const ingredient = active.find(item => item.id === Number(e.target.value)); setPreps(ps => ps.map(v => v === p ? inventoryPrep(v.dish_id, Number(e.target.value), v.planned_quantity_text, ingredient?.stock_unit) : v)); } }}><option value="">选择这餐使用的库存</option>{active.filter(i => !preps.some(prep => prep.dish_id === did && prep.ingredient_id === i.id)).map(i => <option key={i.id} value={i.id}>{i.name} · 库存 {stockLabel(i)}</option>)}</select></label></>}
-        <button type="button" className="text-button" aria-label={`移除${dishes.find(d => d.id === did)?.name}的耗材`} onClick={() => setPreps(ps => ps.filter(v => v !== p))}>移除</button>
-      </div>; })}
-    </fieldset>)}
+    {validSelected.map(did => {
+      const dishName = dishes.find(d => d.id === did)?.name ?? '这道菜';
+      const categoryFilter = ingredientCategoryByDish[did] ?? ALL_INGREDIENT_CATEGORIES;
+      const linkedIngredientIds = preps.filter(prep => prep.dish_id === did && prep.ingredient_id != null).map(prep => prep.ingredient_id as number);
+      const allCandidates = ingredientCandidates(active, linkedIngredientIds, ALL_INGREDIENT_CATEGORIES);
+      const candidates = ingredientCandidates(active, linkedIngredientIds, categoryFilter);
+      const emptyHint = active.length === 0
+        ? '库存里还没有食材，可以先添加待购买食材。'
+        : categoryFilter === ALL_INGREDIENT_CATEGORIES || allCandidates.length === 0
+          ? '这道菜没有更多可关联的库存食材，已选食材仍保留在下方。'
+          : `${categoryFilter}里暂时没有可关联的食材，其他大类还有 ${allCandidates.length} 项可选；已选食材仍保留。`;
+      return <fieldset key={did}><legend>{dishName} · 备餐</legend>
+        <div className="prep-stock-picker">
+          <div className="prep-filter-heading"><span>按库存大类找食材</span><small>{candidates.length} 项可选</small></div>
+          <div className="prep-category-filter" role="group" aria-label={`筛选${dishName}的库存食材大类`}>
+            {[ALL_INGREDIENT_CATEGORIES, ...CATEGORIES].map(category => {
+              const count = ingredientCandidates(active, linkedIngredientIds, category).length;
+              return <button type="button" key={category} aria-pressed={categoryFilter === category} aria-label={`${category}，${count}项可选`} onClick={() => setIngredientCategoryByDish(current => ({ ...current, [did]: category }))}><span>{category}</span><small aria-hidden="true">{count}</small></button>;
+            })}
+          </div>
+          <div className="actions prep-add-actions"><label className="field">从库存添加耗材<select aria-label={`为${dishName}选择库存耗材`} value="" disabled={!candidates.length} onChange={e => { const id = Number(e.target.value); if (id && candidates.some(item => item.id === id)) setPreps(current => current.some(prep => prep.dish_id === did && prep.ingredient_id === id) ? current : [...current, inventoryPrep(did, id)]); }}><option value="">{candidates.length ? `选择${categoryFilter === ALL_INGREDIENT_CATEGORIES ? '' : categoryFilter}库存食材` : '当前大类没有可选食材'}</option>{candidates.map(i => <option key={i.id} value={i.id}>{i.name} · 库存 {stockLabel(i)}</option>)}</select></label><button type="button" className="btn-ghost" onClick={() => setPreps(p => [...p, pendingPrep(did)])}>添加待购买食材</button></div>
+          {!candidates.length && <p className="prep-filter-empty" role="status">{emptyHint}</p>}
+        </div>
+        {preps.filter(p => p.dish_id === did).map((p, index) => { const ing = ingredients.find(i => i.id === p.ingredient_id); const unit = ing?.stock_unit; const plannedUnit = p.planned_quantity_unit ?? unit; const unitChanged = !!p.planned_quantity_unit && !!unit && p.planned_quantity_unit !== unit; const total = p.ingredient_id == null ? null : plannedTotals.get(p.ingredient_id) ?? 0; const shortage = ing && total !== null && total > ing.stock_value; const inventory = isInventoryPrep(p); return <div className={`prep-row ${inventory ? 'prep-row--inventory' : 'prep-row--pending'}`} key={`${p.ingredient_id ?? 'pending'}-${index}`}>
+          {inventory ? <><span>{ing?.name ?? '已不在库'}{unit ? ` · 当前库存单位 ${unit}` : ''}{shortage && <small className="prep-shortage">本餐预计 {total}{unit}，库存只有 {stockLabel(ing)}</small>}</span>{!ing && <label className="field">替换失效的库存关联<select aria-label={`为${dishName}替换失效食材`} value="" disabled={!candidates.length} onChange={e => { const target = candidates.find(value => value.id === Number(e.target.value)); if (target) setPreps(ps => ps.map(value => value === p ? { ...inventoryPrep(did, target.id, p.planned_quantity_unit === target.stock_unit ? p.planned_quantity_text : '', target.stock_unit), previous_quantity_label: plannedLabel(p.planned_quantity_text, p.planned_quantity_unit) } : value)); }}><option value="">{candidates.length ? '选择这次使用的在库食材' : '当前大类没有可选食材'}</option>{candidates.map(value => <option key={value.id} value={value.id}>{value.name} · 库存 {stockLabel(value)}</option>)}</select></label>}{p.previous_quantity_label && <small className="form-hint">原预计 {p.previous_quantity_label}；请核对这次使用的食材及当前单位。</small>}<label className="field">预计用量{plannedUnit ? `（${unitChanged ? `保存时 ${plannedUnit}` : plannedUnit}）` : ''}<input aria-label={`${dishName}的预计${ing?.name ?? '食材'}用量`} placeholder={`预计用量${plannedUnit ? `（${plannedUnit}）` : ''}`} maxLength={255} value={p.planned_quantity_text ?? ''} onChange={e => setPreps(ps => ps.map(v => v === p ? { ...v, planned_quantity_text: e.target.value, planned_quantity_unit: unit } : v))} /></label>{unitChanged && <small className="muted">当前库存已改为 {unit}；保留原值会按 {plannedUnit} 核对，修改后按 {unit} 保存。</small>}</> : <><label className="field">待购买食材<input aria-label={`${dishName}的待购食材`} placeholder="例如菠萝" maxLength={255} value={p.pending_ingredient_name} onChange={e => setPreps(ps => ps.map(v => v === p ? pendingPrep(v.dish_id, e.target.value, v.planned_quantity_text) : v))} /></label><label className="field">预计用量<input aria-label={`${dishName}的预计待购食材用量`} placeholder="例如 1个" maxLength={255} value={p.planned_quantity_text ?? ''} onChange={e => setPreps(ps => ps.map(v => v === p ? { ...v, planned_quantity_text: e.target.value } : v))} /></label><label className="field prep-link">已经入库？<select aria-label={`为${dishName}关联已入库食材`} value="" disabled={!candidates.length} onChange={e => { const ingredient = candidates.find(item => item.id === Number(e.target.value)); if (ingredient) setPreps(ps => ps.map(v => v === p ? inventoryPrep(v.dish_id, ingredient.id, v.planned_quantity_text, ingredient.stock_unit) : v)); }}><option value="">{candidates.length ? `选择${categoryFilter === ALL_INGREDIENT_CATEGORIES ? '' : categoryFilter}库存食材` : '当前大类没有可选食材'}</option>{candidates.map(i => <option key={i.id} value={i.id}>{i.name} · 库存 {stockLabel(i)}</option>)}</select></label></>}
+          <button type="button" className="text-button" aria-label={`移除${dishName}的耗材`} onClick={() => setPreps(ps => ps.filter(v => v !== p))}>移除</button>
+        </div>; })}
+      </fieldset>;
+    })}
     {missingPreparationDishes.length > 0 && <p className="form-hint">每道菜至少选择一种耗材后才能保存；预计用量可以稍后补。</p>}
     {incompletePreparation && <p className="form-error">待购食材请填写名称；库存耗材和待购名称只能二选一。</p>}
     {invalidPlannedPreparation && <p className="form-error">预计用量请填写数字或分数；单位会自动带上。</p>}

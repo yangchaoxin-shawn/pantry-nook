@@ -23,6 +23,7 @@ import { DishesPage, PlansPage } from "../features/catalog/CatalogPages";
 import { ConsumptionPage } from "../features/menu/ConsumptionPage";
 import { AppModal } from "./AppModal";
 import { JournalHero, KitchenSketch } from '../shared/ui/JournalArt';
+import { JournalSceneHero } from '../shared/ui/JournalSceneHero';
 import '../styles/journal.css';
 import type { AppData, Modal, Page } from "./types";
 import type { InventoryLocation } from '../features/inventory/inventory-view';
@@ -286,28 +287,27 @@ export default function App() {
       </header>
       <main id="main" className="main">
         {parentPage && <div className="subpage-navigation"><nav aria-label="当前位置"><button type="button" onClick={() => navigate(parentPage.page)}>{parentPage.label}</button><span aria-hidden="true">/</span><span aria-current="page">{parentPage.current}</span></nav><button type="button" className="btn-ghost subpage-back" onClick={() => navigate(parentPage.page)}><span aria-hidden="true">←</span> 返回{parentPage.label}</button></div>}
-        {page === 'ingredients' ? <JournalHero /> : <div className="page-heading">
+        {page === 'ingredients' ? <JournalHero /> : page === 'battles' ? <JournalSceneHero
+          kind="menu"
+          eyebrow={dateLabel}
+          actions={<>
+            {addButton("安排一餐", { kind: "battle" })}
+            <button className="btn-ghost" onClick={() => navigate("ingredients")}>查看库存</button>
+          </>}
+        /> : page === 'dishes' ? <JournalSceneHero
+          kind="catalog"
+          actions={<>
+            {addButton("添加菜品", { kind: "dish" })}
+            <button className="btn-ghost" onClick={() => navigate("plans")}>常用搭配</button>
+          </>}
+        /> : <div className="page-heading">
           <div>
-            <p className="eyebrow">
-              {page === "battles" ? dateLabel : "PANTRY NOOK · 厨房里的小日常"}
-            </p>
+            <p className="eyebrow">PANTRY NOOK · 厨房里的小日常</p>
             <h1>{titles[page]}</h1>
             <p className="subtitle">{subtitles[page]}</p>
           </div>
           <div className="heading-actions">
-            {page === "battles" ? (
-              <>
-                {addButton("安排一餐", { kind: "battle" })}
-                <button
-                  className="btn-ghost"
-                  onClick={() => navigate("ingredients")}
-                >
-                  查看库存
-                </button>
-              </>
-            ) : page === "dishes" ? (
-              <>{addButton("添加菜品", { kind: "dish" })}<button className="btn-ghost" onClick={() => navigate("plans")}>常用搭配</button></>
-            ) : page === "plans" ? (
+            {page === "plans" ? (
               addButton("创建搭配", { kind: "plan" })
             ) : (
               <button className="btn-ghost" disabled={loading} onClick={reload}>

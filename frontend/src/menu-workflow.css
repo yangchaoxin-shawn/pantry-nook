@@ -30,8 +30,19 @@
 .prep-row .field { min-width: 0; margin: 0; }
 .prep-row input, .prep-row select { min-width: 0; height: 40px; padding: 8px; }
 .prep-row--pending { grid-template-columns: repeat(3, minmax(0, 1fr)) auto; }
-.prep-add-actions { align-items: end; margin: 0 0 8px; }
+.prep-stock-picker { min-width: 0; display: grid; gap: 8px; margin: 0 0 10px; padding: 10px 12px 12px; border: 1px solid var(--hairline); border-radius: 12px; background: color-mix(in srgb, var(--surface-warm) 72%, transparent); }
+.prep-filter-heading { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; color: var(--ink-soft); font-size: 13px; }
+.prep-filter-heading small { flex: 0 0 auto; color: var(--ink-muted); font-size: 11px; }
+.prep-category-filter { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 5px; min-width: 0; }
+.prep-category-filter button { display: flex; justify-content: center; align-items: center; gap: 5px; min-width: 0; min-height: 36px; padding: 5px 7px; border: 1px solid var(--hairline); border-radius: 999px; background: var(--surface); color: var(--ink-soft); font: inherit; font-size: 12px; cursor: pointer; }
+.prep-category-filter button > span { min-width: 0; white-space: nowrap; }
+.prep-category-filter button small { flex: 0 0 auto; min-width: 17px; padding: 1px 4px; border-radius: 999px; background: var(--canvas); color: var(--ink-muted); font-size: 10px; line-height: 1.4; }
+.prep-category-filter button[aria-pressed="true"] { border-color: var(--primary-100); background: var(--primary-50); color: var(--primary); font-weight: 600; }
+.prep-category-filter button:focus-visible { outline: 3px solid color-mix(in srgb, var(--primary) 35%, transparent); outline-offset: 2px; }
+.prep-add-actions { align-items: end; margin: 0; }
 .prep-add-actions .field { flex: 1; margin: 0; }
+.prep-add-actions select { width: 100%; }
+.prep-filter-empty { margin: 0; color: var(--ink-muted); font-size: 12px; line-height: 1.55; }
 .prep-shortage { display: block; margin-top: 3px; color: var(--primary); font-weight: 400; }
 .inventory-groups { max-width: 800px; display: grid; gap: 22px; }
 .inventory-group .section-heading { margin-bottom: 8px; }
@@ -66,6 +77,12 @@
   .history-filter input { font-size: 12px; width: 130px; }
   .history-filter { gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
   .menu-order .actions .btn-primary { width: 100%; justify-content: center; }
+  .prep-stock-picker { padding: 10px; }
+  .prep-category-filter { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .prep-category-filter button { min-height: 44px; padding: 7px 5px; }
+  .prep-add-actions { align-items: stretch; flex-direction: column; }
+  .prep-add-actions .field, .prep-add-actions > button { width: 100%; min-width: 0; }
+  .prep-add-actions > button { min-height: 44px; }
   .prep-row, .prep-row--pending { grid-template-columns: minmax(0, 1fr) auto; }
   .confirm-usage-row { grid-template-columns: 1fr; gap: 8px; }
   .confirm-usage-meta { padding-bottom: 0; }

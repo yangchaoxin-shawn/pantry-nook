@@ -1,4 +1,5 @@
 import type { Dish, MealPlan } from "../../shared/api/client";
+import { LittlePerson } from "../../shared/ui/LittlePerson";
 import { Empty } from "../../shared/ui/Primitives";
 import './catalog.css';
 
@@ -16,7 +17,10 @@ export function DishesPage({ dishes, search, setSearch, edit, remove }: { dishes
         <div className="dish-name-flow">{visible.map((dish) => <article
           className={`dish-entry dish-stroke-${dish.id % 4}${Array.from(dish.name).length > 8 ? ' dish-entry-long' : ''}`}
           key={dish.id} aria-labelledby={`dish-name-${dish.id}`}>
-          <h3 id={`dish-name-${dish.id}`}><span>{dish.name}</span></h3>
+          <div className="dish-entry-title">
+            <LittlePerson namespace="dish" businessId={dish.id} className="dish-entry-person" />
+            <h3 id={`dish-name-${dish.id}`}><span>{dish.name}</span></h3>
+          </div>
           <div className="dish-entry-actions">
             <button type="button" className="dish-edit" aria-label={`编辑${dish.name}`} onClick={() => edit(dish)}>编辑</button>
             <button type="button" className="dish-delete" aria-label={`删除${dish.name}`} onClick={() => remove(dish)}>删除</button>
@@ -30,7 +34,11 @@ export function DishesPage({ dishes, search, setSearch, edit, remove }: { dishes
 
 export function PlansPage({ plans, onUsePlan, edit, remove }: { plans: MealPlan[]; onUsePlan: (plan: MealPlan) => void; edit: (plan: MealPlan) => void; remove: (plan: MealPlan) => void }) {
   return <>
-    <div className="inventory-grid">{plans.map((plan) => <article className="card plan-card" key={plan.id}><span className="eyebrow">喜欢的组合</span><h2>{plan.name || "未命名搭配"}</h2><div className="dish-tags">{plan.dishes.map((dish) => <span key={dish.id}>{dish.name}</span>)}</div><div className="actions"><button className="btn-primary" onClick={() => onUsePlan(plan)}>用这个搭配</button><button className="text-button" onClick={() => edit(plan)}>编辑</button><button className="text-button danger" onClick={() => remove(plan)}>删除</button></div></article>)}</div>
+    <div className="inventory-grid">{plans.map((plan) => <article className="card plan-card" key={plan.id}>
+      <div className="plan-card-heading"><div><span className="eyebrow">喜欢的组合</span><h2>{plan.name || "未命名搭配"}</h2></div><LittlePerson namespace="plan" businessId={plan.id} className="plan-card-person" /></div>
+      <div className="dish-tags">{plan.dishes.map((dish) => <span key={dish.id}>{dish.name}</span>)}</div>
+      <div className="actions"><button className="btn-primary" onClick={() => onUsePlan(plan)}>用这个搭配</button><button className="text-button" onClick={() => edit(plan)}>编辑</button><button className="text-button danger" onClick={() => remove(plan)}>删除</button></div>
+    </article>)}</div>
     {!plans.length && <section className="card"><Empty title="存一份喜欢的搭配">选几道菜组成模板，下次可以直接安排。</Empty></section>}
   </>;
 }

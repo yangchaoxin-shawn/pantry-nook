@@ -1,6 +1,6 @@
 # UI 设计基线：V6 + 约 50% 纹理
 
-更新：2026-09-14。用户已确认 **第六版风格、纹理约保留 50%**。这是后续正式 React 迁移的视觉基准；正式 UI 第一批仍待用户验收，不将原型认可写成正式功能验收通过。
+更新：2026-09-14。用户已确认 **第六版风格、纹理约保留 50%**。这是正式 React 迁移的视觉基准；当前已从公共基础推进到菜品与餐安排的插画、小人视觉轮，并通过本轮 agent 定向验证，仍待用户验收，不将原型认可写成正式功能验收通过。
 
 ## 来源与边界
 
@@ -27,24 +27,27 @@
 - 库存列表保持“名字 + 数量”、类别分组、详情点击进入；桌面利用分列，手机紧凑逐行。响应式调整留白与布局，不重复建设三套业务界面。
 - 2026-09-14 用户否定常规紧凑菜品卡片网格，批准大胆设计：采用连续菜品簿纸面，菜名按长度自然排列，手写下划线与括号形成节奏；不为每个菜名增加独立卡片。编辑/删除保持 6:4 与触控面积，长菜名完整换行。
 - 餐安排采用日期时间线，同日多餐共用日期标记；待完成在上，完成/取消历史在下。手机日期移到餐记录上方，保留状态、展开用料、原有操作和日期筛选。
+- 菜品小人使用稳定菜品 ID 映射，同一菜品在菜品簿和餐安排时间线保持同一姿态；改名、刷新和跨页面不重新随机。搭配使用独立映射命名空间，视觉映射不增加数据库字段或手动选择步骤。
+- 库存、菜品、餐安排三个主页面分别使用已批准的库存居家、菜谱时刻、厨房伙伴插画。插画与小人是内容层级和情绪节奏的一部分，不代替状态、数量或操作文案。
 
 ## 字体与素材
 
 - 手写字体为 **Xiaolai 小赖 v3.126 派生的 Pantry Hand**，不是喜茶官方字体。标题、菜名、按钮和短文案使用手写体；数量、小数、分数、日期使用清晰的系统字体，逐批核对显示与输入。
 - 当前正式稿由 [handwriting.css](../frontend/src/styles/handwriting.css) 按 `unicode-range` 加载 45 个 WOFF2 分包。只预载 `hand-ui.woff2`（114,104 字节，约 114 KB）；全套约 12.48 MB，不全部预载。`font-display: swap` 保留加载回退。
 - 许可随产品分发：[公开 OFL 文件](../frontend/public/licenses/OFL-Xiaolai.txt) 与 [来源说明](../frontend/public/licenses/README.txt)，构建后应在 `/licenses/` 保留；不能只存于源码目录。
-- 库存页头实际素材为 [pantry-home.webp](../frontend/src/assets/journal/pantry-home.webp)，源自 `design/kitchen-journal-v1/assets/cutouts/pantry-home.webp`，RGBA、960×707。原型脚本残留的 `pantry-collage.png` 不是当前默认图。
+- 正式页头素材为库存页的 [pantry-home.webp](../frontend/src/assets/journal/pantry-home.webp)、菜品页的 [recipe-time.webp](../frontend/src/assets/journal/recipe-time.webp) 与餐安排页的 [kitchen-team.webp](../frontend/src/assets/journal/kitchen-team.webp)，均取自 `design/kitchen-journal-v1/assets/cutouts/`。原型脚本残留的 `pantry-collage.png` 不是当前默认图。
+- 菜品与搭配小人由 [LittlePerson.tsx](../frontend/src/shared/ui/LittlePerson.tsx) 呈现、[little-person-map.ts](../frontend/src/shared/ui/little-person-map.ts) 根据业务 ID 确定姿态；餐安排复用菜品命名空间，确保跨页面一致。
 - 前景插画使用真实透明素材、`object-fit: contain`、正常混合，不加图片底板或遮罩。暗色可保留细浅色描边帮助黑线显现，不改变食物颜色。纸张背景本身允许不透明。
 - 正式素材通过 Vite 资源路径引用，不依赖 `/v6-tuning/`、临时目录或原型服务。评审用 iframe/视口工具不放入生产 `public/`。
 
 ## 交互职责与迁移顺序
 
-1. **公共基础 + 库存清单（当前第一批）**：由 [journal.css](../frontend/src/styles/journal.css) 和 [JournalArt.tsx](../frontend/src/shared/ui/JournalArt.tsx) 承接色板、纸纹、字体、页头插画与短动效；库存读取和动作继续使用既有 React/API。单个/批量录入、详情、全局报废记录及撤销入口必须保持可达。
+1. **公共基础 + 库存清单（已接入）**：由 [journal.css](../frontend/src/styles/journal.css) 和 [JournalArt.tsx](../frontend/src/shared/ui/JournalArt.tsx) 承接色板、纸纹、字体、页头插画与短动效；库存读取和动作继续使用既有 React/API。单个/批量录入、详情、全局报废记录及撤销入口必须保持可达。
 2. **库存详情与表单细化**：沿用现有编辑、冲突处理、报废/恢复业务，只迁移呈现；保留输入、错误引导、忙碌禁用、Esc 处理与焦点恢复。
-3. **菜品与搭配**：迁移列表、编辑与自动小人装饰。小人与菜品语义无关，不要求手动选图；正式映射应围绕稳定业务 ID 设计，不照搬原型按菜名建立、刷新即清空的随机 Map。若需要新增持久化字段或 API，先单独明确并确认，不借视觉迁移新增业务。
-4. **餐安排、核对及历史**：保留真实状态、缺料引导、数量原文和确认事务边界，再迁移布局；不采用原型的内存业务实现。
+3. **菜品与搭配（当前视觉轮已接入）**：连续菜品簿、菜品页头和自动小人使用真实 React/API 数据。小人与菜品语义无关，不要求手动选图；正式映射使用稳定业务 ID，不照搬原型按菜名建立、刷新即清空的随机 Map。
+4. **餐安排、核对及历史（当前视觉轮已接入）**：日期时间线复用菜品小人，餐安排页头使用已批准插画；继续保留真实状态、缺料引导、数量原文和确认事务边界，不采用原型的内存业务实现。
 5. **跨模块验收**：逐模块定向验证，公共组件变化检查直接受影响页面；最后做真实 API 全链路。按 [验证分档](collaboration.md#验证分档) 执行，不每轮重复全量回归。
 
-动效服务于反馈：点击插画播放短动作，跟随 `prefers-reduced-motion`，卸载时清理监听；不得延迟业务确认、重复提交或抢占表单操作。当前正式稿已为减少动态效果增加点击前检查和偏好变更复位。
+动效服务于反馈：点击插画播放短动作，不得延迟业务确认、重复提交或抢占表单操作。当前正式稿在点击前检查 `prefers-reduced-motion`，CSS 在减少动态效果时禁用动画。
 
 本文件冻结设计方向与移植边界，不作为测试通过证明。实际进度、未覆盖场景与用户验收状态见 [项目状态](project-status.md) 及本批交付记录。

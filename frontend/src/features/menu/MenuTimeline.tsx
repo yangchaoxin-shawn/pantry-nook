@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import type { Battle, Consumption } from '../../shared/api/client';
+import { LittlePerson } from '../../shared/ui/LittlePerson';
 import { menuTimelineSections, type MenuDateGroup } from './menu-timeline-logic';
 import './menu-timeline.css';
 
@@ -37,7 +38,11 @@ export function MenuTimeline({ battles, consumptions, edit, confirm, cancel, res
         <h3 id={`meal-title-${battle.id}`}>{battle.meal_slot ? MEALS[battle.meal_slot] : '未分类'}</h3>
         <span className={`badge ${battle.status}`}>{planned ? '待完成' : battle.status === 'confirmed' ? '已完成' : '已取消'}</span>
       </div>
-      <p className="meal-timeline-dishes">{battle.dishes.map(dish => dish.name).join(' · ')}</p>
+      <div className="meal-timeline-dishes">{battle.dishes.map((dish, index) => <span className="meal-timeline-dish" key={dish.id}>
+        <LittlePerson namespace="dish" businessId={dish.dish_id} className="meal-dish-person" />
+        <span>{dish.name}</span>
+        {index < battle.dishes.length - 1 && <i aria-hidden="true">·</i>}
+      </span>)}</div>
       <details className="meal-timeline-details"><summary>{planned ? '查看备餐食材' : '查看用料与记录'}</summary>
         {planned && battle.dishes.map(dish => <div key={dish.id} className="menu-dish-prep"><strong>{dish.name}</strong>
           <p>{battle.preparations.filter(prep => prep.daily_battle_dish_id === dish.id).map(prep => `${prep.ingredient_id === null ? `待购买：${prep.pending_ingredient_name}` : prep.ingredient_name}${prep.planned_quantity_text ? `（预计${plannedLabel(prep.planned_quantity_text, prep.planned_quantity_unit)}）` : ''}${prep.ingredient_id !== null && prep.ingredient_status !== 'active' ? ' · 已不在库' : ''}`).join('、') || '还没有选择食材，可编辑补充'}</p></div>)}

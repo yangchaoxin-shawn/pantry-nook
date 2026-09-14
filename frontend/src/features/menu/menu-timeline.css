@@ -18,7 +18,11 @@
 .meal-timeline-entry-planned::before { background: var(--primary); }
 .meal-timeline-entry-heading { display: flex; gap: 14px; justify-content: space-between; align-items: center; margin-bottom: 8px; }
 .meal-timeline-entry h3 { font-weight: 400; font-size: 21px; }
-.meal-timeline-dishes { font-size: 19px; line-height: 1.7; color: var(--ink); overflow-wrap: anywhere; }
+.meal-timeline-dishes { display: flex; flex-wrap: wrap; align-items: center; gap: 3px 5px; font-size: 19px; line-height: 1.7; color: var(--ink); overflow-wrap: anywhere; }
+.meal-timeline-dish { display: inline-flex; align-items: center; min-width: 0; }
+.meal-timeline-dish > span:not(.little-person-host) { overflow-wrap: anywhere; }
+.meal-timeline-dish > i { margin-inline: 8px 3px; color: var(--ink-muted); font-style: normal; }
+.meal-dish-person { width: 54px; height: 40px; margin: -7px 1px -4px -5px; }
 .meal-timeline-details { margin: 5px 0 8px; font-size: 14px; color: var(--ink-soft); }
 .meal-timeline-details summary { width: fit-content; max-width: 100%; cursor: pointer; min-height: 44px; padding: 10px 0; color: var(--primary); }
 .meal-timeline-details[open] { margin-bottom: 17px; }
@@ -29,6 +33,7 @@
 .meal-timeline-entry-history { border-bottom: 1px solid var(--hairline); padding-top: 6px; padding-bottom: 18px; }
 .meal-timeline-entry-history::before { top: 16px; }
 .meal-timeline-entry-history .meal-timeline-dishes { font-size: 17px; }
+.meal-timeline-entry-history .meal-dish-person { --person-fill: var(--canvas); width: 47px; height: 36px; }
 .meal-timeline-entry-history .meal-timeline-entry-heading { margin-bottom: 5px; }
 .meal-timeline-entry-history .meal-timeline-details { margin-block: 0 4px; }
 .meal-history-filter { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 7px 12px; }
@@ -52,6 +57,7 @@
   .meal-timeline-entry::before { left: -22px; top: 24px; }
   .meal-timeline-entry h3 { font-size: 20px; }
   .meal-timeline-dishes { font-size: 18px; }
+  .meal-dish-person { width: 48px; height: 38px; margin-left: -4px; }
   .meal-timeline-details { font-size: 13px; }
   .meal-timeline-entry-history { padding: 5px 2px 17px 7px; }
   .meal-timeline-entry-history::before { top: 15px; }
