@@ -1,11 +1,12 @@
-import { initialUsage, inventoryVersion, usageValue } from './menu-confirm-logic';
+import { initialUsage, inventoryVersion, resolvePlannedQuantity, usageValue } from './menu-confirm-logic';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
-import { api, localDate, type Battle, type BattleInput, type BattleConfirm, type Dish, type Ingredient, type MealPlan, type Consumption } from '../../shared/api/client';
+import { api, localDate, type Battle, type BattleInput, type BattleConfirm, type Dish, type Ingredient, type MealPlan } from '../../shared/api/client';
 import { canConvertUnits, convertUnitValue } from '../inventory/batch-ingredient-logic';
+import { restoreReviewRows, restockSuggestions, type ReviewDraft, type ReviewUsage } from './review-draft';
 
 const MEALS = { breakfast: '早餐', lunch: '午餐', dinner: '晚餐' } as const;
 type Meal = keyof typeof MEALS;
-type PrepBase = { dish_id: number; planned_quantity_text?: string | null; planned_quantity_unit?: string | null };
+type PrepBase = { dish_id: number; planned_quantity_text?: string | null; planned_quantity_unit?: string | null; previous_quantity_label?: string };
 type InventoryPrep = PrepBase & { ingredient_id: number; pending_ingredient_name?: null };
 type PendingPrep = PrepBase & { ingredient_id?: null; pending_ingredient_name: string };
 type Prep = InventoryPrep | PendingPrep;
@@ -30,50 +31,9 @@ const plannedLabel = (text: string | null | undefined, unit: string | null | und
   return unit && !value.toLocaleLowerCase().endsWith(unit.toLocaleLowerCase()) ? `${value}${unit}` : value;
 };
 
-export function MenuTimeline({ battles, consumptions, edit, confirm, cancel, restore, revoke, remove, copy }: {
-  battles: Battle[]; consumptions: Consumption[];
-  edit: (b: Battle) => void; confirm: (b: Battle) => void; cancel: (b: Battle) => void;
-  restore: (b: Battle) => void; revoke: (b: Battle) => void; remove: (b: Battle) => void; copy: (b: Battle) => void;
-}) {
-  const [historyDate, setHistoryDate] = useState('');
-  const sorted = [...battles].sort((a, b) => b.battle_date.localeCompare(a.battle_date) ||
-    ((b.meal_slot ? { breakfast: 1, lunch: 2, dinner: 3 }[b.meal_slot] : 0) -
-      (a.meal_slot ? { breakfast: 1, lunch: 2, dinner: 3 }[a.meal_slot] : 0)) || b.created_at.localeCompare(a.created_at) || b.id-a.id);
-  function card(b: Battle) {
-    const history = consumptions.filter(c => c.daily_battle_id === b.id);
-    const preparation = preparationState(b);
-    const primaryAction = preparation === 'ready' ? '做完了，核对用料' : preparation === 'missing-ingredient' ? '补全耗材' : '补全预计量';
-    return <article className="menu-order" key={b.id}>
-      <div className="section-heading"><h3>{b.battle_date} · {b.meal_slot ? MEALS[b.meal_slot] : '未分类'}</h3>
-        <span className={`badge ${b.status}`}>{b.status === 'planned' ? '待完成' : b.status === 'confirmed' ? '已完成' : '已取消'}</span></div>
-      <p className="menu-order-dishes">{b.dishes.map(d => d.name).join(' · ')}</p>
-      <details className="menu-order-details"><summary>{b.status === 'planned' ? '查看备餐食材' : '查看用料与记录'}</summary>
-        {b.status === 'planned' && b.dishes.map(d => <div key={d.id} className="menu-dish-prep"><strong>{d.name}</strong>
-          <p>{b.preparations.filter(p => p.dish_id === d.dish_id).map(p => `${p.ingredient_id === null ? `待购买：${p.pending_ingredient_name}` : p.ingredient_name}${p.planned_quantity_text ? `（预计${plannedLabel(p.planned_quantity_text, p.planned_quantity_unit)}）` : ''}${p.ingredient_id !== null && p.ingredient_status !== 'active' ? ' · 已不在库' : ''}`).join('、') || '还没有选择食材，可编辑补充'}</p></div>)}
-        {history.length > 0 ? history.map(c => <p key={c.id} className="menu-usage-line">{c.daily_battle_dish_name || '本餐'} · {c.ingredient_name}：用了{c.quantity_used_text}<span className="muted">{c.status === 'reversed' ? '（已撤销）' : ''}{c.recovery_merges?.map(m => <span key={m.id}> · 已合并恢复到{m.target_name}</span>)}</span></p>) : b.status !== 'planned' && <p className="muted">{b.status === 'cancelled' ? '未执行，不影响库存。' : '本餐没有记录库存消耗。'}</p>}
-      </details>
-      <div className="actions">
-        {b.status === 'planned' ? <><button className="btn-primary" onClick={() => confirm(b)}>{primaryAction}</button><button className="btn-ghost" onClick={() => edit(b)}>编辑菜单</button><button className="text-button" onClick={() => cancel(b)}>取消</button></> : <>
-          <button className="btn-ghost" onClick={() => copy(b)}>再吃一次</button>{b.status === 'confirmed' && <button className="text-button" onClick={() => revoke(b)}>撤销确定</button>}{b.status === 'cancelled' && <button className="text-button" onClick={() => restore(b)}>恢复为待完成</button>}</>}
-        {b.status !== 'confirmed' && !history.length && <button className="text-button danger" onClick={() => remove(b)}>删除</button>}
-      </div>
-    </article>;
-  }
-  const pending = sorted.filter(b => b.status === 'planned');
-  const done = sorted.filter(b => b.status !== 'planned' && (!historyDate || b.battle_date === historyDate));
-  return <div className="menu-timeline">
-    <section aria-label="待完成菜单"><div className="section-heading"><h2>准备吃什么</h2><span className="muted">{pending.length} 份待完成</span></div>
-      {pending.length ? pending.map(card) : <div className="card menu-empty">还没有待完成的菜单，安排一餐吧。</div>}
-    </section>
-    <section aria-label="菜单历史"><div className="section-heading"><h2>之前的菜单</h2><div className="history-filter"><label>日期<input type="date" aria-label="历史日期" value={historyDate} onChange={e => setHistoryDate(e.target.value)} /></label>{historyDate && <button className="text-button" onClick={() => setHistoryDate('')}>全部日期</button>}</div></div>
-      {done.length ? done.map(card) : <div className="card menu-empty">{historyDate ? '这一天没有已完成或已取消的菜单。' : '做完并确定后，菜单会留在这里。'}</div>}
-    </section>
-  </div>;
-}
-
-export function MenuEditor({ item, sourceDishes, plans, ingredients, initialPlan, copyFrom, busy, save, onDishAdded, notice }: {
+export function MenuEditor({ item, sourceDishes, plans, ingredients, initialPlan, copyFrom, busy, save, onDishAdded, notice, submitLabel }: {
   item?: Battle; sourceDishes: Dish[]; plans: MealPlan[]; ingredients: Ingredient[]; initialPlan?: MealPlan; copyFrom?: Battle; notice?: string;
-  busy: boolean; save: (value: BattleInput) => void; onDishAdded: (dish: Dish) => void;
+  busy: boolean; save: (value: BattleInput) => void | Promise<void>; onDishAdded: (dish: Dish) => void; submitLabel?: string;
 }) {
   const [dishes, setDishes] = useState(sourceDishes);
   const [selected, setSelected] = useState<number[]>(item?.dishes.map(d => d.dish_id) ?? copyFrom?.dishes.map(d => d.dish_id) ?? initialPlan?.dishes.map(d => d.id) ?? []);
@@ -85,6 +45,13 @@ export function MenuEditor({ item, sourceDishes, plans, ingredients, initialPlan
   const [name, setName] = useState('');
   const [adding, setAdding] = useState(false);
   const [error, setError] = useState('');
+  const [checking, setChecking] = useState(false);
+  const [expectedVersion, setExpectedVersion] = useState(item?.updated_at);
+  const [conflict, setConflict] = useState<Battle | null>(null);
+  const [unitReview, setUnitReview] = useState<{ key: string; lines: string[] } | null>(null);
+  const activeForm = useRef(true);
+  const saving = useRef(false);
+  useEffect(() => { activeForm.current = true; return () => { activeForm.current = false; }; }, []);
   const creating = useRef(false);
   const [planId, setPlanId] = useState(String(initialPlan?.id ?? ''));
   const active = ingredients;
@@ -107,8 +74,9 @@ export function MenuEditor({ item, sourceDishes, plans, ingredients, initialPlan
     } catch(e) { setError(message(e)); } finally { creating.current = false; setAdding(false); }
   }
   function toggle(did: number) { setSelected(s => s.includes(did) ? s.filter(id => id !== did) : [...s, did]); setPreps(p => p.filter(v => v.dish_id !== did)); }
-  function submit(e: FormEvent) {
+  async function submit(e: FormEvent) {
     e.preventDefault();
+    if (busy || checking || conflict || saving.current) return;
     if (incompletePreparation) {
       setError('待购食材请填写名称；库存耗材和待购名称只能二选一。');
       return;
@@ -121,11 +89,40 @@ export function MenuEditor({ item, sourceDishes, plans, ingredients, initialPlan
       setError('预计用量请填写数字或分数，例如 1、0.5、1/2、1/3；单位会自动带上。');
       return;
     }
-    const preparations = preps.map(prep => isInventoryPrep(prep)
-      ? { dish_id: prep.dish_id, ingredient_id: prep.ingredient_id, planned_quantity_text: prep.planned_quantity_text }
-      : { dish_id: prep.dish_id, pending_ingredient_name: prep.pending_ingredient_name, planned_quantity_text: prep.planned_quantity_text });
-    save({ battle_date: date, meal_slot: meal, dish_ids: selected, preparations,
-      ...(item ? { expected_updated_at: item.updated_at } : {}) });
+    saving.current = true; setChecking(true); setError('');
+    try {
+      let latestMenu = item;
+      if (item) {
+        const latest = (await api.battle(item.id)).data;
+        if (!activeForm.current) return;
+        if (latest.updated_at !== expectedVersion || latest.status !== 'planned') { setConflict(latest); return; }
+        latestMenu = latest;
+      }
+      if (!activeForm.current) return;
+      const conversions: string[] = [];
+      const preparations = preps.map(prep => {
+        if (!isInventoryPrep(prep)) return { dish_id: prep.dish_id, pending_ingredient_name: prep.pending_ingredient_name, planned_quantity_text: prep.planned_quantity_text };
+        const latest = latestMenu?.preparations.find(value => value.dish_id === prep.dish_id && value.ingredient_id === prep.ingredient_id);
+        const ingredient = ingredients.find(value => value.id === prep.ingredient_id);
+        const planned = resolvePlannedQuantity(prep.planned_quantity_text, prep.planned_quantity_unit, ingredient?.stock_unit, latest?.planned_quantity_text, latest?.planned_quantity_unit);
+        if (planned.review) conversions.push(`${ingredient?.name ?? '食材'}：${planned.review}`);
+        return { dish_id: prep.dish_id, ingredient_id: prep.ingredient_id, planned_quantity_text: planned.text };
+      });
+      if (conversions.length) {
+        const key = JSON.stringify([latestMenu?.updated_at, preparations]);
+        if (unitReview?.key !== key) { setUnitReview({ key, lines: conversions }); return; }
+      } else setUnitReview(null);
+      await save({ battle_date: date, meal_slot: meal, dish_ids: selected, preparations,
+        ...(item ? { expected_updated_at: expectedVersion } : {}) });
+    } catch (failure) {
+      if (activeForm.current) setError(message(failure));
+      if (item) {
+        try {
+          const latest = (await api.battle(item.id)).data;
+          if (activeForm.current && (latest.updated_at !== expectedVersion || latest.status !== 'planned')) setConflict(latest);
+        } catch { /* 读取失败保留当前输入，由用户重试读取。 */ }
+      }
+    } finally { saving.current = false; if (activeForm.current) setChecking(false); }
   }
   const unavailable = selected.filter(id => !dishes.some(d => d.id === id));
   const validSelected = selected.filter(id => !unavailable.includes(id));
@@ -150,6 +147,8 @@ export function MenuEditor({ item, sourceDishes, plans, ingredients, initialPlan
   }
   return <form onSubmit={submit} className="menu-editor">
     {notice && <p className="form-notice" role="status">{notice}</p>}
+    {unitReview && <section className="form-notice" role="status"><strong>预计量将按当前库存单位保存</strong><ul>{unitReview.lines.map(line => <li key={line}>{line}</li>)}</ul><p>数量已按支持的单位换算，原输入仍在下方。核对后再次点击保存。</p></section>}
+    {conflict && <section className="form-notice" role="alert"><strong>这餐已经更新，你的输入仍保留在下方。</strong><p>最新菜单：{conflict.battle_date} · {MEALS[conflict.meal_slot]} · {conflict.dishes.map(dish => dish.name).join('、')}</p><p>{conflict.preparations.map(prep => `${prep.ingredient_name ?? prep.pending_ingredient_name} ${plannedLabel(prep.planned_quantity_text, prep.planned_quantity_unit)}`).join('；')}</p>{conflict.status === 'planned' ? <><p>核对以上内容后，你可以继续修改下方输入，再保存这餐。</p><button type="button" className="btn-ghost" onClick={() => { setExpectedVersion(conflict.updated_at); setConflict(null); setError(''); }}>已核对最新内容，继续编辑</button></> : <p>这餐已{conflict.status === 'confirmed' ? '完成' : '取消'}，不能再保存编辑。</p>}</section>}
     <div className="form-grid"><label className="field">日期<input type="date" aria-label="菜单日期" required value={date} onChange={e => setDate(e.target.value)} /></label>
       <label className="field">时段<select aria-label="菜单时段" required value={meal} onChange={e => setMeal(e.target.value as Meal)}>{Object.entries(MEALS).map(([value,label]) => <option key={value} value={value}>{label}</option>)}</select></label></div>
     {plans.length > 0 && !item && <details className="menu-secondary-option"><summary>从常用搭配开始（选填）</summary><label className="field">选择搭配<select value={planId} onChange={e => { setPlanId(e.target.value); const plan = plans.find(p => p.id === Number(e.target.value)); if (plan) { setSelected(plan.dishes.map(d => d.id)); setPreps([]); } }}><option value="">不使用搭配</option>{plans.map(p => <option key={p.id} value={p.id}>{p.name || '未命名方案'} · {p.dishes.map(d => d.name).join('、')}</option>)}</select></label></details>}
@@ -160,29 +159,18 @@ export function MenuEditor({ item, sourceDishes, plans, ingredients, initialPlan
     {validSelected.map(did => <fieldset key={did}><legend>{dishes.find(d => d.id === did)?.name} · 备餐</legend>
       <div className="actions prep-add-actions"><label className="field">从库存添加耗材<select aria-label={`为${dishes.find(d => d.id === did)?.name}选择库存耗材`} value="" onChange={e => { if(e.target.value) setPreps(p => [...p, inventoryPrep(did, Number(e.target.value))]); }}><option value="">选择库存食材</option>{active.filter(i => !preps.some(p => p.dish_id === did && p.ingredient_id === i.id)).map(i => <option key={i.id} value={i.id}>{i.name} · 库存 {stockLabel(i)}</option>)}</select></label><button type="button" className="btn-ghost" onClick={() => setPreps(p => [...p, pendingPrep(did)])}>添加待购买食材</button></div>
       {preps.filter(p => p.dish_id === did).map((p, index) => { const ing = ingredients.find(i => i.id === p.ingredient_id); const unit = ing?.stock_unit; const plannedUnit = p.planned_quantity_unit ?? unit; const unitChanged = !!p.planned_quantity_unit && !!unit && p.planned_quantity_unit !== unit; const total = p.ingredient_id == null ? null : plannedTotals.get(p.ingredient_id) ?? 0; const shortage = ing && total !== null && total > ing.stock_value; const inventory = isInventoryPrep(p); return <div className={`prep-row ${inventory ? 'prep-row--inventory' : 'prep-row--pending'}`} key={`${p.ingredient_id ?? 'pending'}-${index}`}>
-        {inventory ? <><span>{ing?.name ?? '已不在库'}{unit ? ` · 当前库存单位 ${unit}` : ''}{shortage && <small className="prep-shortage">本餐预计 {total}{unit}，库存只有 {stockLabel(ing)}</small>}</span><label className="field">预计用量{plannedUnit ? `（${unitChanged ? `保存时 ${plannedUnit}` : plannedUnit}）` : ''}<input aria-label={`${dishes.find(d => d.id === did)?.name}的预计${ing?.name ?? '食材'}用量`} placeholder={`预计用量${plannedUnit ? `（${plannedUnit}）` : ''}`} maxLength={255} value={p.planned_quantity_text ?? ''} onChange={e => setPreps(ps => ps.map(v => v === p ? { ...v, planned_quantity_text: e.target.value, planned_quantity_unit: unit } : v))} /></label>{unitChanged && <small className="muted">当前库存已改为 {unit}；保留原值会按 {plannedUnit} 核对，修改后按 {unit} 保存。</small>}</> : <><label className="field">待购买食材<input aria-label={`${dishes.find(d => d.id === did)?.name}的待购食材`} placeholder="例如菠萝" maxLength={255} value={p.pending_ingredient_name} onChange={e => setPreps(ps => ps.map(v => v === p ? pendingPrep(v.dish_id, e.target.value, v.planned_quantity_text) : v))} /></label><label className="field">预计用量<input aria-label={`${dishes.find(d => d.id === did)?.name}的预计待购食材用量`} placeholder="例如 1个" maxLength={255} value={p.planned_quantity_text ?? ''} onChange={e => setPreps(ps => ps.map(v => v === p ? { ...v, planned_quantity_text: e.target.value } : v))} /></label><label className="field prep-link">已经入库？<select aria-label={`为${dishes.find(d => d.id === did)?.name}关联已入库食材`} value="" onChange={e => { if (e.target.value) { const ingredient = active.find(item => item.id === Number(e.target.value)); setPreps(ps => ps.map(v => v === p ? inventoryPrep(v.dish_id, Number(e.target.value), v.planned_quantity_text, ingredient?.stock_unit) : v)); } }}><option value="">关联库存（选填）</option>{active.map(i => <option key={i.id} value={i.id}>{i.name} · 库存 {stockLabel(i)}</option>)}</select></label></>}
+        {inventory ? <><span>{ing?.name ?? '已不在库'}{unit ? ` · 当前库存单位 ${unit}` : ''}{shortage && <small className="prep-shortage">本餐预计 {total}{unit}，库存只有 {stockLabel(ing)}</small>}</span>{!ing && <label className="field">替换失效的库存关联<select aria-label={`为${dishes.find(d => d.id === did)?.name}替换失效食材`} value="" onChange={e => { const target = active.find(value => value.id === Number(e.target.value)); if (target) setPreps(ps => ps.map(value => value === p ? { ...inventoryPrep(did, target.id, p.planned_quantity_unit === target.stock_unit ? p.planned_quantity_text : '', target.stock_unit), previous_quantity_label: plannedLabel(p.planned_quantity_text, p.planned_quantity_unit) } : value)); }}><option value="">选择这次使用的在库食材</option>{active.filter(value => !preps.some(prep => prep.dish_id === did && prep.ingredient_id === value.id)).map(value => <option key={value.id} value={value.id}>{value.name} · 库存 {stockLabel(value)}</option>)}</select></label>}{p.previous_quantity_label && <small className="form-hint">原预计 {p.previous_quantity_label}；请核对这次使用的食材及当前单位。</small>}<label className="field">预计用量{plannedUnit ? `（${unitChanged ? `保存时 ${plannedUnit}` : plannedUnit}）` : ''}<input aria-label={`${dishes.find(d => d.id === did)?.name}的预计${ing?.name ?? '食材'}用量`} placeholder={`预计用量${plannedUnit ? `（${plannedUnit}）` : ''}`} maxLength={255} value={p.planned_quantity_text ?? ''} onChange={e => setPreps(ps => ps.map(v => v === p ? { ...v, planned_quantity_text: e.target.value, planned_quantity_unit: unit } : v))} /></label>{unitChanged && <small className="muted">当前库存已改为 {unit}；保留原值会按 {plannedUnit} 核对，修改后按 {unit} 保存。</small>}</> : <><label className="field">待购买食材<input aria-label={`${dishes.find(d => d.id === did)?.name}的待购食材`} placeholder="例如菠萝" maxLength={255} value={p.pending_ingredient_name} onChange={e => setPreps(ps => ps.map(v => v === p ? pendingPrep(v.dish_id, e.target.value, v.planned_quantity_text) : v))} /></label><label className="field">预计用量<input aria-label={`${dishes.find(d => d.id === did)?.name}的预计待购食材用量`} placeholder="例如 1个" maxLength={255} value={p.planned_quantity_text ?? ''} onChange={e => setPreps(ps => ps.map(v => v === p ? { ...v, planned_quantity_text: e.target.value } : v))} /></label><label className="field prep-link">已经入库？<select aria-label={`为${dishes.find(d => d.id === did)?.name}关联已入库食材`} value="" onChange={e => { if (e.target.value) { const ingredient = active.find(item => item.id === Number(e.target.value)); setPreps(ps => ps.map(v => v === p ? inventoryPrep(v.dish_id, Number(e.target.value), v.planned_quantity_text, ingredient?.stock_unit) : v)); } }}><option value="">选择这餐使用的库存</option>{active.filter(i => !preps.some(prep => prep.dish_id === did && prep.ingredient_id === i.id)).map(i => <option key={i.id} value={i.id}>{i.name} · 库存 {stockLabel(i)}</option>)}</select></label></>}
         <button type="button" className="text-button" aria-label={`移除${dishes.find(d => d.id === did)?.name}的耗材`} onClick={() => setPreps(ps => ps.filter(v => v !== p))}>移除</button>
       </div>; })}
     </fieldset>)}
     {missingPreparationDishes.length > 0 && <p className="form-hint">每道菜至少选择一种耗材后才能保存；预计用量可以稍后补。</p>}
     {incompletePreparation && <p className="form-error">待购食材请填写名称；库存耗材和待购名称只能二选一。</p>}
     {invalidPlannedPreparation && <p className="form-error">预计用量请填写数字或分数；单位会自动带上。</p>}
-    <button className="btn-primary" disabled={busy || adding || !selected.length || unavailable.length > 0 || missingPreparationDishes.length > 0 || !!incompletePreparation || !!invalidPlannedPreparation}>{busy ? '保存中' : '保存菜单'}</button>
+    <button className="btn-primary" disabled={busy || checking || !!conflict || adding || item?.status !== undefined && item.status !== 'planned' || !selected.length || unavailable.length > 0 || missingPreparationDishes.length > 0 || !!incompletePreparation || !!invalidPlannedPreparation}>{busy || checking ? '保存中' : submitLabel ?? '保存菜单'}</button>
   </form>;
 }
 
-type Usage = {
-  key: number;
-  ingredient_id: number;
-  daily_battle_dish_id: number | null;
-  ingredient_name: string;
-  ingredient_status: string;
-  planned_quantity_text: string;
-  planned_quantity_unit: string | null;
-  converted_notice: string | null;
-  quantity_used_text: string;
-  unit: string | null;
-};
+type Usage = ReviewUsage;
 const stockLabel = (ingredient?: Ingredient) => {
   if (!ingredient) return '';
   const text = (ingredient.stock_text || '未填写').trim() || '未填写';
@@ -193,7 +181,7 @@ const stockLabel = (ingredient?: Ingredient) => {
 };
 const quantityLabel = (value: number, unit: string | null | undefined) => `${value}${unit ?? ''}`;
 type ReviewSnapshot = { battle: Battle; ingredients: Ingredient[] };
-export function MenuConfirm({ battleId, busy, save, onPending, onEdit, onRestock }: { battleId: number; busy: boolean; onPending: (pending: boolean) => void; save: (payload: BattleConfirm) => Promise<void>; onEdit: () => void; onRestock: (names: string[]) => void }) {
+export function MenuConfirm({ battleId, busy, save, onPending, onEdit, onRestock, draft }: { battleId: number; busy: boolean; onPending: (pending: boolean) => void; save: (payload: BattleConfirm) => Promise<void>; onEdit: (battle: Battle | null, draft?: ReviewDraft) => void; onRestock: (names: string[], battle: Battle, draft: ReviewDraft, ingredients: Ingredient[]) => void; draft?: ReviewDraft }) {
   const [snapshot, setSnapshot] = useState<ReviewSnapshot | null>(null);
   const latest = useRef<ReviewSnapshot | null>(null);
   const [originalMenuVersion, setOriginalMenuVersion] = useState<string | null>(null);
@@ -204,10 +192,10 @@ export function MenuConfirm({ battleId, busy, save, onPending, onEdit, onRestock
   const [retry, setRetry] = useState(0);
   const [rows, setRows] = useState<Usage[]>([]);
   const [without, setWithout] = useState(false);
+  const initialDraft = useRef(draft);
   useEffect(() => {
     const controller = new AbortController();
     let reading = false;
-    latest.current = null;
     async function refresh() {
       if (reading || submitting.current || document.visibilityState === 'hidden') return;
       reading = true;
@@ -216,8 +204,9 @@ export function MenuConfirm({ battleId, busy, save, onPending, onEdit, onRestock
         if (controller.signal.aborted || submitting.current) return;
         const battle = result.data;
         if (!latest.current) {
-          setOriginalMenuVersion(battle.updated_at);
-          setRows(battle.preparations.filter((p): p is typeof p & { ingredient_id: number } => p.ingredient_id !== null).map((p, key) => {
+          setOriginalMenuVersion(initialDraft.current?.battleId === battleId ? initialDraft.current.menuVersion : battle.updated_at);
+          setWithout(initialDraft.current?.without ?? false);
+          setRows(restoreReviewRows(battle.preparations.filter((p): p is typeof p & { ingredient_id: number } => p.ingredient_id !== null).map((p, key) => {
             const unit = ingredients.find(i => i.id === p.ingredient_id)?.stock_unit ?? null;
             const plannedUnit = p.planned_quantity_unit ?? unit;
             const originalUsage = initialUsage(p.planned_quantity_text, plannedUnit);
@@ -230,7 +219,8 @@ export function MenuConfirm({ battleId, busy, save, onPending, onEdit, onRestock
               planned_quantity_text: p.planned_quantity_text || '未填写', planned_quantity_unit: plannedUnit,
               converted_notice: converted === null ? null : `原预计 ${plannedLabel(p.planned_quantity_text, plannedUnit)}，已按当前库存单位换算`,
               quantity_used_text: quantityUsed, unit };
-          }));
+          }), battleId, initialDraft.current));
+          if (initialDraft.current?.battleId === battleId) setNotice('已返回这餐并读取最新库存，之前填写的实际用量已保留，请继续核对。');
         } else if (inventoryVersion(latest.current.battle, latest.current.ingredients) !== inventoryVersion(battle, ingredients)) {
           setNotice('库存已更新，实际用量已保留，请核对后确定。');
         }
@@ -248,11 +238,14 @@ export function MenuConfirm({ battleId, busy, save, onPending, onEdit, onRestock
     document.addEventListener('visibilitychange', resume);
     return () => { controller.abort(); window.clearInterval(timer); window.removeEventListener('focus', resume); document.removeEventListener('visibilitychange', resume); };
   }, [battleId, retry]);
-  if (!snapshot) return error ? <div role="status"><p className="form-notice">{error}</p><div className="actions"><button type="button" className="btn-ghost" onClick={onEdit}>返回编辑菜单</button><button type="button" className="btn-ghost" onClick={() => { setError(''); setRetry(r => r+1); }}>重新读取</button></div></div> : <p role="status">正在读取菜单和最新库存…</p>;
+  if (!snapshot) return error ? <div role="status"><p className="form-notice">{error}</p><div className="actions"><button type="button" className="btn-ghost" onClick={() => onEdit(null, initialDraft.current)}>编辑这餐</button><button type="button" className="btn-ghost" onClick={() => { setError(''); setRetry(r => r+1); }}>重新读取</button></div></div> : <p role="status">正在读取菜单和最新库存…</p>;
   const { battle, ingredients } = snapshot;
   const processed = battle.status !== 'planned';
   const menuChanged = battle.updated_at !== originalMenuVersion;
   const pending = battle.preparations.filter((preparation) => preparation.ingredient_id === null);
+  const currentDraft = (): ReviewDraft => ({ battleId, menuVersion: originalMenuVersion ?? battle.updated_at, rows, without });
+  const editMenu = () => onEdit(battle, currentDraft());
+  const needsPreparation = preparationState(battle) !== 'ready';
   const unitChanged = rows.some(r => {
     const ingredient = ingredients.find(i => i.id === r.ingredient_id);
     return ingredient !== undefined && r.unit !== ingredient.stock_unit;
@@ -283,12 +276,8 @@ export function MenuConfirm({ battleId, busy, save, onPending, onEdit, onRestock
   }
   const insufficient = [...totals.values()].some(({ ingredient, used }) => ingredient.stock_value !== null && used > ingredient.stock_value);
   const shortageItems = [...totals.values()].filter(({ ingredient, used }) => ingredient.stock_value !== null && used > ingredient.stock_value);
-  const restockNames = [...new Set([
-    ...pending.map((preparation) => preparation.pending_ingredient_name).filter((name): name is string => !!name),
-    ...shortageItems.map(({ ingredient }) => ingredient.name),
-    ...rows.filter((row) => !ingredients.some((ingredient) => ingredient.id === row.ingredient_id)).map((row) => row.ingredient_name),
-  ])];
-  const cannotConfirm = pending.length > 0 || unavailable || invalidUsage || nonCalculable.length > 0 || insufficient || menuChanged || unitChanged || incompatiblePlannedUnit;
+  const restockNames = restockSuggestions(battle, ingredients, rows, shortageItems.map(({ ingredient }) => ingredient.name));
+  const cannotConfirm = needsPreparation || pending.length > 0 || unavailable || invalidUsage || nonCalculable.length > 0 || insufficient || menuChanged || unitChanged || incompatiblePlannedUnit;
   async function submit(e: FormEvent) {
     e.preventDefault();
     if (submitting.current || processed || cannotConfirm || (!rows.length && !without)) return;
@@ -330,23 +319,23 @@ export function MenuConfirm({ battleId, busy, save, onPending, onEdit, onRestock
         核对每种耗材的实际用量；点“确定”后自动更新库存。
       </p>
       {processed && <p className="form-notice" role="status">这餐已{battle.status === 'confirmed' ? '确认' : '取消'}，不能再次扣库存。关闭后即可查看最新记录。</p>}
-      {!processed && menuChanged && <p className="form-error" role="alert">菜单已被修改，请关闭后重新打开核对。</p>}
+      {!processed && menuChanged && <p className="form-error" role="alert">这餐已被修改，你填写的实际用量已保留。请先核对最新菜单，再继续。</p>}
       {!processed && notice && <p className="form-notice" role="status">{notice}</p>}
       {error && <p className="form-error" role="alert">{error}<button type="button" className="text-button" onClick={() => setRetry(r => r + 1)}>重新读取</button></p>}
       {!processed && (pending.length > 0 || unavailable || insufficient) && <div className="review-summary review-summary--blocked" role="alert">
-        <strong>暂时不能核对这餐</strong>
+        <strong>确认前，还差这几步</strong>
         <ul>
-          {pending.map((preparation) => <li key={`pending-${preparation.id}`}>{preparation.pending_ingredient_name}：待购买{preparation.planned_quantity_text ? `，菜单预计 ${preparation.planned_quantity_text}` : ''}</li>)}
+          {pending.map((preparation) => <li key={`pending-${preparation.id}`}>{preparation.pending_ingredient_name}：{ingredients.some(item => item.name.trim().toLocaleLowerCase() === preparation.pending_ingredient_name?.trim().toLocaleLowerCase()) ? '库存已有同名食材，待你选择关联' : '尚未关联库存'}{preparation.planned_quantity_text ? `，菜单预计 ${preparation.planned_quantity_text}` : ''}</li>)}
           {rows.filter((row, index, all) => !ingredients.some((item) => item.id === row.ingredient_id) && all.findIndex((item) => item.ingredient_id === row.ingredient_id) === index).map((row) => <li key={`missing-${row.ingredient_id}`}>{row.ingredient_name}：已不在库</li>)}
           {shortageItems.map(({ ingredient, used }) => <li key={`short-${ingredient.id}`}>{ingredient.name}：本餐实际填写 {quantityLabel(used, ingredient.stock_unit)}，当前库存只有 {stockLabel(ingredient)}</li>)}
         </ul>
-        <span className="review-summary-action">补货后返回编辑菜单，将待购买食材关联到库存，再继续核对。</span>
+        <span className="review-summary-action">{pending.length || unavailable ? '已入库的食材可以直接关联；需要补货时，保存后会回到这餐继续处理。' : '补货保存后会回到这餐，你填写的实际用量会保留。'}</span>
         <div className="actions review-summary-actions">
-          <button type="button" className="btn-ghost" onClick={onEdit}>返回编辑菜单</button>
-          <button type="button" className="btn-primary" onClick={() => onRestock(restockNames)}>去补货</button>
+          {(pending.length > 0 || unavailable) && <button type="button" className={restockNames.length ? 'btn-ghost' : 'btn-primary'} onClick={editMenu}>{restockNames.length ? '关联或替换库存' : '关联已入库食材'}</button>}
+          <button type="button" className={restockNames.length ? 'btn-primary' : 'btn-ghost'} onClick={() => onRestock(restockNames, battle, currentDraft(), ingredients)}>{restockNames.length ? '补货并返回这餐' : '另外补货'}</button>
         </div>
       </div>}
-      {unitChanged && <p className="form-error" role="alert">库存单位已改变，请按新单位重新填写实际用量。</p>}
+      {unitChanged && <p className="form-error" role="alert">库存单位已改变，下方保留的是上次填写的数值。请按新单位重新填写实际用量。</p>}
       {incompatiblePlannedUnit && <p className="form-error" role="alert">库存单位与菜单保存时不同且不能自动换算，请返回编辑菜单重新填写预计用量。</p>}
       {battle.dishes.map((d) => (
         <fieldset key={d.id} disabled={sending || processed || menuChanged}>
@@ -392,7 +381,7 @@ export function MenuConfirm({ battleId, busy, save, onPending, onEdit, onRestock
               );
             })}
           {pending.filter((preparation) => preparation.daily_battle_dish_id === d.id).map((preparation) => <div className="confirm-usage-row" key={`pending-${preparation.id}`}>
-            <div className="confirm-usage-meta"><strong>{preparation.pending_ingredient_name}</strong><span className="muted">待购买{preparation.planned_quantity_text ? ` · 菜单预计 ${preparation.planned_quantity_text}` : ''}</span><p className="confirm-row-status">先补货并返回编辑菜单关联库存，才能确认。</p></div>
+            <div className="confirm-usage-meta"><strong>{preparation.pending_ingredient_name}</strong><span className="muted">待关联库存{preparation.planned_quantity_text ? ` · 菜单预计 ${preparation.planned_quantity_text}` : ''}</span><p className="confirm-row-status">选择这次使用的真实库存后，才能确认。</p></div>
           </div>)}
         </fieldset>
       ))}
@@ -408,7 +397,7 @@ export function MenuConfirm({ battleId, busy, save, onPending, onEdit, onRestock
       )}
       {invalidUsage && <p className="form-error" role="alert">实际用量可填 1、0.5、1/2 或 1/3；单位已标在标题中。</p>}
       {nonCalculable.length > 0 && <p className="form-error" role="alert">{nonCalculable.map((i) => i.name).join('、')}缺少可计算的库存数量或单位，请先到库存详情补全后再确认。</p>}
-      {!(pending.length > 0 || unavailable || insufficient) && (menuChanged || unitChanged) && <button type="button" className="btn-ghost" onClick={onEdit}>返回编辑菜单</button>}
+      {!processed && (menuChanged || unitChanged || incompatiblePlannedUnit || needsPreparation || nonCalculable.length > 0) && <div className="form-notice"><p>{needsPreparation ? '这餐还有耗材或预计用量未补齐，请先编辑补全。' : '可以返回编辑这餐，核对关联和预计量。'}</p><button type="button" className="btn-ghost" onClick={editMenu}>编辑这餐并继续核对</button></div>}
       <button
         className="btn-primary"
         disabled={busy || sending || !!error || processed || cannotConfirm || (!rows.length && !without)}

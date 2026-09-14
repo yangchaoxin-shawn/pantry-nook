@@ -51,6 +51,19 @@ describe("库存筛选读取状态", () => {
     expect(LOCATION_OPTIONS.find((option) => option.label === "冷冻")?.value).toBe("冰箱冷冻");
     expect(LOCATION_OPTIONS.find((option) => option.label === "全部位置")?.value).toBeNull();
   });
+  it("待补位置从全量库存读取，不沿用上次位置请求的错误和结果", () => {
+    const unassigned = ingredient(4, "回归苹果", "水果", null);
+    const view = inventoryView({ ...base, ingredients: [...ingredients, unassigned], inventoryLocation: "unassigned", locationItems: [ingredients[0]], locationError: "冷藏读取失败" });
+    expect(view.status).toBe("ready");
+    if (view.status === "ready") expect(view.groups.flatMap(group => group.items)).toEqual([unassigned]);
+  });
+  it("待补位置可与分类和搜索一起筛选，位置补齐后即从当前列表移除", () => {
+    const unassigned = ingredient(4, "回归苹果", "水果", null);
+    const filter = { ...base, ingredients: [...ingredients, unassigned], inventoryLocation: "unassigned" as const, category: "水果", search: "苹果" };
+    expect(inventoryView(filter).status).toBe("ready");
+    expect(inventoryView({ ...filter, category: "蔬菜" })).toEqual({ status: "empty" });
+    expect(inventoryView({ ...filter, ingredients: [...ingredients, { ...unassigned, location: "室温" }] })).toEqual({ status: "empty" });
+  });
 });
 
 describe("库存组件状态呈现", () => {
@@ -74,5 +87,22 @@ describe("库存组件状态呈现", () => {
     expect(html).toContain("单个记录");
     expect(html).toContain('aria-label="查看回归白菜，余量1/2kg"');
     expect(html).not.toContain("1 项");
+  });
+  it("待补数量按全量库存统计，不随搜索和分类减少", () => {
+    const unassigned = [ingredient(4, "回归苹果", "水果", null), ingredient(5, "回归香蕉", "水果", null)];
+    const html = renderToStaticMarkup(createElement(InventoryPage, { ...props, ingredients: [...ingredients, ...unassigned], search: "白菜", category: "蔬菜" }));
+    expect(html).toContain('aria-label="待补位置，全库存 2 项"');
+    expect(html).not.toContain("回归苹果");
+  });
+  it("无位置行显示提示与独立补充入口，按钮不互相嵌套", () => {
+    const html = renderToStaticMarkup(createElement(InventoryPage, { ...props, ingredients: [ingredient(4, "回归苹果", "水果", null)], openLocationEditor: vi.fn() }));
+    expect(html).toContain('aria-label="查看回归苹果，余量1/2kg，待补位置"');
+    expect(html).toContain('aria-label="补充回归苹果的存放位置"');
+    expect(html).not.toMatch(/<button\b[^>]*>(?:(?!<\/button>)[\s\S])*<button\b/);
+  });
+  it("补齐最后一项后保留当前位置并提示切回全部", () => {
+    const html = renderToStaticMarkup(createElement(InventoryPage, { ...props, inventoryLocation: "unassigned" }));
+    expect(html).toContain("位置都已补齐");
+    expect(html).toContain("可以切换到全部位置");
   });
 });

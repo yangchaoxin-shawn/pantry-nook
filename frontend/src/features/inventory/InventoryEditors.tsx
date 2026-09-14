@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import {
   CATEGORIES,
   LOCATIONS,
@@ -10,6 +10,9 @@ import { Field } from "../../shared/ui/Primitives";
 import { canConvertUnits, startedBatchRows } from "./batch-ingredient-logic";
 import { applyDefaultUnit, orderedUnits, recommendedUnits } from "./inventory-units";
 import { stockLabel } from "./inventory-format";
+import { ingredientEditPatch } from "./ingredient-edit-logic";
+import { QuantityInput } from "../../shared/ui/QuantityInput";
+import { quantityInputError } from "../../shared/ui/quantity-input-logic";
 
 type BatchIngredientRow = {
   id: number;
@@ -77,8 +80,9 @@ export function IngredientBatchEditor({
       setError(`第 ${rows.indexOf(incomplete) + 1} 项请补全食材名、数量和单位。`);
       return;
     }
-    if (filled.some(row => !Number.isFinite(Number(row.quantity)) || Number(row.quantity) <= 0)) {
-      setError('入库数量必须大于 0。');
+    const quantityError = filled.map(row => quantityInputError(row.quantity, { required: true })).find(Boolean);
+    if (quantityError) {
+      setError(quantityError);
       return;
     }
     const ingredients = filled.map((row) => ({
@@ -111,8 +115,8 @@ export function IngredientBatchEditor({
   if (conflicts.length) {
     const manualTotalMissing = conflicts.some(({ ingredient, incomingUnit }) => {
       const oldUnit = ingredient.stock_unit ?? ingredient.stock_unit ?? "";
-      const amount = Number(manualTotals[ingredient.id]);
-      return oldUnit !== incomingUnit && !canConvertUnits(oldUnit, incomingUnit) && (!Number.isFinite(amount) || amount <= 0);
+      return oldUnit !== incomingUnit && !canConvertUnits(oldUnit, incomingUnit)
+        && Boolean(quantityInputError(manualTotals[ingredient.id] ?? "", { required: true }));
     });
     return <div className="batch-resolution">
     <p className="form-notice">发现已有同名食材。请确认分类和单位；保存后只会保留一条库存记录。</p>
@@ -124,7 +128,7 @@ export function IngredientBatchEditor({
       return <fieldset key={ingredient.id}><legend>{ingredient.name}</legend><p className="muted">现有 {ingredient.category} · {stockLabel(ingredient)}；本次 {incomingCategory} · {draftIngredients.find(item => item.name.toLocaleLowerCase() === ingredient.name.toLocaleLowerCase())?.stock_text}{incomingUnit}</p>
         {hasCategoryConflict && <><p className="resolution-label">分类</p><div className="unit-choice"><button type="button" className={categories[ingredient.id] === ingredient.category ? "chip active" : "chip"} onClick={() => setCategories(current => ({...current, [ingredient.id]: ingredient.category}))}>保留为 {ingredient.category}</button><button type="button" className={categories[ingredient.id] === incomingCategory ? "chip active" : "chip"} onClick={() => setCategories(current => ({...current, [ingredient.id]: incomingCategory}))}>改为 {incomingCategory}</button></div></>}
         {hasUnitConflict && <><p className="resolution-label">单位</p><div className="unit-choice"><button type="button" className={units[ingredient.id] === oldUnit ? "chip active" : "chip"} onClick={() => setUnits(current => ({...current, [ingredient.id]: oldUnit}))}>统一为 {oldUnit}</button><button type="button" className={units[ingredient.id] === incomingUnit ? "chip active" : "chip"} onClick={() => setUnits(current => ({...current, [ingredient.id]: incomingUnit}))}>统一为 {incomingUnit}</button></div></>}
-        {needsManualTotal && <div className="manual-total"><label htmlFor={`manual-total-${ingredient.id}`}>合并后的库存量（{units[ingredient.id]}）</label><input id={`manual-total-${ingredient.id}`} type="number" inputMode="decimal" min="0.000001" step="0.000001" placeholder="按实际库存填写" value={manualTotals[ingredient.id] ?? ""} onChange={(event) => setManualTotals(current => ({ ...current, [ingredient.id]: event.target.value }))} /><p className="form-hint">这两种单位无法自动换算，请按实际库存填写最终数量。</p></div>}
+        {needsManualTotal && <div className="manual-total"><QuantityInput label={`合并后的库存量（${units[ingredient.id]}）`} id={`manual-total-${ingredient.id}`} required disabled={busy} placeholder="按实际库存填写" value={manualTotals[ingredient.id] ?? ""} onValueChange={(value) => setManualTotals(current => ({ ...current, [ingredient.id]: value }))} /><p className="form-hint">这两种单位无法自动换算，请按实际库存填写最终数量。每次增减 1，也可直接输入小数。</p></div>}
         </fieldset>;
     })}
     <div className="actions"><button type="button" className="btn-ghost" onClick={() => setConflicts([])}>返回修改</button><button type="button" className="btn-primary" onClick={() => save(
@@ -173,6 +177,7 @@ export function IngredientBatchEditor({
       <p className="form-hint">{single
         ? `${batchCategory}常用单位：${recommendedUnits(batchCategory).join("、")}；也可以填写其他单位。`
         : `${batchCategory}常用单位：${recommendedUnits(batchCategory).join("、")}；每项可以单独修改，空白行会自动忽略。`}</p>
+      <p className="form-hint">数量每次增减 1，也可直接输入 0.5 等小数。</p>
       {error && <p className="form-error" role="alert">{error}</p>}
       <div className="batch-ingredient-rows">
         {rows.map((row, index) => (
@@ -185,15 +190,12 @@ export function IngredientBatchEditor({
               value={row.name}
               onChange={(event) => change(row.id, "name", event.target.value)}
             />
-            <input
+            <QuantityInput
               aria-label={`第 ${index + 1} 项数量`}
-              type="number"
-              inputMode="decimal"
-              min="0.000001"
-              step="0.000001"
+              disabled={busy}
               placeholder="数量"
               value={row.quantity}
-              onChange={(event) => change(row.id, "quantity", event.target.value)}
+              onValueChange={(value) => change(row.id, "quantity", value)}
             />
             <input
               aria-label={`第 ${index + 1} 项单位`}
@@ -236,39 +238,36 @@ export function IngredientEditor({
   item,
   busy,
   blocked,
+  focusLocation = false,
   save,
 }: {
   item: Ingredient;
   busy: boolean;
   blocked?: boolean;
+  focusLocation?: boolean;
   save: (payload: IngredientUpdate) => void;
 }) {
-  const currentQuantity = item.stock_value;
-  const currentUnit = item.stock_unit;
+  const [original] = useState(item);
+  const locationRef = useRef<HTMLSelectElement>(null);
+  const [quantity, setQuantity] = useState(String(item.stock_value));
+  const [unit, setUnit] = useState(item.stock_unit);
   const [category, setCategory] = useState<IngredientCreate["category"]>(item.category);
+  useEffect(() => {
+    if (!focusLocation) return;
+    const frame = requestAnimationFrame(() => locationRef.current?.focus());
+    return () => cancelAnimationFrame(frame);
+  }, [focusLocation]);
   function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const f = new FormData(e.currentTarget);
-    const p: Partial<IngredientUpdate> = {
+    const patch = ingredientEditPatch(original, item, {
       name: String(f.get("name")),
       category: f.get("category") as IngredientCreate["category"],
-      location: (f.get("location") || null) as IngredientCreate["location"],
+      location: (f.get("location") || null) as Ingredient["location"],
       note: String(f.get("note") || "") || null,
-    };
-    {
-      const quantityText = String(f.get("quantity") || "").trim();
-      const quantityUnit = String(f.get("stock_unit") || "").trim();
-      // 编辑库存量就是更新当前库存；购入记录与消耗历史不在此处修改。
-      p.stock_text = quantityText;
-      p.stock_value = Number(quantityText);
-      p.stock_unit = quantityUnit;
-    }
-    // 只提交用户实际改过的字段，编辑名称不会覆盖另一设备更新后的库存。
-    const patch: IngredientUpdate = { expected_updated_at: item.updated_at };
-    for (const key of ["name", "category", "location", "note", "stock_text", "stock_value", "stock_unit"] as const) {
-      const value = p[key];
-      if (value !== undefined && value !== item[key]) Object.assign(patch, { [key]: value });
-    }
+      quantity,
+      unit,
+    });
     save(patch);
   }
   return (
@@ -291,7 +290,7 @@ export function IngredientEditor({
           </select>
         </Field>
         <Field label="存放位置">
-          <select name="location" defaultValue={item?.location ?? ""}>
+          <select ref={locationRef} name="location" defaultValue={item?.location ?? ""}>
             <option value="">未填写</option>
             {LOCATIONS.map((l) => (
               <option key={l}>{l}</option>
@@ -302,30 +301,30 @@ export function IngredientEditor({
       <fieldset>
         <legend>当前库存</legend>
         <div className="form-grid">
-          <Field label="数量">
-            <input
-              type="number"
+            <QuantityInput
+              label="数量"
               name="quantity"
               required
-              min="0.000001"
-              step="0.000001"
-              inputMode="decimal"
-              defaultValue={currentQuantity}
+              disabled={busy}
+              allowZero={original.stock_value === 0 && quantity === "0" && unit === original.stock_unit}
+              value={quantity}
+              onValueChange={setQuantity}
               placeholder="例如：6"
             />
-          </Field>
           <Field label="单位">
             <input
               name="stock_unit"
               required
               list={`ingredient-units-${category}`}
               maxLength={50}
-              defaultValue={currentUnit}
+              value={unit}
+              onChange={event => setUnit(event.target.value)}
               placeholder="例如：个"
             />
           </Field>
         </div>
         <p className="form-hint">{category}常用单位：{recommendedUnits(category).join("、")}；也可以填写其他单位。</p>
+        <p className="form-hint">数量每次增减 1，也可直接输入小数。修改单位时，请核对当前实际数量。</p>
         <datalist id={`ingredient-units-${category}`}>
           {orderedUnits(category).map((unit) => <option key={unit} value={unit} />)}
         </datalist>

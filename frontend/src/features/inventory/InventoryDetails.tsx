@@ -2,13 +2,15 @@ import { useEffect, useState } from "react";
 import { api, type Ingredient, type InventoryAdjustmentRecord } from "../../shared/api/client";
 import { Empty, Field } from "../../shared/ui/Primitives";
 import { stockLabel } from "./inventory-format";
+import { QuantityInput } from "../../shared/ui/QuantityInput";
+import { quantityInputError } from "../../shared/ui/quantity-input-logic";
 
 export function IngredientDetail({ item, busy, edit, waste }: { item: Ingredient; busy: boolean; edit: () => void; waste: () => void }) {
   return <div className="ingredient-detail">
     <dl className="detail-grid">
       <div><dt>分类</dt><dd>{item.category}</dd></div>
       <div><dt>当前库存</dt><dd>{stockLabel(item)}</dd></div>
-      {item.location && <div><dt>存放位置</dt><dd>{item.location}</dd></div>}
+      <div><dt>存放位置</dt><dd>{item.location || <>未填写 <button type="button" className="text-button" onClick={edit} disabled={busy}>补充位置</button></>}</dd></div>
     </dl>
     {item.note && <div className="detail-note"><h4>备注</h4><p>{item.note}</p></div>}
     <div className="actions ingredient-detail-actions"><button className="btn-ghost" onClick={edit} disabled={busy}>编辑</button><button className="text-button danger" onClick={waste} disabled={busy}>处理变质/损坏</button></div>
@@ -22,14 +24,16 @@ export function WasteEditor({ item, busy, save }: { item: Ingredient; busy: bool
   const [quantity, setQuantity] = useState(String(item.stock_value));
   const [reason, setReason] = useState<"spoiled" | "damaged" | "other">("spoiled");
   const amount = Number(quantity);
-  const invalid = !Number.isFinite(amount) || amount <= 0 || amount > item.stock_value;
+  const quantityError = quantityInputError(quantity, { required: true, max: item.stock_value });
+  const invalid = Boolean(quantityError);
   return <form onSubmit={(event) => { event.preventDefault(); if (!invalid) save({ stock_text: quantity, stock_value: amount, stock_unit: item.stock_unit, reason, note: String(new FormData(event.currentTarget).get("note") || "") || null, expected_updated_at: item.updated_at }); }}>
     <p className="dialog-description">当前库存 {stockLabel(item)}。处理后可在“库存处理记录”里查看。</p>
     <div className="unit-choice"><button type="button" className={all ? "chip active" : "chip"} onClick={() => { setAll(true); setQuantity(String(item.stock_value)); }}>全部处理</button><button type="button" className={!all ? "chip active" : "chip"} onClick={() => setAll(false)}>处理部分</button></div>
-    <Field label={`处理数量（${item.stock_unit}）`}><input required disabled={all} type="number" min="0.000001" max={item.stock_value} step="0.000001" inputMode="decimal" value={quantity} onChange={event => setQuantity(event.target.value)} /></Field>
+    <QuantityInput label={`处理数量（${item.stock_unit}）`} required disabled={all || busy} max={item.stock_value} value={quantity} onValueChange={setQuantity} />
+    {!all && <p className="form-hint">数量每次增减 1，也可直接输入小数。</p>}
     <Field label="原因"><select value={reason} onChange={event => setReason(event.target.value as typeof reason)}>{Object.entries(wasteReasonText).map(([value, label]) => <option value={value} key={value}>{label}</option>)}</select></Field>
     <Field label="备注（选填）"><textarea name="note" rows={2} maxLength={5000} placeholder="例如：冷藏失温" /></Field>
-    {invalid && <p className="form-error">处理数量应大于 0，且不能超过当前库存。</p>}
+    {invalid && <p className="form-error">{quantityError}</p>}
     <button className="btn-primary submit" disabled={busy || invalid}>{busy ? "处理中…" : "确认处理"}</button>
   </form>;
 }

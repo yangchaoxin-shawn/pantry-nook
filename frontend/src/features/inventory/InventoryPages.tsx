@@ -3,7 +3,7 @@ import { CATEGORIES, type Ingredient } from "../../shared/api/client";
 import { Empty } from "../../shared/ui/Primitives";
 import { InventoryAdjustmentLedger } from "./InventoryDetails";
 import { stockLabel } from "./inventory-format";
-import { inventoryView, LOCATION_OPTIONS } from "./inventory-view";
+import { inventoryView, LOCATION_OPTIONS, type InventoryLocation } from "./inventory-view";
 import "./inventory-view.css";
 
 function CategoryMark({ category }: { category: string }) {
@@ -17,23 +17,26 @@ function CategoryMark({ category }: { category: string }) {
   return <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{paths[category]}</svg>;
 }
 
-export function InventoryPage({ ingredients, locationItems, inventoryLocation, locationError, search, category, setSearch, setCategory, chooseLocation, retry, openIngredient, actions }: {
+export function InventoryPage({ ingredients, locationItems, inventoryLocation, locationError, search, category, setSearch, setCategory, chooseLocation, retry, openIngredient, openLocationEditor, actions }: {
   ingredients: Ingredient[];
   locationItems: Ingredient[] | null;
-  inventoryLocation: Ingredient["location"];
+  inventoryLocation: InventoryLocation;
   locationError: string;
   search: string;
   category: string;
   setSearch: (value: string) => void;
   setCategory: (value: string) => void;
-  chooseLocation: (value: Ingredient["location"]) => void;
+  chooseLocation: (value: InventoryLocation) => void;
   retry: () => void;
   openIngredient: (item: Ingredient) => void;
+  openLocationEditor?: (item: Ingredient) => void;
   actions?: ReactNode;
 }) {
   const view = inventoryView({ ingredients, locationItems, inventoryLocation, locationError, search, category });
   const filtered = Boolean(search.trim() || category !== "全部" || inventoryLocation);
   const locationLabel = LOCATION_OPTIONS.find((option) => option.value === inventoryLocation)?.label;
+  const unassignedCount = ingredients.filter(item => !item.location).length;
+  const locationsComplete = inventoryLocation === "unassigned" && !search.trim() && category === "全部" && unassignedCount === 0;
   return <section className="pn-inventory" aria-label="库存清单">
     <div className="pn-inventory-toolbar">
       <label className="pn-inventory-search">
@@ -43,10 +46,15 @@ export function InventoryPage({ ingredients, locationItems, inventoryLocation, l
       {actions && <div className="pn-inventory-actions">{actions}</div>}
     </div>
     <div className="pn-inventory-locations" role="group" aria-label="存放位置">
-      {LOCATION_OPTIONS.map(({ value, label }) => <button type="button" aria-pressed={inventoryLocation === value} key={label} onClick={() => {
+      {LOCATION_OPTIONS.map(({ value, label }) => <button type="button" aria-pressed={inventoryLocation === value} key={label}
+        aria-label={value === "unassigned" ? `待补位置，全库存 ${unassignedCount} 项` : undefined} onClick={() => {
+        if (value === "unassigned") {
+          setSearch("");
+          setCategory("全部");
+        }
         // 重复点击不清空列表，避免父组件依赖未变化时不再发起请求。
         if (inventoryLocation !== value) chooseLocation(value);
-      }}>{label}</button>)}
+      }}>{label}{value === "unassigned" && <span className="pn-inventory-location-count">{unassignedCount}</span>}</button>)}
     </div>
     <div className="pn-inventory-categories" role="group" aria-label="食材分类">
       {["全部", ...CATEGORIES].map((value) => <button type="button" aria-pressed={category === value} key={value} onClick={() => setCategory(value)}>{value}</button>)}
@@ -58,12 +66,15 @@ export function InventoryPage({ ingredients, locationItems, inventoryLocation, l
       </div> : view.status === "error" ? <div className="pn-inventory-state" role="alert">
         <h2>暂时没能打开这份清单</h2><p>{view.message}</p><button type="button" className="btn-ghost" onClick={retry}>重新读取</button>
       </div> : view.status === "empty" ? <div className="pn-inventory-state">
-        <Empty title={filtered ? "没有找到这些食材" : "这里还没有食材"}>{filtered ? "试试其他名称，或切换位置和分类。" : "记下家里现有的食材，让下一顿有个着落。"}</Empty>
+        <Empty title={locationsComplete ? "位置都已补齐" : filtered ? "没有找到这些食材" : "这里还没有食材"}>{locationsComplete ? "可以切换到全部位置，继续查看库存。" : filtered ? "试试其他名称，或切换位置和分类。" : "记下家里现有的食材，让下一顿有个着落。"}</Empty>
       </div> : <div className="pn-inventory-groups">{view.groups.map(({ category: group, items }) => <section className="pn-inventory-group" key={group} aria-label={`${group}库存`}>
         <h2><CategoryMark category={group} />{group}</h2>
-        <div className="pn-inventory-list">{items.map((item) => <button type="button" className="pn-inventory-row" key={item.id} aria-label={`查看${item.name}，余量${stockLabel(item)}`} onClick={() => openIngredient(item)}>
-          <span className="pn-inventory-name">{item.name}</span><span className="pn-inventory-quantity">{stockLabel(item)}</span>
-        </button>)}</div>
+        <div className="pn-inventory-list">{items.map((item) => <div className="pn-inventory-row" key={item.id}>
+          <button type="button" className="pn-inventory-open" aria-label={`查看${item.name}，余量${stockLabel(item)}${!item.location ? "，待补位置" : ""}`} onClick={() => openIngredient(item)}>
+            <span className="pn-inventory-name">{item.name}{!item.location && <small className="pn-inventory-location-missing">待补位置</small>}</span><span className="pn-inventory-quantity">{stockLabel(item)}</span>
+          </button>
+          {!item.location && openLocationEditor && <button type="button" className="pn-inventory-fill-location" aria-label={`补充${item.name}的存放位置`} onClick={() => openLocationEditor(item)}>补位置</button>}
+        </div>)}</div>
       </section>)}</div>}
     </div>
   </section>;

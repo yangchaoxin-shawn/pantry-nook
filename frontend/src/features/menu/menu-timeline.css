@@ -1,0 +1,65 @@
+.meal-journal { width: 100%; max-width: 1010px; margin-inline: auto; display: grid; gap: 45px; }
+.meal-journal-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 15px; margin-bottom: 25px; }
+.meal-journal-heading h2 { font-weight: 400; font-size: 28px; line-height: 1.5; }
+.meal-journal-heading > .muted { padding-bottom: 5px; font-size: 14px; }
+.meal-journal-kicker { display: block; font-size: 12px; color: var(--ink-muted); margin-bottom: 3px; }
+.meal-date-group { display: grid; grid-template-columns: 106px minmax(0, 1fr); gap: 24px; padding-bottom: 24px; }
+.meal-date-group:last-child { padding-bottom: 0; }
+.meal-date-stamp { color: var(--ink); padding-top: 3px; }
+.meal-date-stamp time { display: flex; flex-direction: column; font-family: var(--data-font); font-variant-numeric: tabular-nums; }
+.meal-date-year { font-size: 11px; letter-spacing: .13em; color: var(--ink-muted); }
+.meal-date-day { display: flex; align-items: baseline; gap: 5px; font-size: 28px; line-height: 1.65; letter-spacing: -.04em; }
+.meal-date-day i { font: 20px var(--hand); color: var(--ink-muted); }
+.meal-date-weekday { display: inline-block; font-size: 13px; color: var(--ink-muted); padding-bottom: 7px; border-bottom: 1px solid var(--hairline); }
+.meal-date-entries { position: relative; min-width: 0; padding-left: 27px; border-left: 1px solid var(--hairline); display: grid; gap: 14px; }
+.meal-timeline-entry { position: relative; min-width: 0; padding: 18px 22px; }
+.meal-timeline-entry::before { content: ''; position: absolute; left: -33px; top: 27px; width: 9px; height: 9px; background: var(--canvas); border: 1px solid var(--primary); border-radius: 45% 55% 40% 60%; box-shadow: 0 0 0 4px var(--canvas); }
+.meal-timeline-entry-planned { border: 1px solid var(--hairline); border-radius: 5px 21px 4px 14px; background-color: var(--surface); background-image: var(--fiber); background-size: 640px; box-shadow: 0 2px 0 color-mix(in srgb, var(--hairline) 20%, transparent); }
+.meal-timeline-entry-planned::before { background: var(--primary); }
+.meal-timeline-entry-heading { display: flex; gap: 14px; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+.meal-timeline-entry h3 { font-weight: 400; font-size: 21px; }
+.meal-timeline-dishes { font-size: 19px; line-height: 1.7; color: var(--ink); overflow-wrap: anywhere; }
+.meal-timeline-details { margin: 5px 0 8px; font-size: 14px; color: var(--ink-soft); }
+.meal-timeline-details summary { width: fit-content; max-width: 100%; cursor: pointer; min-height: 44px; padding: 10px 0; color: var(--primary); }
+.meal-timeline-details[open] { margin-bottom: 17px; }
+.meal-timeline-details p { overflow-wrap: anywhere; }
+.meal-timeline-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 7px 14px; }
+.meal-timeline-actions .text-button { min-height: 44px; padding: 8px 5px; }
+.meal-journal-history { border-top: 1px solid var(--hairline); padding-top: 29px; }
+.meal-timeline-entry-history { border-bottom: 1px solid var(--hairline); padding-top: 6px; padding-bottom: 18px; }
+.meal-timeline-entry-history::before { top: 16px; }
+.meal-timeline-entry-history .meal-timeline-dishes { font-size: 17px; }
+.meal-timeline-entry-history .meal-timeline-entry-heading { margin-bottom: 5px; }
+.meal-timeline-entry-history .meal-timeline-details { margin-block: 0 4px; }
+.meal-history-filter { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 7px 12px; }
+.meal-history-filter label { display: flex; align-items: center; gap: 8px; color: var(--ink-muted); font-size: 13px; }
+.meal-history-filter input { width: 158px; height: 44px; padding: 7px 9px; font-size: 13px; }
+.meal-history-filter > button { min-height: 44px; }
+:root[data-theme='dark'] .meal-timeline-entry-planned { background-blend-mode: multiply; }
+@media (max-width: 768px) {
+  .meal-journal { gap: 33px; }
+  .meal-journal-heading { margin-bottom: 19px; }
+  .meal-journal-heading h2 { font-size: 25px; }
+  .meal-journal-heading > .muted { font-size: 12px; }
+  .meal-date-group { display: block; padding-bottom: 25px; }
+  .meal-date-stamp { display: flex; align-items: center; gap: 12px; padding: 0 0 12px; }
+  .meal-date-stamp time { flex-direction: row; align-items: center; gap: 11px; }
+  .meal-date-year { font-size: 10px; }
+  .meal-date-day { font-size: 23px; line-height: 1.35; gap: 5px; }
+  .meal-date-weekday { font-size: 12px; border-bottom: 0; padding-bottom: 0; }
+  .meal-date-entries { padding-left: 16px; margin-left: 3px; gap: 13px; }
+  .meal-timeline-entry { padding: 15px; }
+  .meal-timeline-entry::before { left: -22px; top: 24px; }
+  .meal-timeline-entry h3 { font-size: 20px; }
+  .meal-timeline-dishes { font-size: 18px; }
+  .meal-timeline-details { font-size: 13px; }
+  .meal-timeline-entry-history { padding: 5px 2px 17px 7px; }
+  .meal-timeline-entry-history::before { top: 15px; }
+  .meal-timeline-actions { column-gap: 10px; }
+  .meal-timeline-actions .btn-primary { flex-basis: 100%; justify-content: center; }
+  .meal-timeline-actions .btn-ghost { padding-inline: 13px; }
+  .meal-timeline-actions .text-button { font-size: 14px; }
+  .meal-journal-history > .meal-journal-heading { align-items: flex-start; flex-wrap: wrap; }
+  .meal-history-filter { justify-content: flex-start; }
+  .meal-history-filter input { width: 147px; }
+}

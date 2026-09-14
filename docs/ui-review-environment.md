@@ -1,5 +1,7 @@
 # 第一批 UI 独立评审环境
 
+2026-09-14 反馈整改使用另一工作树及 **5201 / 3019**，入口与重启命令见 [本轮记录](ui-review-feedback.md)。下面的 5200 / 3018 是第一批环境，两份数据互不替换。启动器会读取各自工作树的 `.review/environment.json`，不要混用运行目录。
+
 本环境用于本地 UI 开发和人工评审，代码位于独立 worktree `.worktrees/ui-foundation`，分支 `codex/ui-foundation`。既有 3000、5173、5186 等服务不由本脚本管理。
 
 | 项目 | 配置 |

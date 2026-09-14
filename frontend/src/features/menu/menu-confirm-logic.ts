@@ -1,4 +1,5 @@
 import type { Battle, Ingredient } from '../../shared/api/client';
+import { convertUnitValue } from '../inventory/batch-ingredient-logic';
 
 const USAGE = /^(?:(?:0|[1-9]\d*)(?:\.\d+)?|\.\d+|(?:0|[1-9]\d*)\/[1-9]\d*)$/;
 
@@ -20,4 +21,20 @@ export function initialUsage(text: string | null | undefined, unit: string | nul
 export function inventoryVersion(battle: Pick<Battle, 'preparations'>, ingredients: Pick<Ingredient, 'id' | 'updated_at'>[]): string {
   return [...new Set(battle.preparations.map(p => p.ingredient_id).filter((id): id is number => id !== null))].sort((a, b) => a - b)
     .map(id => `${id}:${ingredients.find(i => i.id === id)?.updated_at ?? 'unavailable'}`).join('|');
+}
+
+export function resolvePlannedQuantity(text: string | null | undefined, draftUnit: string | null | undefined, currentUnit: string | null | undefined, latestText: string | null | undefined, latestUnit: string | null | undefined): { text: string | null | undefined; review?: string } {
+  if (!text?.trim()) return { text };
+  if (!currentUnit) throw new Error('库存缺少单位，请先补全库存单位。');
+  const sourceUnit = draftUnit || currentUnit;
+  const numberText = initialUsage(text, sourceUnit);
+  const value = usageValue(numberText);
+  if (value === null) throw new Error(`预计用量仍按 ${sourceUnit} 填写，请核对数量与单位。`);
+  // 原文和单位都与刚读取的菜单相同，而且后端能按当前单位解析，才可保留旧单位快照。
+  if (text === latestText && sourceUnit === latestUnit && initialUsage(text, currentUnit) !== '') return { text };
+  if (sourceUnit === currentUnit) return { text: `${numberText}${currentUnit}` };
+  const converted = convertUnitValue(value, sourceUnit, currentUnit);
+  if (converted === null) throw new Error(`原预计 ${text}${text.toLocaleLowerCase().endsWith(sourceUnit.toLocaleLowerCase()) ? '' : sourceUnit} 不能换算成 ${currentUnit}，请按当前库存单位重新填写预计用量。`);
+  const convertedText = `${Number(converted.toFixed(6))}${currentUnit}`;
+  return { text: convertedText, review: `${text}${text.toLocaleLowerCase().endsWith(sourceUnit.toLocaleLowerCase()) ? '' : sourceUnit} → ${convertedText}` };
 }

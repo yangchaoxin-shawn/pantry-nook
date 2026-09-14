@@ -4,7 +4,7 @@ export type Page = "battles" | "ingredients" | "dishes" | "plans" | "consumption
 
 export type Modal =
   | { kind: "recovery"; recoveryKind: "adjustment" | "battle"; id: number }
-  | { kind: "ingredient"; item: Ingredient }
+  | { kind: "ingredient"; item: Ingredient; focusLocation?: boolean }
   | { kind: "ingredientSingle" }
   | { kind: "ingredientBatch"; suggestedNames?: string[] }
   | { kind: "ingredientDetail"; item: Ingredient }

@@ -23,6 +23,7 @@
   color: var(--ink-soft, #526451); font: inherit; font-size: 15px; white-space: nowrap; box-shadow: 0 2px 0 #7f906213;
 }
 .pn-inventory .pn-inventory-locations button[aria-pressed="true"] { background-color: var(--primary, #567161); border-color: var(--primary, #567161); color: var(--canvas, #f4ebd5); transform: rotate(-1deg); }
+.pn-inventory .pn-inventory-location-count { margin-left: 7px; font-family: var(--data-font, system-ui, sans-serif); font-size: 13px; }
 .pn-inventory .pn-inventory-categories { display: flex; gap: 25px; overflow-x: auto; overscroll-behavior-x: contain; border-bottom: 1px solid var(--hairline, #c9c9af); margin: 15px 0 24px; }
 .pn-inventory .pn-inventory-categories button { flex-shrink: 0; min-height: 45px; padding: 2px 0 11px; border: 0; border-bottom: 2px solid transparent; background: transparent; color: var(--ink-muted, #687564); font: inherit; font-size: 15px; white-space: nowrap; }
 .pn-inventory .pn-inventory-categories button[aria-pressed="true"] { color: var(--ink, #344e40); border-bottom-color: var(--primary, #567161); border-radius: 0 0 25% 8%; }
@@ -35,12 +36,15 @@
 .pn-inventory .pn-inventory-group h2 { display: flex; align-items: center; gap: 9px; margin: 0; padding: 12px 0 10px; font-family: var(--hand, inherit); font-size: 20px; font-weight: 400; line-height: 1.5; color: var(--ink, #344e40); }
 .pn-inventory .pn-inventory-group h2 svg { flex-shrink: 0; color: var(--primary, #567161); }
 .pn-inventory .pn-inventory-row {
-  display: flex; align-items: center; justify-content: space-between; gap: 18px; width: 100%; min-height: 51px; padding: 9px 1px;
-  border: 0; border-top: 1px dashed color-mix(in srgb, var(--hairline, #c9c9af) 60%, transparent); border-radius: 0; background: transparent; color: inherit; font: inherit; text-align: left;
+  display: flex; align-items: center; gap: 12px; width: 100%; min-height: 51px;
+  border-top: 1px dashed color-mix(in srgb, var(--hairline, #c9c9af) 60%, transparent);
 }
-.pn-inventory .pn-inventory-row:hover { background: color-mix(in srgb, var(--primary, #567161) 7%, transparent); }
-.pn-inventory .pn-inventory-row:focus-visible { outline: 2px solid var(--primary, #567161); outline-offset: 2px; border-radius: 5px; }
+.pn-inventory .pn-inventory-open { display: flex; align-items: center; justify-content: space-between; gap: 18px; flex: 1; min-width: 0; min-height: 51px; padding: 9px 1px; border: 0; border-radius: 0; background: transparent; color: inherit; font: inherit; text-align: left; }
+.pn-inventory .pn-inventory-open:hover { background: color-mix(in srgb, var(--primary, #567161) 7%, transparent); }
+.pn-inventory .pn-inventory-open:focus-visible, .pn-inventory .pn-inventory-fill-location:focus-visible { outline: 2px solid var(--primary, #567161); outline-offset: 2px; border-radius: 5px; }
 .pn-inventory .pn-inventory-name { min-width: 0; font-size: 17px; overflow-wrap: anywhere; line-height: 1.7; }
+.pn-inventory .pn-inventory-location-missing { display: block; color: var(--ink-muted, #687564); font-size: 12px; line-height: 1.4; }
+.pn-inventory .pn-inventory-fill-location { flex-shrink: 0; min-height: 36px; padding: 4px 7px; border: 1px solid var(--hairline, #c9c9af); border-radius: 5px 9px 5px 7px; background: transparent; color: var(--ink-soft, #526451); font: inherit; font-size: 13px; }
 .pn-inventory .pn-inventory-quantity { flex-shrink: 0; max-width: 48%; overflow-wrap: anywhere; text-align: right; font-family: var(--data-font, system-ui, sans-serif); font-size: 21px; font-variant-numeric: tabular-nums; line-height: 1.6; }
 .pn-inventory .pn-inventory-state { border: 1px dashed var(--hairline, #c9c9af); border-radius: 6px 15px 8px 12px; padding: 24px; background-color: var(--surface, #fcf5e3); background-image: var(--fiber, none); background-size: 640px; text-align: center; overflow-wrap: anywhere; }
 .pn-inventory .pn-inventory-state h2 { font-family: var(--hand, inherit); font-size: 24px; line-height: 1.5; }
@@ -64,6 +68,7 @@
   .pn-inventory .pn-inventory-group { padding: 0 15px 3px; margin-bottom: 19px; }
   .pn-inventory .pn-inventory-group h2 { font-size: 19px; }
   .pn-inventory .pn-inventory-row { gap: 12px; min-height: 50px; }
+  .pn-inventory .pn-inventory-open { gap: 12px; }
   .pn-inventory .pn-inventory-name { font-size: 17px; }
   .pn-inventory .pn-inventory-quantity { font-size: 20px; }
   .pn-inventory .pn-inventory-skeletons { grid-template-columns: 1fr; gap: 19px; }

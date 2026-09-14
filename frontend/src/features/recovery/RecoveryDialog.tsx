@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { api, type RecoveryPreview, type RecoveryRequest } from '../../shared/api/client';
 import { canConvertUnits, convertUnitValue } from '../inventory/batch-ingredient-logic';
+import { QuantityInput } from '../../shared/ui/QuantityInput';
+import { quantityInputError } from '../../shared/ui/quantity-input-logic';
 
 export type RecoveryDraft = { units: Record<number, string>; totals: Record<number, string> };
 
@@ -30,7 +32,7 @@ export function RecoveryDialog({ kind, id, draft, onDraft, onPending, onSuccess 
   }, [kind, id, revision]);
   const merges = preview?.items.filter(r => r.target_ingredient_id !== null) ?? [];
   const invalid = merges.some(r => !canConvertUnits(r.restored_unit, r.target_unit) &&
-    (!Number.isFinite(Number(totals[r.source_ingredient_id])) || Number(totals[r.source_ingredient_id]) <= 0));
+    Boolean(quantityInputError(totals[r.source_ingredient_id] ?? '', { required: true })));
   async function submit() {
     if (!preview || busy || loading || needsRefresh || invalid || lock.current) return;
     lock.current = true; setBusy(true); onPending(true); setError('');
@@ -58,8 +60,8 @@ export function RecoveryDialog({ kind, id, draft, onDraft, onPending, onSuccess 
             <label>合并单位<select aria-label={`${r.name}合并单位`} value={unit} disabled={busy} onChange={e => { const next = { ...units, [r.source_ingredient_id]: e.target.value }; setUnits(next); onDraft({ units: next, totals }); }}>
               {[...new Set([r.target_unit!, r.restored_unit])].map(u => <option key={u}>{u}</option>)}</select></label>
             {total !== null ? <p>恢复后：{total.toLocaleString('zh-CN', { maximumFractionDigits: 6 })}{unit}</p>
-              : <label>合并后的实际数量（{unit}）<input aria-label={`${r.name}合并后的实际数量`} type="number" min="0.000001" step="0.000001" inputMode="decimal" disabled={busy}
-                value={totals[r.source_ingredient_id] ?? ''} onChange={e => { const next = { ...totals, [r.source_ingredient_id]: e.target.value }; setTotals(next); onDraft({ units, totals: next }); }} /><span className="form-hint">单位不能自动换算，请按实际库存填写最终量。</span></label>}
+              : <><QuantityInput label={`合并后的实际数量（${unit}）`} aria-label={`${r.name}合并后的实际数量`} required disabled={busy}
+                value={totals[r.source_ingredient_id] ?? ''} onValueChange={value => { const next = { ...totals, [r.source_ingredient_id]: value }; setTotals(next); onDraft({ units, totals: next }); }} /><p className="form-hint">单位不能自动换算，请按实际库存填写最终量。每次增减 1，也可直接输入小数。</p></>}
           </> : <p className="muted">恢复到原库存记录。</p>}
         </fieldset>;
       })}

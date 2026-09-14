@@ -1,5 +1,6 @@
 import {
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
 } from "react";
@@ -15,7 +16,7 @@ import {
 import "../App.css";
 import type { RecoveryDraft } from "../features/recovery/RecoveryDialog";
 import "../menu-workflow.css";
-import { MenuTimeline } from "../features/menu/MenuWorkflow";
+import { MenuTimeline } from "../features/menu/MenuTimeline";
 import { Icon } from "../shared/ui/Primitives";
 import { InventoryAdjustmentsPage, InventoryPage } from "../features/inventory/InventoryPages";
 import { DishesPage, PlansPage } from "../features/catalog/CatalogPages";
@@ -24,6 +25,8 @@ import { AppModal } from "./AppModal";
 import { JournalHero, KitchenSketch } from '../shared/ui/JournalArt';
 import '../styles/journal.css';
 import type { AppData, Modal, Page } from "./types";
+import type { InventoryLocation } from '../features/inventory/inventory-view';
+import './navigation.css';
 
 const NAV = [
   ["battles", "餐安排", "sun"],
@@ -54,9 +57,17 @@ export default function App() {
     [search, setSearch] = useState("");
   const [category, setCategory] = useState("全部"),
     [consumptionStatus, setConsumptionStatus] = useState("all");
-  const [inventoryLocation, setInventoryLocation] = useState<Ingredient["location"]>(null),
+  const [inventoryLocation, setInventoryLocation] = useState<InventoryLocation>(null),
     [locationItems, setLocationItems] = useState<Ingredient[] | null>(null),
     [locationError, setLocationError] = useState("");
+  const pageMemory = useRef<Partial<Record<Page, { search: string; scroll: number }>>>({});
+  const restoreScroll = useRef<number | null>(null);
+  useLayoutEffect(() => {
+    if (!loading && restoreScroll.current !== null) {
+      window.scrollTo({ top: restoreScroll.current, behavior: 'instant' });
+      restoreScroll.current = null;
+    }
+  }, [page, loading]);
   const [dark, setDark] = useState(
     () => window.matchMedia("(prefers-color-scheme: dark)").matches,
   );
@@ -90,7 +101,7 @@ export default function App() {
     return () => controller.abort();
   }, [revision]);
   useEffect(() => {
-    if (!inventoryLocation) return;
+    if (!inventoryLocation || inventoryLocation === 'unassigned') return;
     const controller = new AbortController();
     api.ingredientsAtLocation(inventoryLocation, controller.signal)
       .then((items) => {
@@ -118,11 +129,15 @@ export default function App() {
     setRevision((v) => v + 1);
   }
   function navigate(next: Page) {
+    if (next === page) return;
+    pageMemory.current[page] = { search, scroll: window.scrollY };
+    const saved = pageMemory.current[next];
+    restoreScroll.current = saved?.scroll ?? 0;
     setPage(next);
-    setSearch("");
+    setSearch(saved?.search ?? '');
     setNotice("");
   }
-  function chooseInventoryLocation(location: Ingredient["location"]) {
+  function chooseInventoryLocation(location: InventoryLocation) {
     if (location === inventoryLocation) return;
     setInventoryLocation(location);
     setLocationError("");
@@ -194,7 +209,7 @@ export default function App() {
     dishes: "把拿手菜记下来",
     plans: "好好搭配，好好吃饭",
     consumptions: "每一餐，都有迹可循",
-    adjustments: "库存处理记录",
+    adjustments: "变质 / 损坏记录",
   };
   const subtitles = {
     battles: "选菜、备餐，做完后确定。每一餐都留在这里。",
@@ -226,6 +241,9 @@ export default function App() {
     {addButton('批量记录', { kind: 'ingredientBatch' })}
   </>;
   const activePage = page === 'adjustments' ? 'ingredients' : page === 'plans' ? 'dishes' : page === 'consumptions' ? 'battles' : page;
+  const parentPage = page === 'adjustments' ? { page: 'ingredients' as const, label: '库存', current: '变质 / 损坏记录' }
+    : page === 'plans' ? { page: 'dishes' as const, label: '菜品', current: '常用搭配' }
+    : page === 'consumptions' ? { page: 'battles' as const, label: '餐安排', current: '用料记录' } : null;
   return (
     <div className="app">
       <a className="skip-link" href="#main">
@@ -267,6 +285,7 @@ export default function App() {
         </button>
       </header>
       <main id="main" className="main">
+        {parentPage && <div className="subpage-navigation"><nav aria-label="当前位置"><button type="button" onClick={() => navigate(parentPage.page)}>{parentPage.label}</button><span aria-hidden="true">/</span><span aria-current="page">{parentPage.current}</span></nav><button type="button" className="btn-ghost subpage-back" onClick={() => navigate(parentPage.page)}><span aria-hidden="true">←</span> 返回{parentPage.label}</button></div>}
         {page === 'ingredients' ? <JournalHero /> : <div className="page-heading">
           <div>
             <p className="eyebrow">
@@ -347,6 +366,7 @@ export default function App() {
                 chooseLocation={chooseInventoryLocation}
                 retry={reload}
                 openIngredient={(item) => open({ kind: "ingredientDetail", item })}
+                openLocationEditor={(item) => open({ kind: 'ingredient', item, focusLocation: true })}
                 actions={inventoryActions}
               />}
               {page === "adjustments" && <InventoryAdjustmentsPage busy={busy} refreshKey={revision}

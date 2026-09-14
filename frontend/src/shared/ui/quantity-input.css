@@ -1,0 +1,30 @@
+.pn-quantity-field { min-width: 0; }
+.pn-quantity-field--labelled { margin-bottom: 16px; }
+.pn-quantity-field > label { display: block; margin-bottom: 8px; color: var(--ink-soft); font-size: 13px; }
+.pn-quantity-controls { display: flex; align-items: stretch; min-width: 0; }
+.pn-quantity-controls > input { flex: 1; width: 0; min-width: 0; padding-inline: 6px; border-radius: 0; text-align: center; }
+.pn-quantity-controls > button { flex: 0 0 44px; width: 44px; min-height: 44px; padding: 0; border: 1px solid var(--hairline); background: var(--surface-warm, var(--surface)); color: var(--ink); font: inherit; font-size: 20px; }
+.pn-quantity-controls > button:first-child { border-right: 0; border-radius: 10px 0 0 10px; }
+.pn-quantity-controls > button:last-child { border-left: 0; border-radius: 0 10px 10px 0; }
+.pn-quantity-controls > button:disabled { opacity: 0.4; cursor: default; }
+.pn-quantity-controls > button:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; position: relative; z-index: 1; }
+.pn-quantity-field .pn-quantity-error { margin: 7px 0 0; font-size: 12px; }
+.batch-ingredient-row .pn-quantity-controls > input { height: 44px; padding-inline: 3px; }
+.batch-ingredient-editor .batch-ingredient-rows { max-height: none; overflow: visible; padding-right: 0; container: batch-ingredients / inline-size; }
+.batch-ingredient-editor > .submit { position: static; bottom: auto; margin-top: 20px; }
+@media (min-width: 769px) {
+  .batch-ingredient-editor .batch-ingredient-row { grid-template-columns: 26px minmax(0, 1.5fr) minmax(156px, 1fr) minmax(64px, .55fr) auto; }
+}
+@media (max-width: 768px) {
+  .batch-ingredient-editor .batch-ingredient-rows { gap: 18px; }
+  .batch-ingredient-editor .batch-ingredient-row { grid-template-columns: minmax(0, 1fr) 72px; gap: 8px; align-items: start; padding-bottom: 16px; border-bottom: 1px dashed var(--hairline); }
+  .batch-ingredient-editor .batch-row-number { display: none; }
+  .batch-ingredient-editor .batch-ingredient-row > :nth-child(2) { grid-column: 1; grid-row: 1; }
+  .batch-ingredient-editor .batch-ingredient-row > :nth-child(3) { grid-column: 1; grid-row: 2; }
+  .batch-ingredient-editor .batch-ingredient-row > :nth-child(4) { grid-column: 2; grid-row: 2; height: 44px; padding-inline: 8px; }
+  .batch-ingredient-editor .batch-ingredient-row > :nth-child(5) { grid-column: 2; grid-row: 1; justify-self: end; min-width: 44px; min-height: 44px; margin: 0; }
+  @container batch-ingredients (max-width: 275px) {
+    .batch-ingredient-editor .batch-ingredient-row > :nth-child(3) { grid-column: 1 / -1; }
+    .batch-ingredient-editor .batch-ingredient-row > :nth-child(4) { grid-column: 1 / -1; grid-row: 3; max-width: 140px; }
+  }
+}
