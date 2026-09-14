@@ -1,38 +1,45 @@
 services:
-  db:
-    image: postgres:16-alpine
-    restart: unless-stopped
+  pantry-db:
+    image: postgres:16
+    container_name: pantry-db
     environment:
-      POSTGRES_DB: pantry_nook
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: ${DB_PASSWORD:?请先在项目根目录 .env 中设置 DB_PASSWORD}
-    ports:
-      - '127.0.0.1:5432:5432'
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required}
+      POSTGRES_DB: pantry_nook
     volumes:
-      - db-data:/var/lib/postgresql/data
-      - ./backend/app/db/schema.sql:/docker-entrypoint-initdb.d/schema.sql
+      - pantry-db-data:/var/lib/postgresql/data
+      - ./backend/app/db/schema.sql:/docker-entrypoint-initdb.d/01_schema.sql:ro
     healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U postgres -d pantry_nook']
+      test: ["CMD-SHELL", "pg_isready -U postgres -d pantry_nook -q"]
       interval: 5s
       timeout: 5s
-      retries: 10
-
-  backend:
-    build: ./backend
+      retries: 20
     restart: unless-stopped
+
+  pantry-backend:
+    build:
+      context: ./backend
+    container_name: pantry-backend
+    depends_on:
+      pantry-db:
+        condition: service_healthy
     environment:
-      DB_HOST: db
+      DB_HOST: pantry-db
       DB_PORT: 5432
       DB_NAME: pantry_nook
       DB_USER: postgres
-      DB_PASSWORD: ${DB_PASSWORD:?请先在项目根目录 .env 中设置 DB_PASSWORD}
+      DB_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required}
+      FRONTEND_ORIGIN: ${FRONTEND_ORIGIN:?FRONTEND_ORIGIN is required}
       PORT: 3000
-      FRONTEND_ORIGIN: ${FRONTEND_ORIGIN:?请先在项目根目录 .env 中设置 FRONTEND_ORIGIN}
-    depends_on:
-      db:
-        condition: service_healthy
     ports:
-      - '127.0.0.1:3000:3000'
+      - "127.0.0.1:8014:3000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:3000/health').read(); print('ok')"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
 
 volumes:
-  db-data:
+  pantry-db-data:
+    name: pantry-db-data

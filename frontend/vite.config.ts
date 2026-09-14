@@ -4,7 +4,9 @@ import { defineConfig, loadEnv } from 'vite'
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, '.', '')
   const apiTarget = env.PANTRY_API_PROXY_TARGET || 'http://localhost:3000'
+  const webBase = env.PANTRY_WEB_BASE || '/'
   return {
+    base: webBase,
     plugins: [react()],
     server: {
       proxy: {
