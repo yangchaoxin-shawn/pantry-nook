@@ -54,7 +54,17 @@ async def _is_current_schema(conn) -> bool:
         ("ingredients", "remaining_unit"),
         ("ingredients", "purchase_date"),
     }
-    return required.issubset(present) and not legacy.intersection(present)
+    if not required.issubset(present) or legacy.intersection(present):
+        return False
+
+    category_constraint = await conn.fetchval(
+        """SELECT pg_get_constraintdef(oid)
+             FROM pg_constraint
+            WHERE conrelid = 'ingredients'::regclass
+              AND conname = 'ingredients_category_check'
+              AND contype = 'c'"""
+    )
+    return category_constraint is not None and "汤料" in category_constraint
 
 
 async def register_current_schema_migrations(conn) -> bool:

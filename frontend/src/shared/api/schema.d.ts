@@ -452,7 +452,7 @@ export interface components {
             /** @description 去除首尾空白后不能为空。 */
             name: string;
             /** @enum {string} */
-            category: "碳水" | "蔬菜" | "蛋白质" | "水果" | "其他";
+            category: "碳水" | "蔬菜" | "蛋白质" | "水果" | "汤料" | "其他";
             /** @description 去除首尾空白后不能为空。 */
             stock_text: string;
             stock_value: number;
@@ -620,7 +620,7 @@ export interface components {
             updated_at: string;
             ingredient_name: string;
             /** @enum {string} */
-            category: "碳水" | "蔬菜" | "蛋白质" | "水果" | "其他";
+            category: "碳水" | "蔬菜" | "蛋白质" | "水果" | "汤料" | "其他";
             daily_battle_dish_name: string | null;
             recovery_merges?: components["schemas"]["RecoveryMerge"][];
         };
@@ -690,14 +690,14 @@ export interface components {
             daily_battle_dish_name: string | null;
             ingredient_name: string;
             /** @enum {string} */
-            category: "碳水" | "蔬菜" | "蛋白质" | "水果" | "其他";
+            category: "碳水" | "蔬菜" | "蛋白质" | "水果" | "汤料" | "其他";
             recovery_merges?: components["schemas"]["RecoveryMerge"][];
         };
         IngredientCreate: {
             /** @description 去除首尾空白后不能为空。 */
             name: string;
             /** @enum {string} */
-            category: "碳水" | "蔬菜" | "蛋白质" | "水果" | "其他";
+            category: "碳水" | "蔬菜" | "蛋白质" | "水果" | "汤料" | "其他";
             /** @description 去除首尾空白后不能为空。 */
             stock_text: string;
             stock_value: number;
@@ -709,7 +709,7 @@ export interface components {
         InventoryResolution: {
             ingredient_id: number;
             /** @enum {string} */
-            category?: "碳水" | "蔬菜" | "蛋白质" | "水果" | "其他";
+            category?: "碳水" | "蔬菜" | "蛋白质" | "水果" | "汤料" | "其他";
             stock_unit?: string;
             /** @description 去除首尾空白后不能为空。 */
             final_stock_text?: string;
@@ -727,7 +727,7 @@ export interface components {
             /** @description 去除首尾空白后不能为空。 */
             name?: string;
             /** @enum {string} */
-            category?: "碳水" | "蔬菜" | "蛋白质" | "水果" | "其他";
+            category?: "碳水" | "蔬菜" | "蛋白质" | "水果" | "汤料" | "其他";
             /** @description 去除首尾空白后不能为空。 */
             stock_text?: string;
             stock_value?: number;
@@ -974,7 +974,7 @@ export interface components {
             reversed_at: string | null;
             ingredient_name: string;
             /** @enum {string} */
-            category: "碳水" | "蔬菜" | "蛋白质" | "水果" | "其他";
+            category: "碳水" | "蔬菜" | "蛋白质" | "水果" | "汤料" | "其他";
             /** Format: date-time */
             created_at: string;
             /** Format: date-time */
@@ -1038,7 +1038,7 @@ export interface operations {
                 limit?: number;
                 offset?: number;
                 q?: string;
-                category?: "碳水" | "蔬菜" | "蛋白质" | "水果" | "其他";
+                category?: "碳水" | "蔬菜" | "蛋白质" | "水果" | "汤料" | "其他";
                 location?: "冰箱冷藏" | "冰箱冷冻" | "室温" | "其他";
             };
             header?: never;

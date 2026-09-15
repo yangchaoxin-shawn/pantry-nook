@@ -180,6 +180,28 @@ try {
     $payload = Assert-JsonList $uri $authHeaders
     Assert-True (@($payload.data).Count -eq 0) "$uri 预期为空库，但返回了数据。"
   }
+  $soupItem = @{
+    name = '预检石橄榄'
+    category = '汤料'
+    stock_text = '500'
+    stock_value = 500
+    stock_unit = 'g'
+    location = '冰箱冷藏'
+  }
+  $soupBody = @{ items = @($soupItem); resolutions = @() } | ConvertTo-Json -Depth 4 -Compress
+  $soupCreated = Invoke-WebRequest -Uri "$baseUri/pantry-nook/api/ingredients/batch" -Method Post -Headers $authHeaders `
+    -ContentType 'application/json; charset=utf-8' -Body ([Text.Encoding]::UTF8.GetBytes($soupBody)) -SkipHttpErrorCheck -TimeoutSec 20
+  Assert-True ($soupCreated.StatusCode -eq 201) "汤料写入未返回 201，实际为 $($soupCreated.StatusCode)。"
+  $soupCreatedPayload = $soupCreated.Content | ConvertFrom-Json
+  Assert-True (@($soupCreatedPayload.data).Count -eq 1 -and $soupCreatedPayload.data[0].category -eq '汤料') '汤料写入结果不正确。'
+  $soupFiltered = Assert-JsonList "$baseUri/pantry-nook/api/ingredients?category=%E6%B1%A4%E6%96%99&limit=100&offset=0" $authHeaders
+  Assert-True (@($soupFiltered.data).Count -eq 1 -and $soupFiltered.data[0].name -eq '预检石橄榄') '汤料筛选没有返回刚写入的食材。'
+  $unknownBody = @{ items = @(@{ name = '预检未知食材'; category = '未知分类'; stock_text = '1'; stock_value = 1; stock_unit = '份' }); resolutions = @() } | ConvertTo-Json -Depth 4 -Compress
+  $unknownCategory = Invoke-WebRequest -Uri "$baseUri/pantry-nook/api/ingredients/batch" -Method Post -Headers $authHeaders `
+    -ContentType 'application/json; charset=utf-8' -Body ([Text.Encoding]::UTF8.GetBytes($unknownBody)) -SkipHttpErrorCheck -TimeoutSec 20
+  Assert-True ($unknownCategory.StatusCode -eq 400) "未知分类未被拒绝，实际状态为 $($unknownCategory.StatusCode)。"
+  $unknownPayload = $unknownCategory.Content | ConvertFrom-Json
+  Assert-True ($unknownPayload.error.code -eq 'VALIDATION_ERROR') '未知分类没有返回 VALIDATION_ERROR。'
   $corsHeaders = $authHeaders.Clone()
   $corsHeaders['Origin'] = "http://127.0.0.1:$WebPort"
   $corsResponse = Get-Response "$baseUri/pantry-nook/api/ingredients?limit=1&offset=0" $corsHeaders

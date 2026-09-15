@@ -16,7 +16,7 @@ CREATE TABLE IF NOT EXISTS ingredients (
   CONSTRAINT ingredients_status_check
     CHECK (status IN ('active', 'consumed', 'discarded')),
   CONSTRAINT ingredients_category_check
-    CHECK (category IN ('碳水', '蔬菜', '蛋白质', '水果', '其他')),
+    CHECK (category IN ('碳水', '蔬菜', '蛋白质', '水果', '汤料', '其他')),
   CONSTRAINT ingredients_stock_value_check
     CHECK (stock_value IS NULL OR stock_value >= 0)
 );
@@ -34,7 +34,7 @@ CREATE TABLE IF NOT EXISTS dishes (
 ALTER TABLE ingredients DROP CONSTRAINT IF EXISTS ingredients_category_check;
 ALTER TABLE ingredients
   ADD CONSTRAINT ingredients_category_check
-  CHECK (category IN ('碳水', '蔬菜', '蛋白质', '水果', '其他'));
+  CHECK (category IN ('碳水', '蔬菜', '蛋白质', '水果', '汤料', '其他'));
 
 -- 搭配方案是菜品模板，不直接关联库存。
 CREATE TABLE IF NOT EXISTS meal_plans (

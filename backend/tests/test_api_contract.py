@@ -54,6 +54,17 @@ class ApiContractTests(unittest.TestCase):
 
         walk(schema)
 
+        expected_categories = ["碳水", "蔬菜", "蛋白质", "水果", "汤料", "其他"]
+        self.assertEqual(
+            schema["components"]["schemas"]["IngredientCreate"]["properties"]["category"]["enum"],
+            expected_categories,
+        )
+        category_parameter = next(
+            parameter for parameter in schema["paths"]["/api/ingredients"]["get"]["parameters"]
+            if parameter["name"] == "category"
+        )
+        self.assertEqual(category_parameter["schema"]["enum"], expected_categories)
+
 
 if __name__ == "__main__":
     unittest.main()

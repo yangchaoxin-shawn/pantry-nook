@@ -1,5 +1,5 @@
 import type { components } from "./schema";
-export const CATEGORIES = ["碳水", "蔬菜", "蛋白质", "水果", "其他"] as const;
+export const CATEGORIES = ["碳水", "蔬菜", "蛋白质", "水果", "汤料", "其他"] as const;
 export const LOCATIONS = ["冰箱冷藏", "冰箱冷冻", "室温", "其他"] as const;
 export type Ingredient = components["schemas"]["Ingredient"];
 export type Dish = components["schemas"]["Dish"];

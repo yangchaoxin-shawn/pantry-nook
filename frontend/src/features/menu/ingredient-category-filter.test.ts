@@ -6,12 +6,13 @@ const ingredients = [
   { id: 2, category: '蔬菜' as const, name: '胡萝卜' },
   { id: 3, category: '蛋白质' as const, name: '鸡蛋' },
   { id: 4, category: '蔬菜' as const, name: '西兰花' },
+  { id: 5, category: '汤料' as const, name: '石橄榄' },
 ];
 
 describe('餐安排库存食材大类筛选', () => {
   it('全部分类保持库存顺序，并排除这道菜已经绑定的食材', () => {
-    expect(ingredientCandidates(ingredients, [2], ALL_INGREDIENT_CATEGORIES).map(item => item.id)).toEqual([1, 3, 4]);
-    expect(ingredients.map(item => item.id)).toEqual([1, 2, 3, 4]);
+    expect(ingredientCandidates(ingredients, [2], ALL_INGREDIENT_CATEGORIES).map(item => item.id)).toEqual([1, 3, 4, 5]);
+    expect(ingredients.map(item => item.id)).toEqual([1, 2, 3, 4, 5]);
   });
 
   it('分类只缩小仍可添加的候选，不把其他分类或已绑定项混入', () => {
@@ -22,5 +23,9 @@ describe('餐安排库存食材大类筛选', () => {
   it('每道菜可用各自的已绑定集合独立计算候选', () => {
     expect(ingredientCandidates(ingredients, [1], '碳水')).toEqual([]);
     expect(ingredientCandidates(ingredients, [], '碳水').map(item => item.name)).toEqual(['大米']);
+  });
+
+  it('汤料可以作为独立大类筛选并绑定到菜品', () => {
+    expect(ingredientCandidates(ingredients, [], '汤料').map(item => item.name)).toEqual(['石橄榄']);
   });
 });

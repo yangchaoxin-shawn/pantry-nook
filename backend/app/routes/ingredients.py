@@ -8,7 +8,7 @@ from ..validation import enum_value, ensure_object_body, optional_number, option
 from ..menu_workflow import assert_version
 from ..quantity import normalize_stock, parse_planned_quantity, render_stock
 router=APIRouter()
-CATEGORIES=["碳水","蔬菜","蛋白质","水果","其他"]; LOCATIONS=["冰箱冷藏","冰箱冷冻","室温","其他"]; REASONS=["spoiled","damaged","other"]
+CATEGORIES=["碳水","蔬菜","蛋白质","水果","汤料","其他"]; LOCATIONS=["冰箱冷藏","冰箱冷冻","室温","其他"]; REASONS=["spoiled","damaged","other"]
 FACTORS={"g":("m",Decimal(1)),"kg":("m",Decimal(1000)),"斤":("m",Decimal(500)),"ml":("v",Decimal(1)),"L":("v",Decimal(1000))}
 def dto(x):
  return {k:x[k] for k in ("id","name","category","stock_text","stock_value","stock_unit","location","note","created_at","updated_at")}

@@ -93,6 +93,7 @@ describe('写入结果与库存原文', () => {
     expect(recommendedUnits('蔬菜')).toEqual(['个', 'g', 'kg', '斤', '把', '颗', '份'])
     expect(orderedUnits('蔬菜').slice(0, 7)).toEqual(['个', 'g', 'kg', '斤', '把', '颗', '份'])
     expect(orderedUnits('蔬菜')).toContain('ml')
+    expect(recommendedUnits('汤料')).toEqual(['g', 'kg', '斤', '包', '袋', '盒', '份'])
     expect(orderedUnits('其他').slice(0, 7)).toEqual(['ml', 'L', '瓶', '包', '盒', '袋', '份'])
   })
 

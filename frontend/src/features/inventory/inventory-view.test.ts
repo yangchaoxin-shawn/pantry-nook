@@ -9,7 +9,7 @@ const ingredient = (id: number, name: string, category: Ingredient["category"], 
   id, name, category, location, stock_text: "1/2", stock_value: 0.5, stock_unit: "kg", note: null,
   created_at: "2026-09-13T00:00:00Z", updated_at: "2026-09-13T00:00:00Z",
 });
-const ingredients = [ingredient(1, "回归白菜", "蔬菜", "冰箱冷藏"), ingredient(2, "回归燕麦", "碳水", "室温"), ingredient(3, "回归虾", "蛋白质", "冰箱冷冻")];
+const ingredients = [ingredient(1, "回归白菜", "蔬菜", "冰箱冷藏"), ingredient(2, "回归燕麦", "碳水", "室温"), ingredient(3, "回归虾", "蛋白质", "冰箱冷冻"), ingredient(4, "回归枸杞", "汤料", "室温")];
 const base = { ingredients, locationItems: null, inventoryLocation: null, locationError: "", search: "", category: "全部" };
 
 describe("库存筛选读取状态", () => {
@@ -28,7 +28,7 @@ describe("库存筛选读取状态", () => {
   it("切回全部位置立即使用完整库存，不沿用位置请求的错误与旧结果", () => {
     const view = inventoryView({ ...base, locationItems: [], locationError: "上一位置断线" });
     expect(view.status).toBe("ready");
-    if (view.status === "ready") expect(view.groups.flatMap((group) => group.items).map((item) => item.id).sort()).toEqual([1, 2, 3]);
+    if (view.status === "ready") expect(view.groups.flatMap((group) => group.items).map((item) => item.id).sort()).toEqual([1, 2, 3, 4]);
   });
   it("位置、类别和搜索同时生效，并保留数量原文及原始对象", () => {
     const view = inventoryView({ ...base, inventoryLocation: "冰箱冷藏", locationItems: [ingredients[0]], category: "蔬菜", search: " 白菜 " });
@@ -43,8 +43,8 @@ describe("库存筛选读取状态", () => {
   it("按现有类别顺序分组，不改 API 数组顺序", () => {
     const view = inventoryView(base);
     if (view.status !== "ready") throw new Error("预期有库存");
-    expect(view.groups.map((group) => group.category)).toEqual(["碳水", "蔬菜", "蛋白质"]);
-    expect(ingredients.map((item) => item.id)).toEqual([1, 2, 3]);
+    expect(view.groups.map((group) => group.category)).toEqual(["碳水", "蔬菜", "蛋白质", "汤料"]);
+    expect(ingredients.map((item) => item.id)).toEqual([1, 2, 3, 4]);
   });
   it("短位置标签仍对应既有 API 值", () => {
     expect(LOCATION_OPTIONS.find((option) => option.label === "冷藏")?.value).toBe("冰箱冷藏");
@@ -52,13 +52,13 @@ describe("库存筛选读取状态", () => {
     expect(LOCATION_OPTIONS.find((option) => option.label === "全部位置")?.value).toBeNull();
   });
   it("待补位置从全量库存读取，不沿用上次位置请求的错误和结果", () => {
-    const unassigned = ingredient(4, "回归苹果", "水果", null);
+    const unassigned = ingredient(10, "回归苹果", "水果", null);
     const view = inventoryView({ ...base, ingredients: [...ingredients, unassigned], inventoryLocation: "unassigned", locationItems: [ingredients[0]], locationError: "冷藏读取失败" });
     expect(view.status).toBe("ready");
     if (view.status === "ready") expect(view.groups.flatMap(group => group.items)).toEqual([unassigned]);
   });
   it("待补位置可与分类和搜索一起筛选，位置补齐后即从当前列表移除", () => {
-    const unassigned = ingredient(4, "回归苹果", "水果", null);
+    const unassigned = ingredient(10, "回归苹果", "水果", null);
     const filter = { ...base, ingredients: [...ingredients, unassigned], inventoryLocation: "unassigned" as const, category: "水果", search: "苹果" };
     expect(inventoryView(filter).status).toBe("ready");
     expect(inventoryView({ ...filter, category: "蔬菜" })).toEqual({ status: "empty" });
@@ -89,13 +89,13 @@ describe("库存组件状态呈现", () => {
     expect(html).not.toContain("1 项");
   });
   it("待补数量按全量库存统计，不随搜索和分类减少", () => {
-    const unassigned = [ingredient(4, "回归苹果", "水果", null), ingredient(5, "回归香蕉", "水果", null)];
+    const unassigned = [ingredient(10, "回归苹果", "水果", null), ingredient(11, "回归香蕉", "水果", null)];
     const html = renderToStaticMarkup(createElement(InventoryPage, { ...props, ingredients: [...ingredients, ...unassigned], search: "白菜", category: "蔬菜" }));
     expect(html).toContain('aria-label="待补位置，全库存 2 项"');
     expect(html).not.toContain("回归苹果");
   });
   it("无位置行显示提示与独立补充入口，按钮不互相嵌套", () => {
-    const html = renderToStaticMarkup(createElement(InventoryPage, { ...props, ingredients: [ingredient(4, "回归苹果", "水果", null)], openLocationEditor: vi.fn() }));
+    const html = renderToStaticMarkup(createElement(InventoryPage, { ...props, ingredients: [ingredient(10, "回归苹果", "水果", null)], openLocationEditor: vi.fn() }));
     expect(html).toContain('aria-label="查看回归苹果，余量1/2kg，待补位置"');
     expect(html).toContain('aria-label="补充回归苹果的存放位置"');
     expect(html).not.toMatch(/<button\b[^>]*>(?:(?!<\/button>)[\s\S])*<button\b/);

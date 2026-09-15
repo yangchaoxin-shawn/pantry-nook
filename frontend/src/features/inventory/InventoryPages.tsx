@@ -12,6 +12,7 @@ function CategoryMark({ category }: { category: string }) {
     蔬菜: <path d="M5 19C-1 5 13 3 20 4c1 10-3 17-13 14M5 20 16 8M10 14l-1-5m1 5 5 1" />,
     蛋白质: <><path d="M12 3c-4 0-7 7-7 11a7 7 0 0 0 14 0c0-4-3-11-7-11Z" /><path d="M8 13c-1 3 0 4 2 5" /></>,
     水果: <path d="M12 8C3 1 1 13 6 19c2 3 4 0 6 1 2-1 4 2 6-1 5-6 3-18-6-11Zm0 0c-1-3 0-5 2-6m0 3c3 1 4-1 5-3-3-1-5 0-5 3" />,
+    汤料: <><path d="M5 10h14l-1 9H6l-1-9Zm-2 0h18M9 7h6" /><path d="M10 7c0-2 4-2 4 0M3 13h2m14 0h2" /></>,
     其他: <path d="M4 10h16c0 7-4 10-8 10S4 17 4 10ZM8 7c-2-2 2-2 0-4m8 4c-2-2 2-2 0-4" />,
   };
   return <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{paths[category]}</svg>;
