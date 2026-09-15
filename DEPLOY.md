@@ -21,7 +21,7 @@ FRONTEND_ORIGIN=http://127.0.0.1:18080
 pwsh ./scripts/preflight-release.ps1
 ```
 
-预检会先运行 `scripts/check-version.ps1`，确保 `VERSION`、前后端与 OpenAPI 版本一致。
+预检会先运行 `scripts/check-version.ps1`，确保 `VERSION`、前后端与 OpenAPI 版本一致；通过后写入绑定当前 commit 与后端镜像 ID 的本地证据。随后运行 `pwsh ./scripts/package-release.ps1`，生成前端、后端源代码、同一后端镜像和 release manifest。
 
 该脚本使用独立容器名、18014/18080 端口和测试专用空数据库卷，完成生产参数构建，并通过临时 Nginx 验证：
 
@@ -40,4 +40,4 @@ pwsh ./scripts/preflight-release.ps1
 - 公司服务器宿主机：`http://127.0.0.1:8014/health`
 - 公网当前不单独提供健康入口；`/pantry-nook/api/health` 不是有效接口
 
-执行服务器部署、换密和回滚时只使用 [DEPLOY-SERVER.md](DEPLOY-SERVER.md)，并遵守 deploy-company-server skill 的文档确认、连接许可、备份、差异检查和 Nginx 语法检查要求。
+执行服务器部署、换密和回滚时只使用 [DEPLOY-SERVER.md](DEPLOY-SERVER.md)，并遵守 deploy-company-server skill 的文档确认、连接许可、数据库备份、同一镜像、差异检查和 Nginx 语法检查要求。

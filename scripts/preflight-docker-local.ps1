@@ -53,6 +53,7 @@ $managedVariables = @(
   'PANTRY_BACKEND_CONTAINER_NAME',
   'PANTRY_DB_VOLUME_NAME',
   'PANTRY_BACKEND_BIND_PORT',
+  'PANTRY_BACKEND_IMAGE_TAG',
   'FRONTEND_ORIGIN',
   'APP_ENV',
   'PANTRY_ALLOW_TEST_DATA',
@@ -69,6 +70,7 @@ try {
   $env:PANTRY_BACKEND_CONTAINER_NAME = $backendContainer
   $env:PANTRY_DB_VOLUME_NAME = $dbVolume
   $env:PANTRY_BACKEND_BIND_PORT = $BackendPort.ToString()
+  $env:PANTRY_BACKEND_IMAGE_TAG = 'local'
   $env:FRONTEND_ORIGIN = $FrontendOrigin
   $env:APP_ENV = 'test'
   $env:PANTRY_ALLOW_TEST_DATA = 'false'
@@ -120,6 +122,10 @@ try {
   Invoke-Docker ($composePrefix + @('up', '-d', '--build')) '启动测试专用 PostgreSQL 与 backend 失败' | Out-Host
   Invoke-Docker @('inspect', $dbContainer) "未找到预期数据库容器 $dbContainer" | Out-Null
   Invoke-Docker @('inspect', $backendContainer) "未找到预期后端容器 $backendContainer" | Out-Null
+  $expectedImageId = (& docker image inspect 'pantry-nook-backend:local' --format '{{.Id}}').Trim()
+  Assert-True ($LASTEXITCODE -eq 0 -and $expectedImageId -match '^sha256:[0-9a-f]{64}$') '无法读取预检后端镜像 ID。'
+  $containerImageId = (& docker inspect $backendContainer --format '{{.Image}}').Trim()
+  Assert-True ($LASTEXITCODE -eq 0 -and $containerImageId -eq $expectedImageId) '预检容器没有运行本次构建的 pantry-nook-backend:local 镜像。'
 
   Write-Host '[3/6] 等待服务变为健康'
   $healthDeadline = (Get-Date).AddMinutes(5)

@@ -13,6 +13,8 @@ $runtimeDir = Join-Path $ProjectDir '.review\release-preflight'
 $distDir = Join-Path $ProjectDir 'frontend\dist'
 $nginxConfig = Join-Path $ProjectDir 'scripts\release-preflight\nginx.conf'
 $envPath = Join-Path $ProjectDir $EnvFile
+$evidencePath = Join-Path $runtimeDir 'evidence.json'
+$evidenceTempPath = Join-Path $runtimeDir 'evidence.json.tmp'
 
 function Assert-True([bool]$Condition, [string]$Message) {
   if (-not $Condition) { throw $Message }
@@ -44,11 +46,25 @@ function Assert-JsonList([string]$Uri, [hashtable]$Headers) {
   return $payload
 }
 
+function Get-DirectoryTreeHash([string]$Path) {
+  $entries = Get-ChildItem -LiteralPath $Path -File -Recurse | Sort-Object FullName | ForEach-Object {
+    $relative = $_.FullName.Substring($Path.Length).TrimStart('\').Replace('\', '/')
+    $hash = (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+    "$relative|$($_.Length)|$hash"
+  }
+  $bytes = [Text.Encoding]::UTF8.GetBytes(($entries -join "`n"))
+  $sha = [Security.Cryptography.SHA256]::Create()
+  try { return ([Convert]::ToHexString($sha.ComputeHash($bytes))).ToLowerInvariant() } finally { $sha.Dispose() }
+}
+
 Set-Location $ProjectDir
 Assert-True (Test-Path $envPath) "未找到 $envPath。"
 Assert-True (Test-Path $nginxConfig) "未找到 $nginxConfig。"
 & (Join-Path $PSScriptRoot 'check-version.ps1') -ProjectDir $ProjectDir
 New-Item -ItemType Directory -Force -Path $runtimeDir | Out-Null
+Remove-Item -LiteralPath $evidencePath -Force -ErrorAction SilentlyContinue
+Remove-Item -LiteralPath $evidenceTempPath -Force -ErrorAction SilentlyContinue
+$evidencePayload = $null
 
 $passwordBytes = [Text.Encoding]::UTF8.GetBytes('preflight')
 $sha1 = [Security.Cryptography.SHA1]::Create()
@@ -174,6 +190,28 @@ try {
   $missingPayload = $missingApi.Content | ConvertFrom-Json
   Assert-True ($missingPayload.error.code -eq 'ROUTE_NOT_FOUND') '不存在的 API 未返回 ROUTE_NOT_FOUND。'
 
+  $gitStatus = (& git -C $ProjectDir status --porcelain)
+  Assert-True ($LASTEXITCODE -eq 0) '无法读取 Git 工作区状态。'
+  Assert-True (-not $gitStatus) '预检结束时工作区不干净，不能生成候选证据。'
+  $fullCommit = (& git -C $ProjectDir rev-parse HEAD).Trim()
+  Assert-True ($LASTEXITCODE -eq 0 -and $fullCommit -match '^[0-9a-f]{40}$') '无法读取准确 Git commit。'
+  $version = (Get-Content -LiteralPath (Join-Path $ProjectDir 'VERSION') -Raw).Trim()
+  $imageId = (& docker image inspect 'pantry-nook-backend:local' --format '{{.Id}}').Trim()
+  Assert-True ($LASTEXITCODE -eq 0 -and $imageId -match '^sha256:[0-9a-f]{64}$') '无法读取本地预检后端镜像 ID。'
+  $containerImageId = (& docker inspect "$composeProject-backend" --format '{{.Image}}').Trim()
+  Assert-True ($LASTEXITCODE -eq 0 -and $containerImageId -eq $imageId) '预检后端容器与候选镜像 ID 不一致。'
+  $evidencePayload = [ordered]@{
+    result = 'passed'
+    commit = $fullCommit
+    version = $version
+    completed_at_utc = (Get-Date).ToUniversalTime().ToString('o')
+    backend_image = 'pantry-nook-backend:local'
+    backend_image_id = $imageId
+    frontend_tree_sha256 = Get-DirectoryTreeHash $distDir
+    nginx_config_sha256 = (Get-FileHash -LiteralPath $nginxConfig -Algorithm SHA256).Hash.ToLowerInvariant()
+    docker_compose_sha256 = (Get-FileHash -LiteralPath (Join-Path $ProjectDir 'docker-compose.yml') -Algorithm SHA256).Hash.ToLowerInvariant()
+    uv_lock_sha256 = (Get-FileHash -LiteralPath (Join-Path $ProjectDir 'backend\uv.lock') -Algorithm SHA256).Hash.ToLowerInvariant()
+  }
   Write-Host '[7/7] 发布预检通过：空库、Docker、子路径、鉴权、MIME、SPA 与真实 API 均已验证。'
 } finally {
   if (-not $KeepRunning) {
@@ -188,4 +226,13 @@ try {
   } else {
     Write-Host "保留预检环境：http://127.0.0.1:$WebPort/pantry-nook/（preflight / preflight）"
   }
+}
+
+if ($KeepRunning) {
+  Write-Host 'KeepRunning 模式不生成可用于正式打包的候选证据。'
+} else {
+  Assert-True ($null -ne $evidencePayload) '预检没有生成候选证据内容。'
+  $evidencePayload | ConvertTo-Json | Set-Content -LiteralPath $evidenceTempPath -Encoding utf8
+  Move-Item -LiteralPath $evidenceTempPath -Destination $evidencePath -Force
+  Write-Host "候选证据已在清理核验后写入：$evidencePath"
 }

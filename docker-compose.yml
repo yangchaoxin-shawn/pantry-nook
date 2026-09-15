@@ -17,6 +17,7 @@ services:
     restart: unless-stopped
 
   pantry-backend:
+    image: pantry-nook-backend:${PANTRY_BACKEND_IMAGE_TAG:-local}
     build:
       context: ./backend
     container_name: ${PANTRY_BACKEND_CONTAINER_NAME:-pantry-backend}
