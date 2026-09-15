@@ -60,14 +60,17 @@ test -f "/tmp/pantry-nook-release-${RELEASE_ID}.json"
 
 ## 4. 服务器配置和唯一备份
 
-后端生产配置只保存在服务器，不进入发布包。不要用 `cat` 输出密码；只检查文件权限和必需键：
+后端生产配置只保存在服务器，不进入发布包。当前 Compose 只要求 `.env` 覆盖数据库密码和前端来源，其余连接值使用仓库内固定默认值。不要用 `cat` 或 `docker compose config` 输出密码；只检查必需键，并用 quiet 模式验证配置：
 
 ```bash
 test -f /data/pantry-nook/.env
 stat -c '%a %U:%G %n' /data/pantry-nook/.env
-for key in DB_HOST DB_PORT DB_NAME DB_USER DB_PASSWORD PORT FRONTEND_ORIGIN; do
+for key in DB_PASSWORD FRONTEND_ORIGIN; do
   grep -q "^${key}=" /data/pantry-nook/.env || { echo "缺少 ${key}" >&2; exit 1; }
 done
+chmod 600 /data/pantry-nook/.env
+cd /data/pantry-nook
+docker compose --env-file .env -f docker-compose.yml config --quiet
 ```
 
 首次部署尚无该文件时，先创建 `/data/pantry-nook/.env` 并设置 `chmod 600`；后续发布必须复用当前文件，不能从本机覆盖。
