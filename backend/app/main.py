@@ -20,8 +20,9 @@ from .db import close_pool, get_pool
 from .api_contract import install_openapi
 from .errors import AppError
 from .routes import consumptions, daily_battles, dishes, ingredients, inventory_adjustments, meal_plans
+from .version import APP_VERSION
 
-app = FastAPI(title="食隅记 Pantry Nook API", version="0.1.0", openapi_url="/openapi.json")
+app = FastAPI(title="食隅记 Pantry Nook API", version=APP_VERSION, openapi_url="/openapi.json")
 
 frontend_origin = os.getenv("FRONTEND_ORIGIN", "")
 allowed_origins = [origin.strip() for origin in frontend_origin.split(",") if origin.strip()]

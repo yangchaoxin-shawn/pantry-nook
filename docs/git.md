@@ -1,44 +1,69 @@
 # Git 与版本约定
 
-更新：2026-09-11。主分支 main，当前无远程仓库。远程地址/推送须另行确定。
+更新：2026-09-15。主分支为 `main`；当前没有远程仓库，push、merge、远程发布仍需另行确定。
+
+## 版本号
+
+采用 [Semantic Versioning 2.0.0](https://semver.org/lang/zh-CN/)：
+
+| 变化 | 版本 | Pantry Nook 示例 |
+|---|---|---|
+| 修复兼容缺陷 | PATCH | `1.0.0 → 1.0.1`，修复显示或交互错误 |
+| 向后兼容的新能力 | MINOR | `1.0.1 → 1.1.0`，增加统计或临期提醒 |
+| 不兼容的业务/API/数据变化 | MAJOR | `1.x → 2.0.0`，删除旧 API 或改变核心规则 |
+| 待验收候选 | 预发布 | `1.1.0-rc.1`；不代替正式版本 |
+
+根目录 `VERSION` 是项目版本基线，以下位置必须一致：前端 package 与 lock、后端 pyproject、`backend/app/version.py`、归档 OpenAPI。运行：
+
+```powershell
+pwsh ./scripts/check-version.ps1
+```
+
+版本号、正式 tag 和 MAJOR/MINOR/PATCH 判断由用户确认。用户已确认首个 MVP 为 `1.0.0`。
+
+## Tag 与发布
+
+- 正式 tag 使用不可变的 annotated tag：`v<版本>`，例如 `v1.0.0`。
+- 只有准确 commit 的同一制品完成部署和线上验证后才创建 tag；历史部署无法证明对应 commit 时不补造 tag。
+- tag 记录产品版本；每次服务器操作另有唯一 `RELEASE_ID=<version>-<UTC timestamp>-<short sha>`。同一版本的重新部署可以有多个 release id，但不能移动 tag。
+- 数据库 migration 版本独立递增，不用产品版本号替代 migration 顺序。
+- 不自动 push、merge、tag 或部署。当前 `1.0.0` 只完成代码与文档准备，tag 要等下一次以准确 commit 重建、部署和线上核验。
 
 ## 提交
 
-采用 Conventional Commits，中文说明具体问题或行为。常用 scope：backend、frontend、db、docs、deploy。
-不适合 scope 时可省略；既有提交的 core/test 等 scope 是历史，不重写提交历史。
+采用 [Conventional Commits 1.0.0](https://www.conventionalcommits.org/zh-hans/v1.0.0/)，中文说明具体行为：
 
 ```text
 fix(frontend): 批量录入忽略未填写的空白行
-fix(backend): 阻止过期库存版本覆盖新数据
-docs: 统一当前规格与 Agent 协作入口
+feat(menu): 补货后自动关联同名食材
+chore(release): 准备 1.0.0
+docs: 统一协作和部署入口
 ```
 
-同一行为的代码、API、必要测试和文档放在一个可审查的改动中。
-只 stage 本轮文件，不顺带提交用户改动、测试数据或个人配置；重大规则变化写明影响。
-检查通过后建立本地提交，不能以提交成功代替验证或用户验收。
+常用类型：`feat`、`fix`、`refactor`、`test`、`docs`、`chore`、`ci`。不兼容变化在类型后加 `!`，并在正文写 `BREAKING CHANGE:`。常用 scope：`backend`、`frontend`、`db`、`menu`、`deploy`、`release`。
 
-## 分支与验收
+同一行为的代码、API、必要测试和文档放在一个可审查提交中。只 stage 本轮范围，不提交 `.env`、测试数据、数据库备份、构建产物、日志和个人配置。
 
-小范围已批准改动可提交 main；较大功能默认使用 codex/<任务名>，沿用用户明确指定的分支。
-main 是本地稳定候选基线，不表示已经部署或全部用户验收通过。
-用户准备/正在验收时，不在同一运行目录修改功能并触发热更新；后续隔离开发需独立代码、端口和数据库。
+## 自动提交门禁
 
-现有 .claude/worktrees/ 是 Claude 遗留工作区，不是当前隔离开发环境。
-不能未经检查清理、强制重置或合并。Git worktree 共享仓库元数据，并不会自动隔离进程和数据库。
+用户已授权 Codex 在以下条件全部满足时建立本地提交，无需逐次确认：
 
-## 已建立的基线
+1. 改动属于已经批准的范围，没有新增业务取舍、部署、线上写入或数据清理。
+2. `git diff` 已复核，未混入用户改动、secret、测试数据、生成垃圾或个人配置。
+3. 按 [协作流程](collaboration.md) 完成适用验证；失败和未覆盖项不会被提交成功掩盖。
+4. 跨前后端、数据库、共享配置、部署或数据保护的改动已由独立 agent 只读审查，主负责人处理结论并完成最终门禁。
+5. 提交可以独立回退，消息准确描述最终行为。
 
-- dc2429b：初始项目结构。
-- 3893220：本地核心功能闭环基线。
-- 35f1dca：当前验收数据脚本。
+自动提交授权不包含 push、merge、tag、部署、清空数据或修改生产 secret。
 
-这些是历史检查点；最新版本用 git log/status 核验。
-提交前按 [协作流程](collaboration.md) 选择检查并记录结果；不为提交文档重跑全量业务测试。
-无新改动/失败/未解决疑虑时，不重复相同检查。
+## 分支与基线
+
+小范围已批准改动可提交 `main`；较大功能默认使用 `codex/<任务名>`，沿用用户明确指定的分支。`main` 是本地稳定候选，不代表已经部署或全部用户验收通过。
+
+用户正在验收时，不在同一运行目录触发热更新；隔离开发必须同时隔离代码、端口和数据库。`.claude/worktrees/` 是历史工作区，不能未经检查清理、强制重置或合并。
+
+提交前核对 `git status`、适用检查和当前候选；没有新改动或新风险时不重复无意义的全量测试。
 
 ## 排除与保护
 
-.env、数据库备份、依赖、构建产物、日志及个人 Claude 配置不进 Git。
-.claude/settings.local.json、CLAUDE.local.md、.claude/worktrees/ 已由仓库 .gitignore 排除。
-不要为了迁移工具把 Claude 权限允许列表提交到仓库或改写为 Codex 权限。
-Docker/Nginx 等到明确的发布阶段才实施和验证；不提前进行部署提交。
+`.env`、数据库备份、用户上传、依赖、构建产物、日志及个人 Claude/Codex 配置不进 Git。`.claude/settings.local.json`、`CLAUDE.local.md`、`.claude/worktrees/` 由仓库 `.gitignore` 排除，不把个人权限配置改写成项目规则。

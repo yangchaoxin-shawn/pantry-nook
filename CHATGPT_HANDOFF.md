@@ -1,6 +1,6 @@
 # Pantry Nook — 当前开发交接
 
-更新：2026-09-14。主负责人：ChatGPT / Codex。项目由 Claude Code CLI 迁入。
+更新：2026-09-15。主负责人：ChatGPT / Codex。项目由 Claude Code CLI 迁入。
 
 ## 从这里继续
 
@@ -12,9 +12,9 @@
 
 ## 当前阶段
 
-用户已确认 `8ff0ff3` 对应的 UI / UX 反馈与第一轮正式视觉融合通过，当前进入 **本地 MVP 候选版收口**。候选收口只补同版本验证、可重复检查与冻结前小缺口，不增加新业务或改变已确认视觉方向。详见 [候选版记录](docs/local-mvp-candidate-2026-09-14.md)。
+用户已确认两轮 UI / UX 反馈，发布前门禁与公司服务器首次部署均已完成。线上使用 `/pantry-nook/` 子路径、项目级 Basic Auth、服务器本机 Nginx、Docker 后端与 PostgreSQL；首发为空库，此后线上数据按持久生产保护。首发后的静态资源 MIME、目录权限和 API 重写问题已修复，详见 [首次发布记录](docs/deployment-2026-09-15.md)。
 
-5201 / 3019 及其隔离测试数据仍作为用户刚完成的评审现场保留，不重启、不清空。候选自动化使用新的端口和全新测试库；Docker、Nginx、公开分享及生产部署仍需进入发布阶段后单独处理。
+后续开发使用 mock/test 数据；自动化与演示写入只允许新的端口和带标记隔离测试库。正式环境禁止 seed/reset/删卷。首个 MVP 版本号已批准为 `1.0.0`，`v1.0.0` tag 要等准确 commit 的制品重新部署并通过线上核验。每次发布先运行 `scripts/preflight-release.ps1`，再按 [部署执行文档](DEPLOY-SERVER.md) 和 deploy-company-server skill 执行；发布后运行真实链路核验并更新状态。
 
 历史检查点 3893220、35f1dca 仅用于追溯；当前用户认可的 UI 检查点为 `8ff0ff3`，本地 MVP 候选代码检查点为 `bf17152`。最终状态以 [项目状态](docs/project-status.md) 为准。
 
@@ -23,4 +23,4 @@
 WorkBuddy WB-V5-2026-09-09 / 设计系统 2.0 保留为视觉输入。
 [设计资料](docs/frontend-design-handoff.md) 说明原稿背景；业务范围由当前 PRD 决定。
 旧提案、审计和交付文档的分类见 [项目状态](docs/project-status.md)，不再要求每次任务全部重读。
-启动使用 [README](README.md)，Git 使用 [约定](docs/git.md)。Docker / Nginx 等待发布阶段再处理。
+启动使用 [README](README.md)，Git 使用 [约定](docs/git.md)，部署以 [DEPLOY-SERVER.md](DEPLOY-SERVER.md) 为唯一执行口径。

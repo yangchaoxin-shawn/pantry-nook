@@ -2,6 +2,8 @@
 
 运行前：先备份并清空业务测试数据，再启动本地 API。
   uv run python scripts/migrate_db.py
+  $env:APP_ENV='test'
+  $env:PANTRY_ALLOW_TEST_DATA='true'
   uv run python scripts/reset_data.py --yes
   uv run python scripts/seed_demo_data.py [http://127.0.0.1:3000]
 
@@ -12,8 +14,11 @@ from __future__ import annotations
 
 from datetime import date, timedelta
 import json
+import os
+import re
 import sys
 import urllib.error
+import urllib.parse
 import urllib.request
 
 
@@ -31,6 +36,26 @@ INGREDIENTS = [
 ]
 
 DISH_NAMES = ["番茄炒鸡蛋", "香煎鸡胸肉", "白灼西兰花", "番茄豆腐汤", "菠萝炒饭", "胡萝卜炒鸡蛋"]
+
+TEST_DATABASE_PATTERN = re.compile(r"^pantry_nook_test_[0-9a-f]{32}$")
+
+
+def assert_test_data_target() -> None:
+    """只允许向本机、带隔离测试库标记的 API 写演示数据。"""
+    app_env = os.getenv("APP_ENV", "").strip().lower()
+    allowed = os.getenv("PANTRY_ALLOW_TEST_DATA", "").strip().lower() == "true"
+    host = urllib.parse.urlparse(BASE).hostname
+    if app_env not in {"development", "test", "demo"} or not allowed:
+        raise RuntimeError("未显式启用本地测试数据写入，已停止")
+    if host not in {"127.0.0.1", "localhost"}:
+        raise RuntimeError("演示数据脚本只允许连接本机隔离服务")
+    with urllib.request.urlopen(BASE + "/health", timeout=20) as response:
+        marker = response.headers.get("X-Pantry-Nook-Test-Database", "")
+        body = json.loads(response.read().decode("utf-8"))
+    if response.status != 200 or body.get("database") != "connected":
+        raise RuntimeError("API 未连接数据库，已停止写入")
+    if TEST_DATABASE_PATTERN.fullmatch(marker) is None:
+        raise RuntimeError("API 未返回隔离测试库标记，拒绝写入演示数据")
 
 
 def request(method: str, path: str, payload=None) -> tuple[int, dict]:
@@ -87,9 +112,7 @@ def confirm_tomato_eggs(battle: dict, egg: dict, tomato: dict) -> None:
 
 
 def main() -> None:
-    status, health = request("GET", "/health")
-    if status != 200 or health.get("database") != "connected":
-        raise RuntimeError("API 未连接数据库，已停止写入")
+    assert_test_data_target()
 
     ingredients = create_ingredients()
     dishes = create_dishes()

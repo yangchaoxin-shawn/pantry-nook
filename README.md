@@ -17,7 +17,7 @@
 
 React 19 + TypeScript + Vite；Python 3.13 + FastAPI + asyncpg；PostgreSQL。
 前端 npm、后端 uv，安装按仓库锁文件；具体版本约束以 package.json / pyproject.toml 和 lock 为准。
-当前使用本地原生 PostgreSQL；Docker/Nginx 等到发布阶段。
+本地开发使用原生 PostgreSQL 测试数据；公司预览环境使用服务器本机 Nginx、Docker 后端与 PostgreSQL。首次上线时为空库，后续线上数据独立持久化。
 
 ## Windows PowerShell 本地启动
 
@@ -81,10 +81,11 @@ frontend/src/shared/api/schema.d.ts 由它生成，不手改。归档一致性�
 
 设计基准 WB-V5-2026-09-09 / 系统 2.0，页面结构以用户确认的 PRD 为准。
 根目录多版旧原型与旧交付文档保留为历史，不自动变成新的功能要求。
-[部署文档](DEPLOY.md) 和 Docker/Nginx 文件是后续参考，当前不代表已部署或发布就绪。
+[部署入口](DEPLOY.md) 说明本地类生产预检；公司服务器以 [部署执行文档](DEPLOY-SERVER.md) 为唯一口径，当前发布快照见 [首次发布记录](docs/deployment-2026-09-15.md)。
 
 ## 数据与安全
 
-业务数据当前全为测试数据；只有用户明确要求后才备份并替换/清空。
-第一版发布从空数据库执行 migration，不迁移本地演示数据。
-数据库配置仅放 backend/.env，不进 Git；当前没有账号权限，不将本地可用等同于可公开访问。
+本地开发、自动化和人工评审数据均为测试数据，只能写入带隔离标记的测试库。重置和演示脚本要求显式测试开关，不接受正式库名或线上地址。
+第一版生产发布从空数据库执行 migration，不迁移本地演示数据；上线产生的数据永久独立于本地测试数据，普通发布和回滚不得清空、seed、替换或删除生产卷。
+需要携带的 Demo 数据必须部署到明确可丢弃的专用环境；需要携带的初始业务数据使用版本化导入/迁移并保留来源、备份和校验记录。
+数据库配置仅放 backend/.env，不进 Git；应用本身尚未实现多用户账号体系，公司预览入口由项目级 Basic Auth 保护。不要将本地可用等同于可公开访问。

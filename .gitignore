@@ -16,6 +16,7 @@ build/
 .env
 .env.*
 !.env.example
+!frontend/.env.production
 
 # 日志
 *.log
@@ -34,3 +35,4 @@ CLAUDE.local.md
 
 # 本地 UI 评审环境进程记录与日志
 .review/
+.local/

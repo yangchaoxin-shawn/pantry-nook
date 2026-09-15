@@ -83,11 +83,14 @@ uv run python scripts/browser_candidate_test.py --base-url http://127.0.0.1:5215
 
 ```powershell
 uv run python scripts/migrate_db.py
+$env:APP_ENV='test'
+$env:PANTRY_ALLOW_TEST_DATA='true'
+# DB_NAME 必须为 isolated_server 创建的 pantry_nook_test_<UUID>
 uv run python scripts/reset_data.py --yes
-uv run python scripts/seed_demo_data.py
+uv run python scripts/seed_demo_data.py http://127.0.0.1:3010
 ```
 
-这组数据通过真实 API 创建，包含 8 种库存、6 道菜、2 个搭配、两条历史和三条待完成菜单。三条待完成菜单分别覆盖正常确认、待购买食材和预计量超过库存；日期与餐次互不重复。脚本不自行清库；重复运行会失败，避免悄悄混入重复数据。
+这组数据通过真实 API 创建，包含 8 种库存、6 道菜、2 个搭配、两条历史和三条待完成菜单。三条待完成菜单分别覆盖正常确认、待购买食材和预计量超过库存；日期与餐次互不重复。脚本只接受本机地址、显式测试开关和 `/health` 返回的隔离测试库标记；不自行清库，重复运行会失败。
 
 ## 当前覆盖范围
 

@@ -194,7 +194,16 @@ try {
             if ($existing.meta.total -ne 0) { throw '测试库不是空库，拒绝初始化示例；原有数据已保留。' }
         }
         Read-Health $BackendPort | Out-Null
-        & $python (Join-Path $backendDirectory 'scripts/seed_demo_data.py') "http://127.0.0.1:$BackendPort" > (Join-Path $reviewDirectory 'seed.stdout.log') 2> (Join-Path $reviewDirectory 'seed.stderr.log')
+        $previousAppEnvironment = [Environment]::GetEnvironmentVariable('APP_ENV', 'Process')
+        $previousTestDataFlag = [Environment]::GetEnvironmentVariable('PANTRY_ALLOW_TEST_DATA', 'Process')
+        try {
+            $env:APP_ENV = 'test'
+            $env:PANTRY_ALLOW_TEST_DATA = 'true'
+            & $python (Join-Path $backendDirectory 'scripts/seed_demo_data.py') "http://127.0.0.1:$BackendPort" > (Join-Path $reviewDirectory 'seed.stdout.log') 2> (Join-Path $reviewDirectory 'seed.stderr.log')
+        } finally {
+            [Environment]::SetEnvironmentVariable('APP_ENV', $previousAppEnvironment, 'Process')
+            [Environment]::SetEnvironmentVariable('PANTRY_ALLOW_TEST_DATA', $previousTestDataFlag, 'Process')
+        }
         if ($LASTEXITCODE -ne 0) { throw '示例写入失败，已保留记录与日志，不清库、不自动重试。' }
         $script:state.seeded = $true
         Save-State
