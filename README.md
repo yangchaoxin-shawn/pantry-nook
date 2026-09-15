@@ -76,11 +76,11 @@ frontend/src/shared/api/schema.d.ts 由它生成，不手改。归档一致性�
 | frontend/src/ | React 页面、请求封装和生成类型 |
 | contracts/ | 导出 API 契约 |
 | docs/ | 当前规格、状态、协作及历史记录 |
-| design/ | WorkBuddy V5 原始视觉输入 |
+| design/ | 当前视觉输入、设计过程与历史原型 |
 | .claude/ | Claude 个人配置及旧 worktree，保留并忽略 |
 
 设计基准 WB-V5-2026-09-09 / 系统 2.0，页面结构以用户确认的 PRD 为准。
-根目录多版旧原型与旧交付文档保留为历史，不自动变成新的功能要求。
+多版旧原型已归档到 `design/legacy-prototypes/`，旧交付文档保留为历史；它们不自动变成新的功能要求。
 [部署入口](DEPLOY.md) 说明本地类生产预检；公司服务器以 [部署执行文档](DEPLOY-SERVER.md) 为唯一口径，当前发布快照见 [首次发布记录](docs/deployment-2026-09-15.md)。
 
 ## 数据与安全
