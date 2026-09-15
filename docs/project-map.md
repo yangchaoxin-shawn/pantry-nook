@@ -16,6 +16,7 @@
 | Git 提交与保护范围 | [git.md](git.md) |
 | 产品版本与更新记录 | [VERSION](../VERSION)、[CHANGELOG.md](../CHANGELOG.md) |
 | 公司服务器部署 | [DEPLOY.md](../DEPLOY.md)、[DEPLOY-SERVER.md](../DEPLOY-SERVER.md) |
+| 当前正式发布证据 | [v1.0.0 发布记录](deployment-v1.0.0-2026-09-15.md) |
 
 ## 当前代码职责
 
