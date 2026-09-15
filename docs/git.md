@@ -19,7 +19,7 @@
 pwsh ./scripts/check-version.ps1
 ```
 
-版本号、正式 tag 和 MAJOR/MINOR/PATCH 判断由用户确认。用户已确认首个 MVP 为 `1.0.0`，并确认“汤料”兼容功能的当前候选版本为 `1.1.0`。
+版本号、正式 tag 和 MAJOR/MINOR/PATCH 判断由用户确认。用户已确认首个 MVP 为 `1.0.0`，并确认“汤料”兼容功能为 `1.1.0`；两个版本均已按发布门禁部署、核验和建立正式 tag。
 
 ## Tag 与发布
 
@@ -27,7 +27,7 @@ pwsh ./scripts/check-version.ps1
 - 只有准确 commit 的同一制品完成部署和线上验证后才创建 tag；历史部署无法证明对应 commit 时不补造 tag。
 - tag 记录产品版本；每次服务器操作另有唯一 `RELEASE_ID=<version>-<UTC timestamp>-<short sha>`。同一版本的重新部署可以有多个 release id，但不能移动 tag。
 - 数据库 migration 版本独立递增，不用产品版本号替代 migration 顺序。
-- 不自动 push、merge、tag 或部署。`v1.0.0` 已绑定正式部署 commit 并完成线上核验；`1.1.0` 候选仍须在部署和线上核验后才能创建正式 tag。
+- 不自动 push、merge、tag 或部署。`v1.0.0` 与 `v1.1.0` 均绑定各自正式部署 commit 并完成线上核验；后续版本仍须逐次取得用户批准并遵循相同门禁。
 
 ## 提交
 
