@@ -10,3 +10,12 @@ dialog{color:var(--ink);width:720px;max-width:calc(100vw - 32px);border:1px soli
 
 /* 大图工具也保留完整触控面积与手机安全区。 */
 @media(max-width:600px){.viewer-stage{grid-template-columns:44px minmax(0,1fr) 44px}.viewer-stage>.icon-button{min-width:44px;width:44px}#viewer-thumbs button{width:44px;height:44px}.viewer{padding-bottom:max(12px,env(safe-area-inset-bottom))}}
+
+/* 四模块对照保留现有导航顺序、模块各自的纸面结构与独立插画。 */
+.reference-hint{font-size:12px;color:var(--ink-muted);margin:-10px 0 20px}
+.reference-person{width:55px;height:44px;flex-shrink:0}.dish-entry-title .reference-person{width:66px;height:52px}
+.photo-scene img{height:177px}.reference-hint+ .pn-inventory .pn-inventory-actions{display:flex;gap:10px}
+#reference-stock-empty,#reference-dish-empty{padding:24px;color:var(--ink-muted)}
+@media(min-width:769px){.navigation .nav-item{min-width:100px;padding-inline:12px}}
+@media(max-width:768px){.navigation .nav-item{flex-direction:column;gap:0;font-size:13px}.navigation .nav-item svg{width:20px;height:20px}}
+@media(max-width:600px){.photo-scene img{height:112px}.pn-inventory-actions{flex-wrap:wrap}.reference-person{width:45px;height:38px}.reference-hint{font-size:11px}}

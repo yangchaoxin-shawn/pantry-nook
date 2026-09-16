@@ -11,13 +11,15 @@ SHARED = REPO / 'frontend' / 'src'
 ALLOWED_CSS = {
     'App.css', 'styles/journal.css', 'styles/handwriting.css',
     'shared/ui/journal-scene-hero.css', 'features/journal/journal-page.css',
+    'features/catalog/catalog.css', 'features/menu/menu-timeline.css',
+    'features/inventory/inventory-view.css',
 }
 
 class Handler(SimpleHTTPRequestHandler):
     def do_GET(self):
         route = unquote(urlsplit(self.path).path)
         file = None
-        if route in ('/', '/index.html', '/prototype.css', '/prototype.js'):
+        if route in ('/', '/index.html', '/prototype.css', '/prototype.js', '/reference-pages.js', '/assets/table-memories.png'):
             file = ROOT / ('index.html' if route == '/' else route[1:])
         elif route.startswith('/reference/'):
             relative = route.removeprefix('/reference/')

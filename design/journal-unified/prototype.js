@@ -1,6 +1,7 @@
 // 独立设计稿，所有记录只在内存中演示；不请求任何业务 API。
 const $ = id => document.getElementById(id);
 const paths = {
+  pantry:'<rect x="5" y="3" width="14" height="18" rx="2"/><path d="M5 10h14M9 6v1m0 7v3"/>',
   bowl:'<path d="M3 11h18c0 6-3 9-9 9s-9-3-9-9ZM9 7c-2-2 2-2 0-4m6 4c-2-2 2-2 0-4"/>',
   camera:'<path d="M3 6h4l2-3h6l2 3h4v15H3Z"/><circle cx="12" cy="13" r="4"/>',
   book:'<path d="M4 5a2 2 0 0 1 2-2h14v17H6a2 2 0 0 0-2 2V5Zm0 13a2 2 0 0 1 2-2h14M8 7h8m-8 4h5"/>',
@@ -15,11 +16,11 @@ document.querySelectorAll('[data-icon]').forEach(el => el.innerHTML = icon(el.da
 const escapeHtml = text => String(text).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 let seq=0;
 let newDraft=null, saveCommitted=false;
-const sample = n => Array.from({length:n},(_,i)=>({id:++seq,src:`/samples/${i%5}.jpg`,name:`饭桌照片 ${i+1}`}));
+const sample = (n,offset=0) => Array.from({length:n},(_,i)=>({id:++seq,src:`/samples/${(i+offset)%5}.jpg`,name:`饭桌照片 ${i+1}`}));
 const initial = () => [
   {id:1,date:'2026-09-16',caption:'热气还没散，就先留下一张。',photos:sample(3)},
-  {id:2,date:'2026-09-15',caption:'两个人的饭，刚刚好。',photos:sample(1)},
-  {id:3,date:'2026-09-13',caption:'简单做，慢慢吃。',photos:sample(2)}
+  {id:2,date:'2026-09-15',caption:'两个人的饭，刚刚好。',photos:sample(1,3)},
+  {id:3,date:'2026-09-13',caption:'简单做，慢慢吃。',photos:sample(1,4)}
 ];
 let entries=initial(), draft=[], cover=null, editing=null, removed=null, undoTimer, toastTimer, candidates=[], chosen=new Set(), replacing=null, deleting=null, viewEntry=null, viewIndex=0, opener=null, failure=false;
 function toast(message){clearTimeout(toastTimer);$('toast').textContent=message;$('toast').hidden=false;toastTimer=setTimeout(()=>$('toast').hidden=true,4500);}
@@ -30,7 +31,7 @@ function showError(message){$('form-error').textContent=message;$('form-error').
 function stateMarkup(kind){
   if(kind==='loading')return '<div class="empty-state" role="status"><p>正在翻开饭桌手记…</p><div class="loading-lines" aria-hidden="true"><div class="skeleton"></div><div class="skeleton"></div></div></div>';
   if(kind==='error')return `<div class="empty-state" role="alert"><h2>这页手记，暂时没能打开。</h2><p>请检查网络连接后，再试一次。</p><button class="btn-primary" data-retry>重新打开</button></div>`;
-  return `<div class="empty-state"><img src="/reference/assets/journal/kitchen-team.webp" alt=""><h2>${$('month').value?'这个月，还没有留下照片。':'第一张照片，留给下一餐。'}</h2><p>刚出锅的菜、摆好的碗筷，<br>都是值得收藏的小日常。</p><button class="btn-primary" data-create>${icon('plus')}记下一餐</button></div>`;
+  return `<div class="empty-state"><img src="/assets/table-memories.png" alt=""><h2>${$('month').value?'这个月，还没有留下照片。':'第一张照片，留给下一餐。'}</h2><p>刚出锅的菜、摆好的碗筷，<br>都是值得收藏的小日常。</p><button class="btn-primary" data-create>${icon('plus')}记下一餐</button></div>`;
 }
 function render(){
   const filtered=entries.filter(e=>!$('month').value||e.date.startsWith($('month').value));
@@ -72,7 +73,7 @@ $('viewer').addEventListener('keydown',e=>{if(e.key==='ArrowLeft')$('prev').clic
 let touchX=0;$('view-image').addEventListener('touchstart',e=>touchX=e.changedTouches[0].clientX,{passive:true});$('view-image').addEventListener('touchend',e=>{const delta=e.changedTouches[0].clientX-touchX;if(Math.abs(delta)>50)$(delta>0?'prev':'next').click();},{passive:true});
 $('confirm-delete').onclick=()=>{entries=entries.filter(e=>e.id!==deleting);render();$('delete-dialog').close();toast('这篇手记已移除（设计稿演示）。');};
 $('create').onclick=()=>openComposer();$('theme').onclick=()=>{const dark=document.documentElement.dataset.theme!=='dark';document.documentElement.dataset.theme=dark?'dark':'light';$('theme').innerHTML=icon(dark?'sun':'moon');};
-document.querySelectorAll('[data-page]').forEach(button=>button.onclick=()=>{const journal=button.dataset.page==='journal';$('journal-page').hidden=!journal;$('catalog-page').hidden=journal;document.querySelectorAll('[data-page]').forEach(b=>{b.classList.toggle('active',b===button);b.setAttribute('aria-current',b===button?'page':'false');});});
-document.querySelectorAll('[data-reference]').forEach(button=>button.onclick=()=>toast('这里是菜品簿的视觉对照，请切回饭桌手记体验。'));
+document.querySelectorAll('[data-page]').forEach(button=>button.onclick=()=>{['menu','inventory','catalog','journal'].forEach(name=>$(name+'-page').hidden=name!==button.dataset.page);document.querySelectorAll('[data-page]').forEach(b=>{b.classList.toggle('active',b===button);b.setAttribute('aria-current',b===button?'page':'false');});});
+document.addEventListener('click',event=>{if(event.target.closest('[data-reference]'))toast('这里是现有模块的只读视觉对照，完整操作请在正式测试入口体验。');});
 $('month').onchange=render;$('all-months').onclick=()=>{$('month').value='';render();};$('state').onchange=render;$('photo-count').onchange=()=>{if(entries.length)entries[0].photos=sample(Number($('photo-count').value));$('state').value='normal';render();};$('refresh').onclick=()=>{render();toast('手记已刷新（设计稿演示）。');};$('reset').onclick=()=>{entries=initial();newDraft=null;$('month').value='';$('state').value='normal';$('photo-count').value='3';render();toast('已恢复示例内容。');};
 render();

@@ -6,12 +6,12 @@
 
 - 页面骨架、标题区、按钮、功能字号、筛选、编辑删除、弹窗、提示和查看照片沿用系统视觉语言。
 - 照片继续使用按数量变化的纸张拼贴，日期与文字建立记录节奏；支持评审 1—9 张、亮暗主题、桌面与手机布局。
-- 菜品簿页签只提供视觉对照，导航仅显示本稿涉及的两个模块，不代表修改正式导航。
-- 页头复用已批准的 `kitchen-team.webp` 与相片纸边框。没有另行生成新角色或拍照姿势插画；如后续需要专属插画，再基于本轮评审结论设计。
+- 按系统顺序提供餐安排、库存、菜品簿、饭桌手记四个模块。三个既有模块使用只读设计样例，对照原有日期时间线、分类清单和连续菜品簿；搜索、筛选与展开可体验，业务按钮明确提示只读边界。
+- 饭桌手记使用新生成的独立透明插画 `assets/table-memories.png`：小人拍摄煎饺，把照片收藏进相册。生成时参考全部三个现有模块的画风，延续黑线白身小人和真实食物拼贴，不复用任何已有模块的主题场景。餐安排保留厨房伙伴，库存保留蔬菜收纳，菜品保留食谱时刻。手记空状态使用本模块插画。
 
 ## 复用来源
 
-直接只读引用 `frontend/src/App.css`、`styles/journal.css`、完整 `styles/handwriting.css`、`shared/ui/journal-scene-hero.css` 与 `features/journal/journal-page.css`。原型覆盖层只保存在本目录，不修改正式样式。色板以最后生效的 journal.css 为准；图标路径来自 `Primitives.tsx`。
+直接只读引用 `frontend/src/App.css`、`styles/journal.css`、完整 `styles/handwriting.css`、`shared/ui/journal-scene-hero.css` 与 `features/journal/journal-page.css`。三个对照模块另外只读引用各自的 catalog.css、menu-timeline.css、inventory-view.css。原型覆盖层只保存在本目录，不修改正式样式。色板以最后生效的 journal.css 为准；图标路径来自 `Primitives.tsx`。
 
 原型依赖当前仓库中的这些共享文件，未来重启时应核对引用基线。私人测试照片仅由本机服务映射读取，不复制进仓库。
 
@@ -38,3 +38,7 @@ python design/journal-unified/serve.py --port 5232 --samples 'C:\Users\yangchaox
 ## 交付验证
 
 主负责人检查 1440 / 834 / 390 宽度、亮暗主题、1—9 张排版、草稿保留、封面/移除/撤销、超额挑选、拒绝文档、实际拖入、大图切换、失败后重试和基础状态。独立 agent 只读检查既定交互与视觉基线，修正新建草稿保留和下载命名问题。具体本轮结果与截图保存在不入 Git 的 `.review/unified-design-check.json`、`.review/unified-*.png`，不把截图检查称为 iOS/安卓真机测试。
+
+## 本轮修订核验
+
+用户指出主题插画重复、只对照菜品不足，已补齐四模块并替换手记插画。生成资产为 RGBA 1862×845，具有真实透明通道；默认三篇手记共使用五张不同测试照片，批量数量演示仍可循环使用有限素材。检查四模块 × 三尺寸 × 亮暗主题共 24 组视图、四张主题插画路径互异、库存筛选、菜品搜索、餐安排展开，且重新通过原有 75 项设计稿检查；未发现横向溢出、脚本错误或资源加载失败。证据位于 `.review/revised-four-modules.json` 与 `.review/revised-*.png`。实际手机浏览器仍由用户验收。
