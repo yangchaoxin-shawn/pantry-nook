@@ -100,9 +100,11 @@ uv run python scripts/seed_demo_data.py http://127.0.0.1:3010
 - `tests/test_api_contract.py`：统一错误结构与已归档 OpenAPI 契约。
 - `success_response_contract_test.py`：在全新隔离库串行覆盖 34/34 个成功 operation，按归档 OpenAPI 校验每个实际 JSON 响应，并在操作数变化时要求同步扩展场景。
 - `../scripts/journal-api-test.py --base http://127.0.0.1:3060 --samples <公开实况样本目录>`：仅接受数据库＋媒体双测试标记；13 组真实手记检查和全部手记 JSON 成功契约，使用 Apple/Pixel/三星真实原片；不下载素材、不清库。
-- `../scripts/journal-migration-test.py`：新建三个独立测试库验证快照上限、带历史升级及重复执行，保留证据与测试库。
+- `scripts/journal_edit_api_test.py --base http://127.0.0.1:3067 --samples <公开实况样本目录>`：仅接受本机、数据库＋媒体双标记；10 组真实照片编辑检查，覆盖封面与顺序、格式拒绝、9/10 张边界、跨手记归属、幂等/并发冲突、真实 Apple 实况整组替换和媒体失效。脚本会在该测试库短暂安装专用故障触发器，确认归属写入后的数据库失败会完整回滚，并在 finally 移除；不要与其他写入测试并行运行。
+- `../scripts/journal-migration-test.py`：新建独立测试库验证快照上限、带历史升级及重复执行，包含 013 历史手记升级 014 的首图封面回填，保留证据与测试库。
 - `scripts/journal_backup_restore_test.py`：限定本机 55460 的 `pantry-journal-test-db`，专属 3063/3064；实际停写备份数据库＋媒体并恢复到新测试库，结束只停止自己服务，不清理数据库/备份。
-- `../scripts/journal-browser-test.mjs`：从项目根目录运行 Node；设置 `PLAYWRIGHT_MODULE` 为本机 Playwright 的 `index.mjs`、`JOURNAL_SAMPLES` 为公开真实实况目录、`JOURNAL_FOOD_SAMPLES` 为 5 张授权测试 JPG 目录。默认前端 5220（可用 `JOURNAL_TEST_BASE` 指定），必须带测试库/媒体健康标记；证据 `.review/journal-browser/`。不会以模拟屏宽宣称真机相册通过。
+- `../scripts/journal-editor-browser-test.mjs`：当前照片编辑版浏览器测试，默认独立前端 5223；拒绝旧人工验收端口，要求数据库/媒体双标记。环境变量同下方旧脚本；覆盖超额先选、格式拒绝、封面/移除/撤销、替换失败与取消、编辑回包丢失重试、1—9 张三档布局、暗色和真实 Apple 播放。证据 `.review/journal-editor-browser/`，不要与同库上传脚本并行。
+- `../scripts/journal-browser-test.mjs`：历史首轮 UI 脚本，适用于 `b036458`；当前编辑版使用上方新脚本。从项目根目录运行 Node；设置 `PLAYWRIGHT_MODULE` 为本机 Playwright 的 `index.mjs`、`JOURNAL_SAMPLES` 为公开真实实况目录、`JOURNAL_FOOD_SAMPLES` 为 5 张授权测试 JPG 目录。默认前端 5220（可用 `JOURNAL_TEST_BASE` 指定），必须带测试库/媒体健康标记；证据 `.review/journal-browser/`。不会以模拟屏宽宣称真机相册通过。
 - `boundary_audit_test.py`：改名冲突、分页越界、合并溢出/超精度、同名重新入库后的两类撤销、菜单缺失版本、搭配引用与删除并发。使用独立服务执行 `python scripts/boundary_audit_test.py <端口>`。
 - `edit_conflict_test.py`：在全新独立库验证含零数量整批拒绝、人工合并必须正数、库存/菜品/搭配编辑缺失版本、过期版本、最新快照、核对后重试和并发仅保存一次。`python scripts/edit_conflict_test.py <端口>`；先运行此脚本，再在同库运行 regression，不能倒序。
 - `recovery_merge_test.py`：48 项检查，覆盖报废与整餐合并撤销、单位换算、人工数量、过期预览、双人重复撤销、部分失败整体回滚、历史审计、耗材重新关联及清空预计量。`python scripts/recovery_merge_test.py <独立端口>`，固定使用 2036-01-02 晚餐。

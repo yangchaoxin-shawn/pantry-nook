@@ -39,7 +39,11 @@ export function Dialog({ title, onClose, children, busy }: { title: string; onCl
       if (previous instanceof HTMLElement) previous.focus();
     };
   }, []);
-  return <dialog ref={ref} aria-labelledby="dialog-title" onCancel={(event) => { event.preventDefault(); if (!busy) onClose(); }}>
+  return <dialog ref={ref} aria-labelledby="dialog-title" onCancel={(event) => {
+    // 文件选择器也会派发 cancel；只有弹窗本身的 Escape 才关闭弹窗。
+    if (event.target !== event.currentTarget) return;
+    event.preventDefault(); if (!busy) onClose();
+  }}>
     <div className="dialog-heading"><h2 id="dialog-title">{title}</h2><button type="button" className="icon-button" aria-label="关闭弹窗" disabled={busy} onClick={onClose}><Icon name="close" /></button></div>
     {children}
   </dialog>;

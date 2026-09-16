@@ -19,7 +19,7 @@ MVP 功能、两轮 UI / UX 反馈、正式视觉接入、本地类生产门禁�
 | 餐安排 | 日期时间线、库存大类筛选、待购买、补货后安全自动关联、核对实际量；`1.1.0` 接入“汤料”筛选 | 已上线并完成 Agent 技术核验，待用户体验验收 |
 | 确认与历史 | 最终事务扣减、版本冲突、失败回滚、撤销恢复、处理数量记录 | 已实现，Agent 门禁通过 |
 | 响应式与主题 | 桌面、平板、手机、亮暗主题 | 已实现，当前 UI 范围已验收 |
-| 饭桌手记 | 原件保留、多选与拖入、实况识别/配对/播放、月份浏览、编辑删除；新增 migration 013 | `codex/photo-journal` 本地实现与 Agent 技术验证，待用户体验验收；未上线 |
+| 饭桌手记 | 原件保留、拖入、多选与超额挑选、实况识别/播放、照片增删替换、封面、撤销与 1—9 张排版；migration 013/014 | `codex/journal-photo-edit` 本地实现与 Agent 技术验证；设计 04 已获批，正式功能待用户体验验收；未上线 |
 | 持久化与契约 | PostgreSQL、12 个 migration、FastAPI、OpenAPI 归档和前端生成类型 | `v1.1.0` 已上线并核验 |
 | 部署 | `/pantry-nook/` 子路径、Basic Auth、Nginx 静态资源、Docker 后端和数据库 | `v1.1.0` 已上线并核验 |
 
@@ -49,7 +49,7 @@ MVP 功能、两轮 UI / UX 反馈、正式视觉接入、本地类生产门禁�
 
 ## 下一步
 
-饭桌手记已按获批设计接入正式代码，开发分支 `codex/photo-journal`，工作区 `C:\Users\yangchaoxin\.codex\worktrees\photo-journal\pantry-nook`。本地正式功能入口为 5220，后端 3060，使用专属测试数据库/媒体目录；原设计稿 5217、技术探针 5218 和用户服务未改。已验证真实 Apple 双文件与 Pixel/三星内嵌实况、浏览器上传/失败恢复、Docker 鉴权与重启、增量迁移、数据库＋媒体恢复。下一步请用户体验验收，特别是实际 iOS/iPadOS/安卓相册交付格式及触摸手势；桌面模拟屏宽不代替真机结果。见 [实现范围](photo-journal-implementation.md)、[本轮验证](photo-journal-validation-2026-09-16.md)、[媒体运行门禁](photo-journal-operations.md)。未调整版本号、tag 或部署；线上仍为 v1.1.0。
+饭桌手记设计 04 已获用户批准，正式实现位于 `codex/journal-photo-edit`，工作区 `C:\Users\yangchaoxin\.codex\worktrees\journal-photo-edit\pantry-nook`。本轮新入口 [http://127.0.0.1:5223/](http://127.0.0.1:5223/)，后端 3067，专属测试数据库与媒体；旧功能 5220/3060、设计稿 5222 保持不变。照片编辑、新封面、超额先挑选、撤销和多端排版已通过 Agent 技术核验，见[整理规格](photo-journal-editor.md)和[本轮验证](photo-journal-editor-validation-2026-09-16.md)。下一步用户体验验收；实际 iOS/iPadOS/安卓相册交付与触摸手势仍需真机，桌面模拟屏宽不代替真机结果。未调整版本号、tag 或部署；线上仍为 v1.1.0。旧首轮功能证据保留在[首轮验证](photo-journal-validation-2026-09-16.md)，不代替当前结果。
 
 由用户体验验收 `v1.1.0` 的“汤料”分类及第二批库存实际使用效果。后续家庭库存、菜品或搭配继续先整理给用户确认，再通过独立批次、生产备份和全量校验写入；实际业务数据文件仍不进入代码库。每次正式版本继续执行本地类生产预检、准确制品绑定、生产备份、线上核验和用户批准的版本/tag 门禁。
 

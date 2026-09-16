@@ -3886,6 +3886,18 @@
             "type": "string",
             "format": "uuid",
             "title": "Client Request Id"
+          },
+          "cover_upload_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cover Upload Id"
           }
         },
         "additionalProperties": false,
@@ -3946,6 +3958,47 @@
             "type": "string",
             "format": "date-time",
             "title": "Expected Updated At"
+          },
+          "upload_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "type": "array",
+                "maxItems": 18,
+                "minItems": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Upload Ids"
+          },
+          "cover_upload_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cover Upload Id"
+          },
+          "client_request_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Client Request Id"
           }
         },
         "additionalProperties": false,
@@ -3991,6 +4044,11 @@
             "type": "integer",
             "title": "Id"
           },
+          "cover_upload_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Cover Upload Id"
+          },
           "entry_date": {
             "type": "string",
             "format": "date",
@@ -4021,6 +4079,7 @@
         "type": "object",
         "required": [
           "id",
+          "cover_upload_id",
           "entry_date",
           "caption",
           "created_at",

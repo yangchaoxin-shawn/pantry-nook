@@ -541,6 +541,8 @@ export interface components {
              * Format: uuid
              */
             client_request_id: string;
+            /** Cover Upload Id */
+            cover_upload_id?: string | null;
         };
         /** EntryListResponse */
         EntryListResponse: {
@@ -569,6 +571,12 @@ export interface components {
              * Format: date-time
              */
             expected_updated_at: string;
+            /** Upload Ids */
+            upload_ids?: string[] | null;
+            /** Cover Upload Id */
+            cover_upload_id?: string | null;
+            /** Client Request Id */
+            client_request_id?: string | null;
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -586,6 +594,11 @@ export interface components {
         JournalEntry: {
             /** Id */
             id: number;
+            /**
+             * Cover Upload Id
+             * Format: uuid
+             */
+            cover_upload_id: string;
             /**
              * Entry Date
              * Format: date

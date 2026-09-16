@@ -3,7 +3,7 @@ from datetime import date, datetime
 from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class JournalInput(BaseModel):
@@ -15,10 +15,21 @@ class JournalInput(BaseModel):
 class EntryCreate(JournalInput):
     upload_ids: list[UUID] = Field(min_length=1, max_length=18)
     client_request_id: UUID
+    cover_upload_id: UUID | None = None
 
 
 class EntryUpdate(JournalInput):
     expected_updated_at: datetime
+    upload_ids: list[UUID] | None = Field(default=None, min_length=1, max_length=18)
+    cover_upload_id: UUID | None = None
+    client_request_id: UUID | None = None
+
+    @model_validator(mode='after')
+    def complete_photo_edit(self):
+        if self.upload_ids is not None or self.cover_upload_id is not None:
+            if self.upload_ids is None or self.cover_upload_id is None or self.client_request_id is None:
+                raise ValueError('修改照片需要提交完整照片列表、封面与请求标识')
+        return self
 
 
 class UploadedAsset(BaseModel):
@@ -49,6 +60,7 @@ class JournalPhoto(BaseModel):
 
 class JournalEntry(BaseModel):
     id: int
+    cover_upload_id: UUID
     entry_date: date
     caption: str
     created_at: datetime

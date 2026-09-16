@@ -13,6 +13,13 @@ describe('实况队列的发布提示', () => {
     const result = uploadPairing([asset('photo', 'apple_photo', 'pair-a'), asset('video', 'apple_video', 'pair-b')]);
     expect(result.missing.map(item => item.id)).toEqual(['photo']); expect(result.unmatched.map(item => item.id)).toEqual(['video']);
   });
+  it('同一实况重复原片和MOV可被明确识别，多余MOV留作可移除冲突', () => {
+    const result = uploadPairing([asset('photo', 'apple_photo', 'pair-a'), asset('photo-again', 'apple_photo', 'pair-a'), asset('video', 'apple_video', 'pair-a'), asset('video-again', 'apple_video', 'pair-a')]);
+    expect(result.duplicateImages.map(item => item.id)).toEqual(['photo-again']);
+    expect(result.duplicateVideos.map(item => item.id)).toEqual(['video-again']);
+    expect(result.unmatched.map(item => item.id)).toEqual(['video-again']);
+    expect(result.missing).toEqual([]);
+  });
   it('普通图片和安卓内嵌视频不被错误要求另传 MOV', () => {
     const result = uploadPairing([asset('still', 'still', null), asset('android', 'motion_photo', null)]);
     expect(result.missing).toEqual([]); expect(result.unmatched).toEqual([]);
@@ -25,9 +32,20 @@ describe('手记独立 API', () => {
     const { mediaUrl, journalApi } = await import('./api');
     expect(mediaUrl('/api/journal/media/test/original')).toBe('/pantry-nook/api/journal/media/test/original');
     const fetcher = vi.fn().mockResolvedValue(new Response(JSON.stringify({ data: { id: 1 } }), { status: 201 })); vi.stubGlobal('fetch', fetcher);
-    const payload = { entry_date: '2026-09-16', caption: '', upload_ids: ['upload'], client_request_id: 'same-request' };
+    const payload = { entry_date: '2026-09-16', caption: '', upload_ids: ['upload'], cover_upload_id: 'cover-id', client_request_id: 'same-request' };
     await journalApi.create(payload);
     expect(fetcher.mock.calls[0][0]).toBe('/pantry-nook/api/journal/entries'); expect(JSON.parse(fetcher.mock.calls[0][1].body)).toEqual(payload);
+  });
+  it('编辑完整照片集合与封面、原版本、幂等键原样提交，网络重试不改变负载', async () => {
+    const { journalApi } = await import('./api');
+    const fetcher = vi.fn().mockRejectedValueOnce(new Error('断网')).mockResolvedValueOnce(new Response(JSON.stringify({ data: { id: 7 } }), { status: 200 }));
+    vi.stubGlobal('fetch', fetcher);
+    const payload = { entry_date: '2026-09-16', caption: '晚饭', upload_ids: ['b', 'a'], cover_upload_id: 'a', client_request_id: 'same-edit', expected_updated_at: '2026-09-16T10:00:00Z' };
+    await expect(journalApi.edit(7, payload)).rejects.toThrow('尚未确认保存结果');
+    await journalApi.edit(7, payload);
+    expect(fetcher.mock.calls.map(call => call[1].method)).toEqual(['PATCH', 'PATCH']);
+    expect(fetcher.mock.calls[0][1].body).toBe(fetcher.mock.calls[1][1].body);
+    expect(JSON.parse(fetcher.mock.calls[1][1].body)).toEqual(payload);
   });
   it('后端版本冲突保留明确状态，不当作成功或吞掉错误', async () => {
     const { journalApi } = await import('./api');

@@ -1,10 +1,12 @@
 import PhotoSwipeLightbox from 'photoswipe/lightbox';
 import 'photoswipe/style.css';
+import { coverFirst } from './draft';
 import { mediaUrl, type JournalEntry } from './api';
 
 export function openJournalGallery(entry: JournalEntry, index = 0) {
+  const photos = coverFirst(entry);
   const lightbox = new PhotoSwipeLightbox({
-    dataSource: entry.photos.map(photo => ({ src: mediaUrl(photo.image.preview_url), width: photo.image.preview_width, height: photo.image.preview_height, alt: `${entry.entry_date} 的饭桌照片` })),
+    dataSource: photos.map(photo => ({ src: mediaUrl(photo.image.preview_url), width: photo.image.preview_width, height: photo.image.preview_height, alt: `${entry.entry_date} 的饭桌照片` })),
     pswpModule: () => import('photoswipe'), bgOpacity: 0.96, padding: { top: 70, bottom: 115, left: 14, right: 14 },
     closeTitle: '关闭照片', zoomTitle: '缩放', arrowPrevTitle: '上一张', arrowNextTitle: '下一张', errorMsg: '照片暂时无法读取，请关闭后重试。',
   });
@@ -17,7 +19,7 @@ export function openJournalGallery(entry: JournalEntry, index = 0) {
   let hold: { x: number; y: number; playing: boolean } | undefined;
   let playbackRevision = 0;
   const pointers = new Set<number>();
-  const current = () => entry.photos[lightbox.pswp?.currIndex ?? index];
+  const current = () => photos[lightbox.pswp?.currIndex ?? index];
   function stop() {
     playbackRevision++;
     if (video) { video.pause(); video.hidden = true; video.currentTime = 0; }

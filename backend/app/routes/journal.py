@@ -22,6 +22,35 @@ from ..journal_models import EntryCreate, EntryUpdate, EntryResponse, EntryListR
 router = APIRouter()
 
 
+ALLOWED_EXTENSIONS = {
+    '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png',
+    '.webp': 'image/webp', '.heic': 'image/heic', '.heif': 'image/heic',
+    '.mov': 'video/quicktime',
+}
+
+
+def validate_filename(filename: str, mime: str | None = None):
+    expected = ALLOWED_EXTENSIONS.get(Path(filename).suffix.lower())
+    if not expected:
+        raise validation_error('请选择 JPG、PNG、WebP、HEIC 照片或配对的实况 MOV；不支持文档和压缩包')
+    if mime is not None and mime != expected:
+        raise validation_error('文件扩展名与实际内容不一致，请选择未经改名的原片')
+
+
+def request_hash(body) -> str:
+    # 忽略新增可选空字段，使旧客户端创建请求的重放保持兼容。
+    payload = body.model_dump(mode='json', exclude={'client_request_id'}, exclude_none=True)
+    return hashlib.sha256(json.dumps(payload, sort_keys=True, ensure_ascii=False).encode()).hexdigest()
+
+
+def check_cover(ordered, requested: UUID | None) -> UUID:
+    grouped = photos(ordered)
+    cover = requested if requested is not None else grouped[0]['id']
+    if cover not in {photo['id'] for photo in grouped}:
+        raise validation_error('封面必须是本篇手记中的照片，不能选择视频片段')
+    return cover
+
+
 def asset(row) -> dict:
     details = row['details']
     if isinstance(details, str):
@@ -59,11 +88,13 @@ def photos(rows) -> list[dict]:
 
 async def entry(conn, row) -> dict:
     rows = await conn.fetch('SELECT * FROM journal_uploads WHERE entry_id=$1 ORDER BY position', row['id'])
-    return {**{k: row[k] for k in ('id', 'entry_date', 'caption', 'created_at', 'updated_at')}, 'photos': photos(rows)}
+    return {**{k: row[k] for k in ('id', 'entry_date', 'caption', 'created_at', 'updated_at', 'cover_upload_id')}, 'photos': photos(rows)}
 
 
 @router.post('/uploads', response_model=UploadResponse, status_code=201)
 async def upload(response: Response, file: UploadFile = File(...), x_upload_id: UUID = Header(...)):
+    filename = (file.filename or '').replace('\\', '/').split('/')[-1][:255]
+    validate_filename(filename)
     root = media_root()
     check_space(root)
     stage = root / 'staging' / str(uuid4())
@@ -92,11 +123,12 @@ async def upload(response: Response, file: UploadFile = File(...), x_upload_id: 
                 async with conn.transaction():
                     await conn.execute('''INSERT INTO journal_uploads(id,sha256,status,original_name,original_size)
                         VALUES($1,$2,'failed',$3,$4) ON CONFLICT(id) DO NOTHING''',
-                        x_upload_id, checksum, (file.filename or '照片').replace('\\', '/').split('/')[-1][:255], size)
+                        x_upload_id, checksum, filename, size)
                     row = await conn.fetchrow('SELECT *, updated_at < now() - interval \'3 minutes\' AS stale FROM journal_uploads WHERE id=$1 FOR UPDATE', x_upload_id)
                     if row['sha256'] != checksum:
                         raise conflict('上传标识已用于其他文件，请重新选择文件')
                     if row['status'] == 'ready':
+                        validate_filename(filename, row['details']['mime'])
                         if row['entry_id'] and await conn.fetchval('SELECT deleted_at IS NOT NULL FROM journal_entries WHERE id=$1', row['entry_id']):
                             raise conflict('这份上传所属手记已删除，请重新选择文件')
                         response.status_code = 200
@@ -108,6 +140,7 @@ async def upload(response: Response, file: UploadFile = File(...), x_upload_id: 
                     await conn.execute("UPDATE journal_uploads SET status='processing',updated_at=clock_timestamp() WHERE id=$1", x_upload_id)
                     claimed = True
                 details = await process_media(stage)
+                validate_filename(filename, details['mime'])
                 check_space(root)
                 relative = f'assets/{x_upload_id}/{uuid4()}'
                 destination = safe_path(relative)
@@ -189,8 +222,7 @@ async def list_entries(limit: int = Query(20, ge=1, le=100), offset: int = Query
 async def create_entry(body: EntryCreate, response: Response):
     if len(set(body.upload_ids)) != len(body.upload_ids):
         raise validation_error('不能重复添加同一份上传')
-    payload = body.model_dump(mode='json', exclude={'client_request_id'})
-    checksum = hashlib.sha256(json.dumps(payload, sort_keys=True, ensure_ascii=False).encode()).hexdigest()
+    checksum = request_hash(body)
     pool = await get_pool()
     async with pool.acquire() as conn, conn.transaction():
         # 发布与删除锁只覆盖短事务；统一锁序避免同资源并发发布及取消竞态。
@@ -205,9 +237,9 @@ async def create_entry(body: EntryCreate, response: Response):
         if len(rows) != len(body.upload_ids) or any(r['status'] != 'ready' or r['entry_id'] is not None for r in rows):
             raise conflict('部分照片尚未就绪、已取消或已保存，请检查后重试')
         ordered = sorted(rows, key=lambda r: body.upload_ids.index(r['id']))
-        photos(ordered)
-        row = await conn.fetchrow('''INSERT INTO journal_entries(client_request_id,request_sha256,entry_date,caption)
-            VALUES($1,$2,$3,$4) RETURNING *''', body.client_request_id, checksum, body.entry_date, body.caption)
+        cover = check_cover(ordered, body.cover_upload_id)
+        row = await conn.fetchrow('''INSERT INTO journal_entries(client_request_id,request_sha256,entry_date,caption,cover_upload_id)
+            VALUES($1,$2,$3,$4,$5) RETURNING *''', body.client_request_id, checksum, body.entry_date, body.caption, cover)
         for position, upload_id in enumerate(body.upload_ids):
             await conn.execute('UPDATE journal_uploads SET entry_id=$2,position=$3,updated_at=clock_timestamp() WHERE id=$1', upload_id, row['id'], position)
         return {'data': await entry(conn, row)}
@@ -217,21 +249,49 @@ async def create_entry(body: EntryCreate, response: Response):
 async def update_entry(entry_id: int, body: EntryUpdate):
     if body.expected_updated_at.tzinfo is None:
         raise validation_error('版本时间必须包含时区')
+    if body.upload_ids is not None and len(set(body.upload_ids)) != len(body.upload_ids):
+        raise validation_error('不能重复添加同一份上传')
+    checksum = request_hash(body)
     pool = await get_pool()
     async with pool.acquire() as conn, conn.transaction():
+        # 与创建、删除及过期清理使用相同锁序：事务锁 → 手记 → 上传 ID。
+        await conn.execute('SELECT pg_advisory_xact_lock($1)', PROCESS_LOCK + 1)
         row = await conn.fetchrow('SELECT * FROM journal_entries WHERE id=$1 AND deleted_at IS NULL FOR UPDATE', entry_id)
         if not row:
             raise not_found('手记')
+        previous = await conn.fetchrow('SELECT * FROM journal_entry_edits WHERE client_request_id=$1', body.client_request_id) if body.client_request_id else None
+        if previous:
+            if previous['entry_id'] != entry_id or previous['request_sha256'] != checksum:
+                raise conflict('这次保存标识已用于其他修改，请重新打开编辑窗口')
+            if previous['result_updated_at'] != row['updated_at']:
+                raise conflict('这次保存之后手记已有新修改，请刷新后再编辑')
+            return {'data': await entry(conn, row)}
         if row['updated_at'] != body.expected_updated_at:
             raise conflict('这篇手记已在其他设备更新，请刷新后再编辑')
-        row = await conn.fetchrow('UPDATE journal_entries SET entry_date=$2,caption=$3,updated_at=clock_timestamp() WHERE id=$1 RETURNING *', entry_id, body.entry_date, body.caption)
+        cover = row['cover_upload_id']
+        if body.upload_ids is not None:
+            rows = await conn.fetch("SELECT * FROM journal_uploads WHERE id=ANY($1::uuid[]) OR entry_id=$2 ORDER BY id FOR UPDATE", body.upload_ids, entry_id)
+            selected = {r['id']: r for r in rows if r['id'] in body.upload_ids}
+            if len(selected) != len(body.upload_ids) or any(r['status'] != 'ready' or r['entry_id'] not in (None, entry_id) for r in selected.values()):
+                raise conflict('部分照片尚未就绪、已移除或属于其他手记，请检查后重试')
+            ordered = [selected[uid] for uid in body.upload_ids]
+            cover = check_cover(ordered, body.cover_upload_id)
+            # 先验证全部目标资源和实况配对，再在同一事务内替换归属。
+            await conn.execute("UPDATE journal_uploads SET status='cancelled',entry_id=NULL,position=NULL,updated_at=clock_timestamp() WHERE entry_id=$1 AND NOT(id=ANY($2::uuid[]))", entry_id, body.upload_ids)
+            for position, upload_id in enumerate(body.upload_ids):
+                await conn.execute('UPDATE journal_uploads SET entry_id=$2,position=$3,updated_at=clock_timestamp() WHERE id=$1', upload_id, entry_id, position)
+        row = await conn.fetchrow('UPDATE journal_entries SET entry_date=$2,caption=$3,cover_upload_id=$4,updated_at=clock_timestamp() WHERE id=$1 RETURNING *', entry_id, body.entry_date, body.caption, cover)
+        if body.client_request_id:
+            await conn.execute('INSERT INTO journal_entry_edits(client_request_id,entry_id,request_sha256,result_updated_at) VALUES($1,$2,$3,$4)', body.client_request_id, entry_id, checksum, row['updated_at'])
         return {'data': await entry(conn, row)}
 
 
 @router.delete('/entries/{entry_id}', response_model=JournalDeleteResponse)
 async def delete_entry(entry_id: int):
     pool = await get_pool()
-    result = await pool.execute('UPDATE journal_entries SET deleted_at=clock_timestamp(),updated_at=clock_timestamp() WHERE id=$1 AND deleted_at IS NULL', entry_id)
-    if result == 'UPDATE 0':
-        raise not_found('手记')
+    async with pool.acquire() as conn, conn.transaction():
+        await conn.execute('SELECT pg_advisory_xact_lock($1)', PROCESS_LOCK + 1)
+        result = await conn.execute('UPDATE journal_entries SET deleted_at=clock_timestamp(),updated_at=clock_timestamp() WHERE id=$1 AND deleted_at IS NULL', entry_id)
+        if result == 'UPDATE 0':
+            raise not_found('手记')
     return {'data': {'deleted': True}}
