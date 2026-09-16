@@ -67,11 +67,15 @@ def process(directory: Path) -> dict:
                     width=width, height=height, preview_width=width, preview_height=height,
                     mime='video/quicktime' if file_type == 'MOV' else 'video/mp4', motion=True)
     with Image.open(source) as original:
-        if original.format not in ('JPEG', 'PNG', 'WEBP', 'HEIF'):
-            raise ValueError('支持 JPEG、PNG、WebP 和 HEIC 图片')
+        if original.format not in ('JPEG', 'MPO', 'PNG', 'WEBP', 'HEIF'):
+            raise ValueError(f'暂不支持 {original.format or "未知"} 图片，请选择 JPEG、PNG、WebP 或 HEIC 原片')
+        # 部分 JPEG 带有 MPF 副图（例如增益图），Pillow 将其识别为 MPO。
+        # 只解码静态主图；副图不是实况视频，原件和配对标识继续保留。
+        if original.format == 'MPO':
+            original.seek(0)
         if original.width * original.height > 60_000_000:
             raise ValueError('图片不能超过 6000 万像素')
-        mime = {'JPEG': 'image/jpeg', 'PNG': 'image/png', 'WEBP': 'image/webp', 'HEIF': 'image/heic'}[original.format]
+        mime = {'JPEG': 'image/jpeg', 'MPO': 'image/jpeg', 'PNG': 'image/png', 'WEBP': 'image/webp', 'HEIF': 'image/heic'}[original.format]
         display = ImageOps.exif_transpose(original)
         width, height = display.size
         profile = display.info.get('icc_profile')

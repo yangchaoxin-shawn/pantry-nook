@@ -71,6 +71,9 @@
 .journal-motion-help { border-top: 1px solid var(--hairline); padding-top: 12px; margin-top: 18px; font-size: 14px; }
 .journal-motion-help summary { cursor: pointer; padding: 8px 0; }
 .journal-motion-help p { color: var(--ink-muted); }
+.journal-motion-help li { margin: 10px 0; }
+.journal-live-help-link, .journal-motion-recovery button { min-height:44px; border:0; background:transparent; color:var(--primary); font-size:14px; text-decoration:underline; padding:6px 8px; }
+.journal-motion-recovery { display:flex; flex-wrap:wrap; gap:4px; }
 .journal-form-footer { display: flex; align-items: center; justify-content: space-between; gap: 14px; margin-top: 20px; border-top: 1px solid var(--hairline); padding-top: 16px; }
 .journal-form-footer > span, .journal-draft-note { color: var(--ink-muted); font-size: 12px; }
 .journal-drop-overlay { position: fixed; inset: 14px; z-index: 100; pointer-events: none; background: color-mix(in srgb,var(--canvas) 94%,transparent); border: 2px dashed var(--primary); border-radius: 16px; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; font-size: 28px; }

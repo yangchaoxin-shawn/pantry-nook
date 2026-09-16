@@ -2,7 +2,7 @@ import type { JournalEntry, UploadedAsset } from './api';
 
 export const MAX_PHOTOS = 9;
 export const MAX_SOURCE_SIZE = 50 * 1024 * 1024;
-export const PHOTO_ACCEPT = '.jpg,.jpeg,.png,.webp,.heic,.heif,.mov';
+export const PHOTO_ACCEPT = 'image/jpeg,image/png,image/webp,image/heic,image/heif,video/quicktime,.jpg,.jpeg,.png,.webp,.heic,.heif,.mov';
 export const isMovie = (name: string) => /\.mov$/i.test(name);
 export type DraftSource = { key: string; file?: File; asset?: UploadedAsset; preview?: string };
 export type Removal = { keys: string[]; cover: string | null; coverRevision: number; expires: number };
