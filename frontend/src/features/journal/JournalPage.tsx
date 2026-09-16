@@ -22,7 +22,7 @@ export default function JournalPage({ active }: { active: boolean }) {
   const [deleting, setDeleting] = useState<JournalEntry | null>(null);
   const [deleteBusy, setDeleteBusy] = useState(false);
   const [deleteError, setDeleteError] = useState('');
-  const [notice, setNotice] = useState('');
+  const [notice, setNotice] = useState<{ message: string; kind: 'success' | 'error' } | null>(null);
   const deleteLock = useRef(false);
   const gallery = useRef<(() => void) | undefined>(undefined);
   const generation = useRef(0);
@@ -36,6 +36,11 @@ export default function JournalPage({ active }: { active: boolean }) {
     return () => controller.abort();
   }, [month, revision]);
   useEffect(() => () => gallery.current?.(), []);
+  useEffect(() => {
+    if (notice?.kind !== 'success') return;
+    const timer = setTimeout(() => setNotice(null), 4500);
+    return () => clearTimeout(timer);
+  }, [notice]);
   async function more() {
     if (moreLock.current) return;
     const current = generation.current; moreLock.current = true; setMoreBusy(true); setLoadMoreError('');
@@ -45,11 +50,11 @@ export default function JournalPage({ active }: { active: boolean }) {
   }
   async function openGallery(entry: JournalEntry, index = 0) {
     try { const module = await import('./gallery'); gallery.current?.(); gallery.current = module.openJournalGallery(entry, index); }
-    catch { setNotice('看图组件暂时没能打开，请刷新页面后重试。'); }
+    catch { setNotice({ message: '看图组件暂时没能打开，请刷新页面后重试。', kind: 'error' }); }
   }
   function resetLoading() { setLoading(true); setError(''); setLoadMoreError(''); setMoreBusy(false); }
   function changeMonth(value: string) { resetLoading(); setMonth(value); }
-  function refresh(message = '') { resetLoading(); setRevision(value => value + 1); setNotice(message); }
+  function refresh(message = '') { resetLoading(); setRevision(value => value + 1); setNotice(message ? { message, kind: 'success' } : null); }
   async function remove() {
     if (!deleting || deleteLock.current) return;
     deleteLock.current = true; setDeleteBusy(true); setDeleteError('');
@@ -61,7 +66,8 @@ export default function JournalPage({ active }: { active: boolean }) {
   return <section className="photo-journal" aria-label="饭桌手记">
     <div className="journal-intro"><div><p className="eyebrow">OUR TABLE, OUR LITTLE DAYS</p><h1>把这一餐，<br />留在<span>日子里。</span></h1><p className="journal-intro-note">照片里有饭，也有我们好好过的每一天。</p></div><div className="journal-capture"><CameraSketch /><button className="btn-primary" onClick={() => setComposerOpen(true)}>＋ 记下一餐</button></div></div>
     <div className="journal-filter"><span>我们的饭桌 <small>· {total} 篇手记</small></span><label>翻到<input type="month" aria-label="按月份查看手记" value={month} onChange={event => changeMonth(event.target.value)} /></label>{month && <button onClick={() => changeMonth('')}>全部月份</button>}<button onClick={() => refresh()} disabled={loading || moreBusy}>刷新</button></div>
-    {notice && <p className="journal-notice" role="status">{notice}<button aria-label="关闭提示" onClick={() => setNotice('')}>×</button></p>}
+    {notice?.kind === 'success' && active && <div className="toast" role="status">✓ {notice.message}</div>}
+    {notice?.kind === 'error' && <p className="journal-notice journal-error" role="alert">{notice.message}<button aria-label="关闭提示" onClick={() => setNotice(null)}>×</button></p>}
     {loading ? <div className="journal-empty" role="status"><CameraSketch /><p>正在翻开饭桌手记…</p></div> : error ? <div className="journal-empty" role="alert"><h2>这页手记，暂时没能打开。</h2><p>{error}</p><button className="btn-primary" onClick={() => refresh()}>重新打开</button></div> : entries.length === 0 ? <div className="journal-empty"><CameraSketch /><h2>{month ? '这个月，还没有留下照片。' : '第一张照片，留给下一餐。'}</h2><p>刚出锅的菜、摆好的碗筷，<br />或者只是你们一起吃饭的样子。</p><button className="btn-primary" onClick={() => setComposerOpen(true)}>＋ 记下一餐</button></div> : <>
       {Object.entries(groups).map(([groupMonth, groupEntries]) => <section className="journal-month" key={groupMonth} aria-label={monthLabel(groupMonth)}><h2 className="journal-chapter">{monthLabel(groupMonth)}<span>· 把日常，慢慢收藏</span></h2>{groupEntries.map(entry => <article className={`journal-sheet ${entry.photos.length === 1 ? 'journal-single' : ''}`} key={entry.id}>
         <div className="journal-margin"><div className="journal-day">{entry.entry_date.slice(-2)}</div><time dateTime={entry.entry_date}>{new Date(`${entry.entry_date}T12:00:00`).toLocaleDateString('zh-CN', { weekday: 'long' })}</time><p>{entry.caption || '这一餐，也值得留下来。'}</p><span className="journal-hand-arrow" aria-hidden="true">↘</span></div>
