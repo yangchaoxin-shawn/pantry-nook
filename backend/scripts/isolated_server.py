@@ -57,6 +57,14 @@ if __name__ == "__main__":
         parser.error("只允许复用隔离测试数据库")
     database = args.reuse_test_database or asyncio.run(prepare())
     os.environ["DB_NAME"] = database
+    # 每个测试数据库绑定自己的媒体目录；不使用 .env 的共享媒体位置。
+    media = ROOT.parent / '.review' / 'media-test' / database
+    media.mkdir(parents=True, exist_ok=True)
+    marker = media / '.pantry-test-database'
+    if marker.exists() and marker.read_text(encoding='utf-8') != database:
+        raise RuntimeError('测试媒体目录标记与数据库不一致')
+    marker.write_text(database, encoding='utf-8')
+    os.environ['MEDIA_ROOT'] = str(media.resolve())
     print(f"隔离数据库：{database}；端口：{args.port}；不含真实业务数据", flush=True)
     from app.main import app
 
@@ -65,6 +73,7 @@ if __name__ == "__main__":
         response = await call_next(request)
         if request.url.path == "/health":
             response.headers["X-Pantry-Nook-Test-Database"] = database
+            response.headers['X-Pantry-Nook-Test-Media'] = database
         return response
 
     uvicorn.run(app, host="127.0.0.1", port=args.port)

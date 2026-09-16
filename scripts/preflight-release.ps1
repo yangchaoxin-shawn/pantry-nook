@@ -168,10 +168,10 @@ try {
   $missing = Get-Response "$baseUri/pantry-nook/assets/not-present.js" $authHeaders
   Assert-True ($missing.StatusCode -eq 404) '不存在的静态资源没有返回 404。'
 
-  Write-Host '[6/7] 验证后端健康与六个真实列表接口'
+  Write-Host '[6/7] 验证后端健康与七个真实列表接口（含手记）'
   $health = Get-Response "http://127.0.0.1:$BackendPort/health"
   Assert-True ($health.StatusCode -eq 200 -and [string]$health.Headers['Content-Type'] -match '^application/json') '后端 /health 未返回 JSON 200。'
-  $listPaths = @('ingredients', 'dishes', 'meal-plans', 'consumptions', 'inventory-adjustments', 'daily-battles')
+  $listPaths = @('ingredients', 'dishes', 'meal-plans', 'consumptions', 'inventory-adjustments', 'daily-battles', 'journal/entries')
   foreach ($path in $listPaths) {
     $uri = "$baseUri/pantry-nook/api/${path}?limit=100&offset=0"
     $anonymousApi = Get-Response $uri

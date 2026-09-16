@@ -280,7 +280,8 @@ def install_openapi(app: FastAPI) -> None:
         generated_schemas = schema.get("components", {}).get("schemas", {})
         schema["components"] = {"schemas": {**generated_schemas, **build_schemas()}}
         registered = {(path, method) for path, methods in schema["paths"].items()
-                      for method in methods if method in {"get", "post", "patch", "delete", "put"}}
+                      for method in methods if method in {"get", "post", "patch", "delete", "put"}
+                      and not path.startswith('/api/journal/')}
         described = {(path, method) for path, method, *_ in operations}
         if registered != described:
             raise RuntimeError(f"OpenAPI 路由描述需同步：{registered ^ described}")
@@ -309,6 +310,23 @@ def install_openapi(app: FastAPI) -> None:
             if body:
                 operation["requestBody"] = {"required": required,
                                             "content": {"application/json": {"schema": ref(body)}}}
+        # 新模块直接使用 Pydantic 契约，不覆盖 UUID 路径、multipart 或二进制响应。
+        for path, methods in schema['paths'].items():
+            if not path.startswith('/api/journal/'):
+                continue
+            for method, operation in methods.items():
+                if method not in {'get', 'head', 'post', 'patch', 'delete'}:
+                    continue
+                operation['responses'].pop('422', None)
+                for code in (400, 404, 409, 413, 422, 429, 500, 503, 507):
+                    operation['responses'][str(code)] = {'description': '请求或资源状态错误', 'content': {'application/json': {'schema': ref('Error')}}}
+                if method == 'post':
+                    operation['responses']['200'] = deepcopy(operation['responses']['201'])
+                    operation['responses']['200']['description'] = '幂等重放'
+                if '/media/' in path:
+                    operation['responses']['200'] = {'description': '受保护的媒体内容', 'content': {mime: {'schema': {'type': 'string', 'format': 'binary'}} for mime in ('image/jpeg', 'image/png', 'image/webp', 'image/heic', 'video/mp4', 'video/quicktime')}}
+                    operation['responses']['206'] = deepcopy(operation['responses']['200'])
+                    operation['responses']['416'] = {'description': 'Range 范围不满足'}
         app.openapi_schema = schema
         return schema
 

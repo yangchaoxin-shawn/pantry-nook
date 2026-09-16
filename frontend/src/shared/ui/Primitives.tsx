@@ -1,10 +1,11 @@
 import { useEffect, useRef, type ReactNode } from "react";
 import { KitchenSketch } from './JournalArt';
 
-export type IconName = "sun" | "pantry" | "book" | "plus" | "moon" | "bowl" | "arrow" | "close" | "grid" | "history";
+export type IconName = "sun" | "pantry" | "book" | "plus" | "moon" | "bowl" | "arrow" | "close" | "grid" | "history" | "camera";
 
 export function Icon({ name, size = 20 }: { name: IconName; size?: number }) {
   const paths: Record<IconName, ReactNode> = {
+    camera: <><path d="M3 6h4l2-3h6l2 3h4v15H3Z" /><circle cx="12" cy="13" r="4" /></>,
     sun: <><circle cx="12" cy="12" r="4" /><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M5 19l1.5-1.5m11-11L19 5" /></>,
     moon: <path d="M20.5 14.5A9 9 0 0 1 9.5 3.5a9 9 0 1 0 11 11Z" />,
     pantry: <><rect x="5" y="3" width="14" height="18" rx="2" /><path d="M5 10h14M9 6v1m0 7v3" /></>,

@@ -4,3 +4,7 @@ __pycache__
 .env
 *.log
 .backups
+.review
+.local
+media
+uploads

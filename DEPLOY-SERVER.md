@@ -2,6 +2,8 @@
 
 这是公司服务器部署的唯一执行口径。每次发布都必须使用新的 `RELEASE_ID`，记录包校验值和唯一备份路径，禁止用通配符猜测回滚对象。
 
+手记媒体候选版尚未部署。发布包含媒体能力的版本时，必须同时遵循[媒体持久化、备份恢复与附加门禁](docs/photo-journal-operations.md)；下方仅数据库 dump 的旧流程不足以恢复照片，必须在停止写入期间备份数据库和媒体卷。Nginx 示例已包含候选版所需的上传限制与等待时间，不表示服务器已经修改。
+
 ## 已确认部署口径
 
 - 形态：服务器本机 Nginx 托管前端，Docker 运行 FastAPI 后端与 PostgreSQL。
@@ -297,6 +299,9 @@ location ^~ /pantry-nook/api/ {
     rewrite ^/pantry-nook/api/(.*)$ /api/$1 break;
     proxy_pass http://127.0.0.1:8014;
     proxy_http_version 1.1;
+    client_max_body_size 52m;
+    proxy_read_timeout 180s;
+    proxy_send_timeout 180s;
     proxy_set_header Host $host;
     proxy_set_header X-Real-IP $remote_addr;
     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;

@@ -1,4 +1,4 @@
-"""在全新隔离数据库中校验全部成功响应是否符合归档 OpenAPI。
+"""在全新隔离数据库中校验库存/菜品/餐安排成功响应是否符合归档 OpenAPI。
 
 运行：
     uv run python scripts/isolated_server.py --port 3047
@@ -6,7 +6,8 @@
 
 脚本只使用 Python 标准库，并在任何写入前检查隔离服务响应头和空库状态。
 每个成功请求都按 ``contracts/openapi.yaml`` 中对应的响应 schema 校验，
-最后要求归档中的全部成功 operation 均已实际调用。
+最后要求原 MVP 模块全部成功 operation 均已实际调用。
+手记的 multipart、文件和 Range 由 scripts/journal-api-test.py 单独验证。
 """
 
 from __future__ import annotations
@@ -340,6 +341,8 @@ def request_json(method: str, path: str, payload=MISSING):
 def success_operations() -> dict[tuple[str, str], int]:
     result = {}
     for path, path_item in CONTRACT["paths"].items():
+        if path.startswith('/api/journal/'):
+            continue
         for method, operation in path_item.items():
             if method not in HTTP_METHODS:
                 continue

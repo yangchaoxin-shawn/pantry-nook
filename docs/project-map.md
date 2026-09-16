@@ -29,6 +29,9 @@ backend/app/
   quantity.py             Decimal、分数与精度
   validation.py           请求值校验
   api_contract.py         人工补充 OpenAPI 字段
+  journal_models.py       手记输入与响应契约
+  journal_media.py         原件存储边界、请求体限制、处理进程
+  journal_worker.py        图片预览、实况元数据与兼容视频处理
   db.py / db/schema.sql   连接池、锁与当前表结构快照
 backend/migrations/       不可改写的历史增量迁移
 backend/scripts/          服务、迁移、真实 API 测试和人工数据脚本
@@ -39,6 +42,7 @@ frontend/src/
   features/menu/          菜单时间线、编辑、核对用料、消耗历史与相关测试
   features/catalog/       菜品和常用搭配页面及编辑器
   features/recovery/      报废与整餐撤销预览、合并恢复
+  features/journal/       饭桌手记、上传队列、图库和实况播放
   shared/api/             API 请求层、请求测试和 OpenAPI 生成类型
   shared/ui/              无业务含义的通用弹窗、字段、空状态和图标
   App.css 等              现有样式；统一新 UI 阶段再按设计系统重建

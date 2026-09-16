@@ -75,6 +75,7 @@ try {
   & tar -czf $backendPath `
     --exclude='backend/.env*' --exclude=backend/.venv --exclude=backend/.uv-cache `
     --exclude=backend/.pytest_cache --exclude=backend/.backups `
+    --exclude=backend/.review --exclude=backend/.local --exclude=backend/media --exclude=backend/uploads `
     --exclude='*/__pycache__' --exclude='*.pyc' `
     -C $project docker-compose.yml backend scripts/server-release-record.py
   Assert-True ($LASTEXITCODE -eq 0) '后端源代码发布包生成失败。'

@@ -34,6 +34,9 @@ services:
       APP_ENV: ${APP_ENV:-production}
       PANTRY_ALLOW_TEST_DATA: ${PANTRY_ALLOW_TEST_DATA:-false}
       PORT: 3000
+      MEDIA_ROOT: /data/media
+    volumes:
+      - pantry-media-data:/data/media
     ports:
       - "127.0.0.1:${PANTRY_BACKEND_BIND_PORT:-8014}:3000"
     healthcheck:
@@ -46,3 +49,5 @@ services:
 volumes:
   pantry-db-data:
     name: ${PANTRY_DB_VOLUME_NAME:-pantry-db-data}
+  pantry-media-data:
+    name: ${PANTRY_MEDIA_VOLUME_NAME:-pantry-media-data}

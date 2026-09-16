@@ -21,8 +21,11 @@ from .api_contract import install_openapi
 from .errors import AppError
 from .routes import consumptions, daily_battles, dishes, ingredients, inventory_adjustments, meal_plans
 from .version import APP_VERSION
+from .routes import journal
+from .journal_media import JournalBodyLimit
 
 app = FastAPI(title="食隅记 Pantry Nook API", version=APP_VERSION, openapi_url="/openapi.json")
+app.add_middleware(JournalBodyLimit)
 
 frontend_origin = os.getenv("FRONTEND_ORIGIN", "")
 allowed_origins = [origin.strip() for origin in frontend_origin.split(",") if origin.strip()]
@@ -41,6 +44,7 @@ app.include_router(dishes.router, prefix="/api/dishes", tags=["dishes"])
 app.include_router(meal_plans.router, prefix="/api/meal-plans", tags=["meal-plans"])
 app.include_router(daily_battles.router, prefix="/api/daily-battles", tags=["daily-battles"])
 app.include_router(consumptions.router, prefix="/api/consumptions", tags=["consumptions"])
+app.include_router(journal.router, prefix="/api/journal", tags=["journal"])
 
 
 @app.get("/health")

@@ -36,3 +36,6 @@ CLAUDE.local.md
 # 本地 UI 评审环境进程记录与日志
 .review/
 .local/
+# 用户上传与本地媒体不进入版本库。
+/backend/media/
+/backend/uploads/

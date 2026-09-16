@@ -4,6 +4,8 @@ from pathlib import Path
 
 MIGRATIONS = Path(__file__).resolve().parents[1] / "migrations"
 MIGRATION_LOCK_ID = 726140901
+# schema.sql 是截至 012 的快照；新迁移必须真正执行，不能登记为已执行。
+SCHEMA_SNAPSHOT_VERSION = 12
 
 
 def _paths() -> list[Path]:
@@ -17,7 +19,7 @@ async def _ensure_migration_table(conn) -> None:
 
 
 async def _is_current_schema(conn) -> bool:
-    """Return true only when the current schema snapshot already contains every migration."""
+    """确认基础快照已包含截至 SCHEMA_SNAPSHOT_VERSION 的迁移。"""
     tables = await conn.fetchval(
         """SELECT COUNT(*)::int
              FROM information_schema.tables
@@ -84,6 +86,8 @@ async def register_current_schema_migrations(conn) -> bool:
         if not await _is_current_schema(conn):
             return False
         for path in _paths():
+            if int(path.name.split('_', 1)[0]) > SCHEMA_SNAPSHOT_VERSION:
+                continue
             content = path.read_text(encoding="utf-8")
             checksum = hashlib.sha256(content.encode()).hexdigest()
             await conn.execute(

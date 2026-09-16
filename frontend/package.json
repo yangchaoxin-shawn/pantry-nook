@@ -13,6 +13,9 @@
     "generate:api": "openapi-typescript ../contracts/openapi.yaml -o src/shared/api/schema.d.ts --default-non-nullable false"
   },
   "dependencies": {
+    "@uppy/core": "6.0.1",
+    "@uppy/xhr-upload": "6.0.0",
+    "photoswipe": "5.4.4",
     "react": "^19.2.8",
     "react-dom": "^19.2.8"
   },

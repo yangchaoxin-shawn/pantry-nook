@@ -1,4 +1,6 @@
 import {
+  lazy,
+  Suspense,
   useEffect,
   useLayoutEffect,
   useRef,
@@ -29,10 +31,13 @@ import type { AppData, Modal, Page } from "./types";
 import type { InventoryLocation } from '../features/inventory/inventory-view';
 import './navigation.css';
 
+const JournalPage = lazy(() => import('../features/journal/JournalPage'));
+
 const NAV = [
   ["battles", "餐安排", "sun"],
   ["ingredients", "库存", "pantry"],
   ["dishes", "菜品", "book"],
+  ["journal", "手记", "camera"],
 ] as const;
 const isReadyForConfirmation = (battle: Battle) => battle.dishes.every((dish) => {
   const preparations = battle.preparations.filter((prep) => prep.daily_battle_dish_id === dish.id);
@@ -44,6 +49,7 @@ const confirmationNotice = (battle: Battle) => battle.dishes.some((dish) => !bat
 export default function App() {
   const [page, setPage] = useState<Page>("battles"),
     [data, setData] = useState<AppData | null>(null);
+  const [journalVisited, setJournalVisited] = useState(false);
   const [loading, setLoading] = useState(true),
     [loadError, setLoadError] = useState(""),
     [revision, setRevision] = useState(0);
@@ -134,6 +140,7 @@ export default function App() {
     pageMemory.current[page] = { search, scroll: window.scrollY };
     const saved = pageMemory.current[next];
     restoreScroll.current = saved?.scroll ?? 0;
+    if (next === "journal") setJournalVisited(true);
     setPage(next);
     setSearch(saved?.search ?? '');
     setNotice("");
@@ -211,6 +218,7 @@ export default function App() {
     plans: "好好搭配，好好吃饭",
     consumptions: "每一餐，都有迹可循",
     adjustments: "变质 / 损坏记录",
+    journal: "饭桌手记",
   };
   const subtitles = {
     battles: "选菜、备餐，做完后确定。每一餐都留在这里。",
@@ -219,6 +227,7 @@ export default function App() {
     plans: "保存喜欢的组合，做饭时随时拿来用。",
     consumptions: "实际用了什么、还剩多少，都记在这里。",
     adjustments: "变质或损坏后，也能从这里找到并撤销处理。",
+    journal: "把这一餐留在日子里。",
   };
   const dateLabel = new Date(`${date}T12:00:00`).toLocaleDateString("zh-CN", {
     month: "long",
@@ -287,7 +296,7 @@ export default function App() {
       </header>
       <main id="main" className="main">
         {parentPage && <div className="subpage-navigation"><nav aria-label="当前位置"><button type="button" onClick={() => navigate(parentPage.page)}>{parentPage.label}</button><span aria-hidden="true">/</span><span aria-current="page">{parentPage.current}</span></nav><button type="button" className="btn-ghost subpage-back" onClick={() => navigate(parentPage.page)}><span aria-hidden="true">←</span> 返回{parentPage.label}</button></div>}
-        {page === 'ingredients' ? <JournalHero /> : page === 'battles' ? <JournalSceneHero
+        {page === 'journal' ? null : page === 'ingredients' ? <JournalHero /> : page === 'battles' ? <JournalSceneHero
           kind="menu"
           eyebrow={dateLabel}
           actions={<>
@@ -316,7 +325,8 @@ export default function App() {
             )}
           </div>
         </div>}
-        {loading ? (
+        {journalVisited && <div hidden={page !== "journal"}><Suspense fallback={<p role="status">正在打开饭桌手记…</p>}><JournalPage active={page === "journal"} /></Suspense></div>}
+        {page === "journal" ? null : loading ? (
           <div
             className="loading-state"
             role="status"

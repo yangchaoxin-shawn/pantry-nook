@@ -1,6 +1,6 @@
 import type { Battle, Consumption, Dish, Ingredient, MealPlan } from "../shared/api/client";
 
-export type Page = "battles" | "ingredients" | "dishes" | "plans" | "consumptions" | "adjustments";
+export type Page = "battles" | "ingredients" | "dishes" | "plans" | "consumptions" | "adjustments" | "journal";
 
 export type Modal =
   | { kind: "recovery"; recoveryKind: "adjustment" | "battle"; id: number }
