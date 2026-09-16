@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { createUploadId } from './uploadId';
 import Uppy, { type UppyFile } from '@uppy/core';
 import XHRUpload from '@uppy/xhr-upload';
 import { Dialog, Field } from '../../shared/ui/Primitives';
@@ -36,7 +37,7 @@ export default function JournalComposer({ active, open, setOpen, onSaved, entry 
   const picker = useRef<HTMLInputElement>(null);
   const replacePicker = useRef<HTMLInputElement>(null);
   const replaceTarget = useRef<string | null>(null);
-  const requestId = useRef(crypto.randomUUID());
+  const requestId = useRef(createUploadId());
   const saveLock = useRef(false);
   const readLock = useRef(false);
   const coverRevision = useRef(0);
@@ -133,7 +134,7 @@ export default function JournalComposer({ active, open, setOpen, onSaved, entry 
     const result: DraftSource[] = [];
     const failures: string[] = [];
     for (const file of selected) {
-      const key = crypto.randomUUID();
+      const key = createUploadId();
       try {
         // 允许同一原文件在不同草稿位置再次使用；每次有独立上传标识。
         uppy!.addFile({ id: key, name: file.name, type: file.type, data: file, source: 'local', meta: { uploadId: key, relativePath: key } });
@@ -169,7 +170,7 @@ export default function JournalComposer({ active, open, setOpen, onSaved, entry 
         return;
       }
       if (images.length + accepted.filter(file => !isMovie(file.name)).length > 9 || visible.filter(source => !imageSource(source)).length + accepted.filter(file => isMovie(file.name)).length > 9) {
-        setCandidates(accepted.map(file => ({ key: crypto.randomUUID(), file, preview: isMovie(file.name) ? '' : preview(file), selected: false })));
+        setCandidates(accepted.map(file => ({ key: createUploadId(), file, preview: isMovie(file.name) ? '' : preview(file), selected: false })));
       } else append(accepted);
     } finally { readLock.current = false; if (alive.current) setReading(false); }
   };
@@ -213,7 +214,7 @@ export default function JournalComposer({ active, open, setOpen, onSaved, entry 
       if (entry) await journalApi.edit(entry.id, pendingPayload.current as EditPayload); else await journalApi.create(pendingPayload.current);
       uppy?.clear(); setFiles([]); setSources([]); setRemoved(new Set()); setUndos([]); setCover(null); setCaption(''); setEntryDate(localDate()); hasAdded.current = false;
       for (const url of urls.current) URL.revokeObjectURL(url); urls.current.clear();
-      requestId.current = crypto.randomUUID(); pendingPayload.current = null; setPendingSave(false); setOpen(false); onSaved();
+      requestId.current = createUploadId(); pendingPayload.current = null; setPendingSave(false); setOpen(false); onSaved();
     } catch (err) {
       if (err instanceof JournalError && err.status >= 400 && err.status < 500) {
         pendingPayload.current = null; setPendingSave(false);
