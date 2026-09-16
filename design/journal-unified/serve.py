@@ -1,6 +1,7 @@
 """独立设计评审服务：只读白名单素材，不提供业务 API 或目录浏览。"""
 import argparse
 import mimetypes
+import re
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import unquote, urlsplit
@@ -19,8 +20,10 @@ class Handler(SimpleHTTPRequestHandler):
     def do_GET(self):
         route = unquote(urlsplit(self.path).path)
         file = None
-        if route in ('/', '/index.html', '/prototype.css', '/prototype.js', '/reference-pages.js', '/assets/table-memories.png'):
+        if route in ('/', '/index.html', '/prototype.css', '/prototype.js', '/reference-pages.js', '/review-comparison.css', '/journal-polish.css', '/assets/table-memories.png'):
             file = ROOT / ('index.html' if route == '/' else route[1:])
+        elif re.fullmatch(r'/review-captures/(?:menu-(?:1440|390)-(?:light|dark)|(?:inventory|catalog)-(?:1440|390)-(?:light|dark)-(?:before|after))\.png', route):
+            file = REPO / '.review' / 'online-ui-2026-09-17' / route.rsplit('/', 1)[1]
         elif route.startswith('/reference/'):
             relative = route.removeprefix('/reference/')
             target = (SHARED / relative).resolve()

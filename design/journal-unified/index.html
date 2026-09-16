@@ -7,13 +7,12 @@
   <link rel="stylesheet" href="/reference/styles/journal.css">
   <link rel="stylesheet" href="/reference/shared/ui/journal-scene-hero.css">
   <link rel="stylesheet" href="/reference/features/journal/journal-page.css">
-  <link rel="stylesheet" href="/reference/features/catalog/catalog.css">
-  <link rel="stylesheet" href="/reference/features/menu/menu-timeline.css">
-  <link rel="stylesheet" href="/reference/features/inventory/inventory-view.css">
   <link rel="stylesheet" href="/prototype.css">
+  <link rel="stylesheet" href="/review-comparison.css">
+  <link rel="stylesheet" href="/journal-polish.css">
 </head>
 <body>
-  <div class="review-bar"><span>设计评审 · 示例内容仅在本页演示，刷新恢复</span><details><summary>评审选项</summary><div class="review-options"><label>页面状态<select id="state"><option value="normal">正常记录</option><option value="empty">空白状态</option><option value="loading">加载状态</option><option value="error">读取失败</option></select></label><label>首篇照片数量<select id="photo-count"><option>1</option><option>2</option><option selected>3</option><option>4</option><option>5</option><option>6</option><option>7</option><option>8</option><option>9</option></select></label><button id="reset" class="btn-ghost">恢复示例</button><p>四个模块各用独立主题插画，照片使用已提供的测试素材。设计稿不连接业务服务。</p></div></details></div>
+  <div class="review-bar"><span>设计评审 · 旧模块看线上对照，手记可操作体验</span><details><summary>评审选项</summary><div class="review-options"><label>页面状态<select id="state"><option value="normal">正常记录</option><option value="empty">空白状态</option><option value="loading">加载状态</option><option value="error">读取失败</option></select></label><label>首篇照片数量<select id="photo-count"><option>1</option><option>2</option><option selected>3</option><option>4</option><option>5</option><option>6</option><option>7</option><option>8</option><option>9</option></select></label><button id="reset" class="btn-ghost">恢复示例</button><p>选项仅作用于手记。旧模块展示只读线上截图与未上线的建议效果；本页不连接业务服务。</p></div></details></div>
   <header class="header"><a class="brand" href="/" aria-label="食隅记设计稿"><span class="brand-mark" data-icon="bowl"></span><span>食隅记<small>PANTRY NOOK</small></span></a><nav class="navigation" aria-label="设计稿模块对照"><button class="nav-item" data-page="menu"><span data-icon="bowl"></span>餐安排</button><button class="nav-item" data-page="inventory"><span data-icon="pantry"></span>库存</button><button class="nav-item" data-page="catalog"><span data-icon="book"></span>菜品</button><button class="nav-item active" data-page="journal"><span data-icon="camera"></span>手记</button></nav><button class="theme-toggle icon-button" id="theme" aria-label="切换亮暗主题"><span data-icon="sun"></span></button></header>
   <main class="main">
     <section id="journal-page" aria-label="饭桌手记">

@@ -27,7 +27,42 @@ function toast(message){clearTimeout(toastTimer);$('toast').textContent=message;
 function openDialog(id){opener=document.activeElement;$(id).showModal();}
 document.querySelectorAll('[data-close]').forEach(button=>button.onclick=()=>$(button.dataset.close).close());
 document.querySelectorAll('dialog').forEach(dialog=>dialog.addEventListener('close',()=>{opener?.focus();if(dialog.id==='composer'){if(!editing&&!saveCommitted)newDraft={photos:draft.map(p=>({...p})),cover,date:$('entry-date').value,caption:$('caption').value};clearTimeout(undoTimer);$('undo').hidden=true;}}));
-function showError(message){$('form-error').textContent=message;$('form-error').hidden=!message;if(message)$('form-error').scrollIntoView({block:'nearest'});}
+// 只滚动编辑器内部，避免 scrollIntoView 连带移动整个弹窗。
+function scrollComposerTo(element){
+  if(!$('composer').open)return;
+  const scroller=$('composer').querySelector('.composer-scroll');
+  const target=element.getBoundingClientRect(),bounds=scroller.getBoundingClientRect();
+  scroller.scrollTop+=target.top-bounds.top-8;
+}
+function showError(message){$('form-error').textContent=message;$('form-error').hidden=!message;if(message)scrollComposerTo($('form-error'));}
+const composerFooter=$('composer').querySelector('.composer-footer');
+const normalFooterActions=$('save').parentElement;
+const candidateFooterActions=$('candidate-section').querySelector('.candidate-actions');
+composerFooter.append(candidateFooterActions);
+candidateFooterActions.hidden=true;
+function updateComposerFooter(){
+  const picking=candidates.length>0;
+  normalFooterActions.hidden=picking;candidateFooterActions.hidden=!picking;
+  $('composer').classList.toggle('is-picking',picking);
+  if(picking){$('save-note').textContent=`已选 ${chosen.size} / ${9-draft.length} 张 · 加入后继续整理`;
+    $('confirm-candidates').textContent=`加入所选 ${chosen.size} 张`;
+    $('cancel-candidates').textContent='返回整理';
+  }
+}
+// 通过照片真实尺寸决定版式，示例与用户选图都按同一规则处理。
+function applyPhotoOrientations(){
+  $('entries').querySelectorAll('.journal-print img').forEach(img=>{
+    const apply=()=>{
+      if(!img.naturalWidth||!img.naturalHeight)return;
+      const figure=img.closest('.journal-print'),ratio=img.naturalWidth/img.naturalHeight;
+      figure.classList.toggle('is-portrait',ratio<.9);
+      figure.classList.toggle('is-landscape',ratio>1.1);
+      figure.style.setProperty('--photo-ratio',String(ratio));
+      if(figure===figure.parentElement.firstElementChild)figure.parentElement.classList.toggle('has-portrait-cover',ratio<.9);
+    };
+    if(img.complete)apply();else img.addEventListener('load',apply,{once:true});
+  });
+}
 function stateMarkup(kind){
   if(kind==='loading')return '<div class="empty-state" role="status"><p>正在翻开饭桌手记…</p><div class="loading-lines" aria-hidden="true"><div class="skeleton"></div><div class="skeleton"></div></div></div>';
   if(kind==='error')return `<div class="empty-state" role="alert"><h2>这页手记，暂时没能打开。</h2><p>请检查网络连接后，再试一次。</p><button class="btn-primary" data-retry>重新打开</button></div>`;
@@ -43,19 +78,21 @@ function render(){
     const current=entry.date.slice(0,7),heading=month!==current?`<div class="album-month"><h2>${current.slice(0,4)} 年 ${Number(current.slice(5))} 月</h2><span>把日常，慢慢收藏</span></div>`:'';month=current;
     return `${heading}<article class="album-entry ${entry.photos.length===1?'single':''}"><div class="entry-note"><div class="entry-date">${entry.date.slice(-2)}</div><time datetime="${entry.date}">${new Date(entry.date+'T12:00:00').toLocaleDateString('zh-CN',{weekday:'long'})}</time><p>${escapeHtml(entry.caption||'这一餐，也值得留下来。')}</p><span class="note-line" aria-hidden="true">﹏</span></div><div class="journal-photo-story story-count-${entry.photos.length}">${entry.photos.map((photo,i)=>`<figure class="journal-print"><button class="journal-image-button" data-view="${entry.id}" data-index="${i}" aria-label="查看 ${entry.date} 第 ${i+1} 张照片"><img src="${escapeHtml(photo.src)}" alt="${escapeHtml(photo.name)}" loading="lazy"></button><figcaption><span>${i===0?'这一餐，记住了。':'日常一瞬'}</span><small>${String(i+1).padStart(2,'0')} / ${String(entry.photos.length).padStart(2,'0')}</small></figcaption></figure>`).join('')}</div><div class="entry-actions"><span class="entry-count">${entry.photos.length} 张照片</span><button class="text-button open-entry" data-view="${entry.id}">翻开这篇 ↗</button><button class="text-button" data-edit="${entry.id}">编辑</button><button class="text-button danger" data-delete="${entry.id}">删除</button></div></article>`;
   }).join('');
+  applyPhotoOrientations();
 }
 $('entries').onclick=e=>{const el=e.target.closest('button');if(!el)return;if(el.hasAttribute('data-create'))openComposer();if(el.hasAttribute('data-retry')){$('state').value='normal';render();}if(el.dataset.edit)openComposer(entries.find(x=>x.id===Number(el.dataset.edit)));if(el.dataset.view){viewEntry=entries.find(x=>x.id===Number(el.dataset.view));viewIndex=Number(el.dataset.index||0);renderViewer();openDialog('viewer');}if(el.dataset.delete){deleting=Number(el.dataset.delete);openDialog('delete-dialog');}};
-function openComposer(entry){editing=entry?.id||null;saveCommitted=false;draft=(entry?.photos||newDraft?.photos||[]).map(p=>({...p}));cover=entry?draft[0]?.id||null:newDraft?.cover||null;removed=null;candidates=[];chosen.clear();failure=false;$('candidate-section').hidden=true;$('selection-section').hidden=false;$('composer-title').textContent=entry?'编辑这篇手记':'记下一餐';$('entry-date').value=entry?.date||newDraft?.date||'2026-09-16';$('caption').value=entry?entry.caption:newDraft?.caption||'';$('composer').querySelector('.composer-footer [data-close]').textContent=entry?'取消编辑':'稍后再记';$('save').textContent=entry?'保存修改':'保存手记';showError('');$('undo').hidden=true;renderDraft();openDialog('composer');$('composer').querySelector('.composer-scroll').scrollTop=0;}
+function openComposer(entry){editing=entry?.id||null;saveCommitted=false;draft=(entry?.photos||newDraft?.photos||[]).map(p=>({...p}));cover=entry?draft[0]?.id||null:newDraft?.cover||null;removed=null;candidates=[];chosen.clear();failure=false;$('candidate-section').hidden=true;$('selection-section').hidden=false;$('composer-title').textContent=entry?'编辑这篇手记':'记下一餐';$('entry-date').value=entry?.date||newDraft?.date||'2026-09-16';$('caption').value=entry?entry.caption:newDraft?.caption||'';$('composer').querySelector('.composer-footer [data-close]').textContent=entry?'取消编辑':'稍后再记';$('save').textContent=entry?'保存修改':'保存手记';showError('');$('undo').hidden=true;renderDraft();openDialog('composer');$('composer').scrollTop=0;$('composer').querySelector('.composer-scroll').scrollTop=0;}
 function renderDraft(){
   $('selection-count').textContent=`已选 ${draft.length} / 9 张`;
   $('save').disabled=!draft.length||!cover||candidates.length>0;
   $('save-note').textContent=draft.length&&!cover?'请点选一张照片作为封面。':(editing?'保存后更新原记录。':'关闭保留草稿，刷新后清空。');
+  updateComposerFooter();
   $('draft-grid').innerHTML=draft.map(p=>`<div class="draft-photo ${p.id===cover?'is-cover':''}"><button class="cover-choice" data-cover="${p.id}" aria-label="选择${escapeHtml(p.name)}为封面" aria-pressed="${p.id===cover}"><img src="${escapeHtml(p.src)}" alt="${escapeHtml(p.name)}"></button><button class="icon-button photo-remove" data-remove="${p.id}" aria-label="移除${escapeHtml(p.name)}">${icon('close')}</button><div class="photo-tools"><span>${p.id===cover?'✓ 当前封面':''}</span><button class="text-button" data-replace="${p.id}">替换</button></div></div>`).join('');
 }
 $('draft-grid').onclick=e=>{const el=e.target.closest('button');if(!el)return;if(el.dataset.cover){cover=Number(el.dataset.cover);renderDraft();}if(el.dataset.remove){const index=draft.findIndex(p=>p.id===Number(el.dataset.remove));removed={photo:draft[index],index,wasCover:draft[index].id===cover};draft.splice(index,1);if(removed.wasCover)cover=null;$('undo').hidden=false;clearTimeout(undoTimer);undoTimer=setTimeout(()=>{removed=null;$('undo').hidden=true;},8000);renderDraft();}if(el.dataset.replace){replacing=Number(el.dataset.replace);$('replacement').click();}};
 $('undo-remove').onclick=()=>{if(!removed)return;if(draft.length>=9){showError('已经选满 9 张，请先移除一张再撤销。');return;}draft.splice(removed.index,0,removed.photo);if(removed.wasCover&&!cover)cover=removed.photo.id;removed=null;clearTimeout(undoTimer);$('undo').hidden=true;renderDraft();};
-function addPhotos(photos){if(!photos.length)return;if(photos.length+draft.length<=9){draft.push(...photos);if(draft.length===photos.length)cover=photos[0].id;renderDraft();return;}candidates=photos;chosen=new Set();$('candidate-section').hidden=false;$('selection-section').hidden=true;renderCandidates();renderDraft();$('candidate-section').scrollIntoView({block:'start'});}
-function renderCandidates(){const slots=9-draft.length;$('candidate-description').textContent=`本次带来 ${candidates.length} 张，还可以加入 ${slots} 张。已选 ${chosen.size} 张，请挑选后再加入。`;$('candidate-grid').innerHTML=candidates.map((p,i)=>`<button class="candidate-choice ${chosen.has(p.id)?'selected':''}" data-candidate="${p.id}" aria-pressed="${chosen.has(p.id)}"><img src="${escapeHtml(p.src)}" alt="候选照片 ${i+1}"><span>${chosen.has(p.id)?'✓ 已选择':`照片 ${i+1}`}</span></button>`).join('');$('confirm-candidates').disabled=!chosen.size;}
+function addPhotos(photos){if(!photos.length)return;if(photos.length+draft.length<=9){draft.push(...photos);if(draft.length===photos.length)cover=photos[0].id;renderDraft();return;}candidates=photos;chosen=new Set();$('candidate-section').hidden=false;$('selection-section').hidden=true;renderCandidates();renderDraft();scrollComposerTo($('candidate-section'));}
+function renderCandidates(){const slots=9-draft.length;$('candidate-description').textContent=`本次带来 ${candidates.length} 张，还可以加入 ${slots} 张。已选 ${chosen.size} 张，请挑选后再加入。`;$('candidate-grid').innerHTML=candidates.map((p,i)=>`<button class="candidate-choice ${chosen.has(p.id)?'selected':''}" data-candidate="${p.id}" aria-pressed="${chosen.has(p.id)}"><img src="${escapeHtml(p.src)}" alt="候选照片 ${i+1}"><span>${chosen.has(p.id)?'✓ 已选择':`照片 ${i+1}`}</span></button>`).join('');$('confirm-candidates').disabled=!chosen.size;updateComposerFooter();}
 $('candidate-grid').onclick=e=>{const el=e.target.closest('[data-candidate]');if(!el)return;const id=Number(el.dataset.candidate);if(chosen.has(id))chosen.delete(id);else if(chosen.size<9-draft.length)chosen.add(id);else{showError(`最多再选 ${9-draft.length} 张，可以先取消一张再换选。`);return;}showError('');renderCandidates();};
 function closeCandidates(){candidates=[];chosen.clear();$('candidate-section').hidden=true;$('selection-section').hidden=false;renderDraft();}
 $('cancel-candidates').onclick=closeCandidates;

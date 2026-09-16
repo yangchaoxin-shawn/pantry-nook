@@ -1,0 +1,64 @@
+/* 仅限手记设计稿：正文、照片整理与图库的定向收口。 */
+#composer[open] {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+#composer > .dialog-heading,
+#composer > .composer-footer { flex: 0 0 auto; }
+#composer > .composer-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: none;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+#composer .composer-footer .candidate-actions { margin-top: 0; margin-left: auto; }
+#composer.is-picking .composer-footer { flex-wrap: wrap; }
+#composer.is-picking .composer-footer > span { flex-basis: 100%; }
+
+/* 多张竖照按真实比例排成连续相纸，取消跨两行造成的悬空。 */
+@media (min-width: 601px) {
+  .album-entry :is(.story-count-7,.story-count-8,.story-count-9).has-portrait-cover {
+    grid-template-columns: repeat(3,minmax(0,1fr));
+    align-items: start;
+  }
+  .album-entry :is(.story-count-7,.story-count-8,.story-count-9).has-portrait-cover > .journal-print {
+    grid-column: auto;
+    grid-row: auto;
+    align-self: start;
+    margin-top: 0;
+  }
+  .album-entry :is(.story-count-7,.story-count-8,.story-count-9).has-portrait-cover img {
+    height: auto;
+    max-height: none;
+    width: 100%;
+  }
+}
+
+@media (max-width: 600px) {
+  /* 切换按钮浮于画面边缘，完整图片不再被两侧固定列挤窄。 */
+  #viewer .viewer-stage { position: relative; display: block; }
+  #viewer .viewer-stage > img { width: 100%; height: 100%; object-fit: contain; }
+  #viewer .viewer-stage > .icon-button {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 1;
+    width: 44px;
+    height: 44px;
+    min-width: 44px;
+    background: #1c2923b8;
+    border: 1px solid #f3eedb45;
+    color: #f3eedb;
+  }
+  #viewer #prev { left: 2px; }
+  #viewer #next { right: 2px; }
+  #composer.is-picking .composer-footer .candidate-actions {
+    display: grid;
+    grid-template-columns: auto minmax(0,1fr);
+    width: 100%;
+    gap: 8px;
+  }
+  #composer .candidate-actions button { padding-inline: 12px; }
+}
