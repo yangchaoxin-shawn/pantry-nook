@@ -40,6 +40,7 @@
 
 ## 工程约定
 
+- UI 按一套系统维护：跨模块统一主题色与状态语义、功能文字层级、图标、按钮、表单、弹窗和操作反馈，优先复用共享组件；内容展示可根据场景采用不同布局、照片组合、留白与装饰。新增或打磨模块时须对照现有模块检查一致性，保留已确认的展示特色。
 - 前端 React 19 + TypeScript + Vite；后端 Python 3.13 + FastAPI + asyncpg；数据库 PostgreSQL。
 - 后端路由在 backend/app/routes/，校验在 backend/app/validation.py，事务辅助在 backend/app/menu_workflow.py。
 - 依赖由 frontend/package-lock.json 和 backend/uv.lock 锁定；不要为局部任务顺手升级依赖。
