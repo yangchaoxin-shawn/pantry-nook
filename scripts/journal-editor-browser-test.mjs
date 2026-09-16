@@ -3,13 +3,15 @@ import assert from 'node:assert/strict';
 import { readFile, readdir, mkdir, writeFile } from 'node:fs/promises';
 import { resolve, join } from 'node:path';
 import { pathToFileURL } from 'node:url';
-const base = process.env.JOURNAL_TEST_BASE || 'http://127.0.0.1:5223';
+const base = process.env.JOURNAL_TEST_BASE;
+assert.ok(base, '必须显式指定独立前端');
 assert.match(base, /^http:\/\/127\.0\.0\.1:\d+$/);
 assert.ok(![3000, 3018, 3019, 3060, 5173, 5200, 5201, 5217, 5218, 5220, 5222].includes(Number(new URL(base).port)));
 const health = await fetch(`${base}/health`);
 const marker = health.headers.get('x-pantry-nook-test-database');
 assert.match(marker || '', /^pantry_nook_test_[a-f0-9]{32}$/);
-assert.ok(health.headers.get('x-pantry-nook-test-media'));
+assert.equal(marker, process.env.JOURNAL_TEST_DATABASE);
+assert.equal(health.headers.get('x-pantry-nook-test-media'), marker);
 const { chromium } = await import(pathToFileURL(process.env.PLAYWRIGHT_MODULE).href);
 const food = resolve(process.env.JOURNAL_FOOD_SAMPLES);
 const samples = resolve(process.env.JOURNAL_SAMPLES);
@@ -28,7 +30,7 @@ page.on('pageerror', error => crashes.push(error.message));
 page.on('request', req => { if (req.method() === 'POST' && req.url().endsWith('/api/journal/uploads')) uploads++; });
 page.on('response', res => { if (res.url().includes('/api/journal/') && res.status() >= 400) statuses.push(res.status()); });
 const caption = `编辑验收 ${Date.now()}`;
-const picker = () => page.getByLabel('选择照片及实况视频', { exact: true });
+const picker = () => page.getByLabel('选择照片', { exact: true });
 const cards = () => page.locator('.journal-draft-photo');
 const cover = () => page.locator('.journal-draft-photo.is-cover');
 const article = () => page.locator('.journal-sheet').filter({ hasText: caption });
@@ -88,7 +90,7 @@ try {
   checks.push('九张按用户选择保留；点图选封面不跳位；移除封面拦保存；撤销恢复原位且不抢新封面');
 
   await article().getByRole('button', { name: '编辑', exact: true }).click();
-  await page.getByLabel('选择替换照片及对应实况片段').dispatchEvent('cancel', { bubbles: true });
+  await page.getByLabel('选择替换照片').dispatchEvent('cancel', { bubbles: true });
   assert.equal(await page.locator('dialog').count(), 1, '取消文件选择不得关闭编辑');
   const oldId = saved.photos[0].image.id, oldUrl = saved.photos[0].image.original_url;
   let failUpload = true;
@@ -176,29 +178,33 @@ try {
 
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.getByLabel('切换亮色主题').click();
-  // 原始实况反序文件，保存与图库播放，并验证移动整组撤销。
+  // 各平台照片统一静态；视频前置拒绝，图库无动态控制。
   await page.getByRole('button', { name: '＋ 记下一餐', exact: true }).first().click();
-  await picker().setInputFiles([join(samples, 'apple-iphone15.mov'), join(samples, 'apple-iphone15.heic')]);
+  const beforeVideo = uploads;
+  await picker().setInputFiles(join(samples, 'apple-iphone15.mov'));
+  await page.getByText('这些文件没有加入', { exact: true }).waitFor();
+  assert.equal(uploads, beforeVideo);
+  await picker().setInputFiles([join(samples, 'apple-iphone15.heic'), join(samples, 'pixel-8a.jpg'), join(samples, 'samsung-one-ui-6.heic')]);
   await ready();
-  await page.getByRole('button', { name: '保存这一餐', exact: true }).waitFor();
-  await page.waitForFunction(() => !document.querySelector('.journal-loose-movies'));
-  assert.equal(await cards().count(), 1);
-  await page.locator('dialog textarea').fill(`${caption} 实况`);
+  await page.waitForFunction(() => !document.querySelector('.journal-composer progress'));
+  assert.equal(await cards().count(), 3);
+  assert.doesNotMatch(await page.locator('dialog').innerText(), /实况|MOV|配对|片段/);
+  await page.locator('dialog textarea').fill(`${caption} 静态照片`);
   await save();
-  const liveArticle = page.locator('.journal-sheet').filter({ hasText: `${caption} 实况` });
-  await liveArticle.getByRole('button', { name: '翻开这篇 ↗', exact: true }).click();
-  await page.getByRole('button', { name: '◎ 播放实况', exact: true }).click();
-  await page.waitForFunction(() => { const video = document.querySelector('.journal-viewer-video'); return video && !video.paused && video.currentTime > .1 && video.videoWidth > 0; });
-  await page.waitForTimeout(400); // PhotoSwipe 在初始展开动画结束前不接受关闭。
+  const photoArticle = page.locator('.journal-sheet').filter({ hasText: `${caption} 静态照片` });
+  await photoArticle.getByRole('button', { name: '翻开这篇 ↗', exact: true }).click();
+  await page.getByRole('link', { name: '下载原片', exact: true }).waitFor();
+  assert.equal(await page.locator('video').count(), 0);
+  assert.doesNotMatch(await page.locator('.pswp').innerText(), /实况|播放|声音|动态/);
+  await page.waitForTimeout(400);
   await page.getByRole('button', { name: '关闭照片', exact: true }).click();
   await page.locator('.pswp').waitFor({ state: 'detached' });
-  await liveArticle.getByRole('button', { name: '编辑', exact: true }).click();
+  await photoArticle.getByRole('button', { name: '编辑', exact: true }).click();
   await page.getByRole('button', { name: '移除第 1 张照片', exact: true }).click();
-  assert.equal(await page.locator('.journal-loose-movies').count(), 0);
   await page.getByRole('button', { name: '撤销', exact: true }).click();
-  assert.equal(await cards().count(), 1);
+  assert.equal(await cards().count(), 3);
   await save(true);
-  checks.push('真实Apple照片/MOV反序上传合1张；图库真实播放；移除/撤销整组');
+  checks.push('MOV前置拒绝；Apple/Pixel/Samsung照片静态上传与图库，无实况文案/视频；移除与撤销正常');
   // 真正的拖入事件经过同一格式检查和上传接口。
   await page.evaluate(bytes => { const transfer = new DataTransfer(); transfer.items.add(new File([new Uint8Array(bytes)], 'drag-food.jpg', { type: 'image/jpeg' })); window.dispatchEvent(new DragEvent('drop', { dataTransfer: transfer, bubbles: true, cancelable: true })); }, [...buffers[0]]);
   await cards().first().waitFor(); await ready();

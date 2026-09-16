@@ -32,12 +32,3 @@ export const journalApi = {
   cancelUpload: (id: string) => request<unknown>(`/uploads/${id}`, 'DELETE'),
 };
 export function monthLabel(month: string) { return `${Number(month.slice(0, 4))} 年 ${Number(month.slice(5, 7))} 月`; }
-export function uploadPairing(assets: UploadedAsset[]) {
-  const images = assets.filter(asset => asset.kind === 'image');
-  const videos = assets.filter(asset => asset.kind === 'video');
-  const duplicateVideos = videos.filter((video, index) => video.pair_identifier && videos.findIndex(other => other.pair_identifier === video.pair_identifier) !== index);
-  const duplicateImages = images.filter((image, index) => image.pair_identifier && images.findIndex(other => other.pair_identifier === image.pair_identifier) !== index);
-  const unmatched = videos.filter(video => duplicateVideos.includes(video) || !video.pair_identifier || !images.some(image => image.live_kind === 'apple_photo' && image.pair_identifier === video.pair_identifier));
-  const missing = images.filter(image => image.live_kind === 'apple_photo' && !videos.some(video => video.pair_identifier && video.pair_identifier === image.pair_identifier));
-  return { images, unmatched, missing, duplicateVideos, duplicateImages };
-}

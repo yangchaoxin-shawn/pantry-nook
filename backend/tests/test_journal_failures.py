@@ -14,8 +14,8 @@ from app.errors import AppError
 from app.routes import journal
 from scripts.cleanup_journal_media import cleanup_one
 
-DETAILS = dict(kind='image', live_kind='still', pair_identifier=None, width=10, height=10,
-               preview_width=10, preview_height=10, mime='image/jpeg', motion=False)
+DETAILS = dict(kind='image', width=10, height=10,
+               preview_width=10, preview_height=10, mime='image/jpeg')
 
 
 class FakeDatabase:
@@ -114,6 +114,14 @@ class FailureWindowTests(unittest.IsolatedAsyncioTestCase):
         with patch.object(journal, 'process_media', AsyncMock(return_value=DETAILS)):
             await self.send()
         self.assertEqual(self.db.row['status'], 'ready')
+
+    async def test_historical_video_cannot_be_read_as_static_media(self):
+        self.db.row = dict(id=self.upload_id, status='ready',
+                           details={**DETAILS, 'kind': 'video', 'motion': True, 'mime': 'video/quicktime'})
+        for variant in ('original', 'preview', 'thumbnail'):
+            with self.subTest(variant=variant), self.assertRaises(AppError) as caught:
+                await journal.media(self.upload_id, variant)
+            self.assertEqual(caught.exception.status, 404)
 
     async def test_cleanup_second_disk_failure_keeps_first_tombstone(self):
         first_id, second_id = uuid4(), uuid4()

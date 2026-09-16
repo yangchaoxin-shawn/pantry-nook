@@ -1,15 +1,14 @@
-"""MPF/JPEG 主图兼容；真实解码，原件不改写，副图不冒充实况。"""
+"""静图真实解码与原件保留；MPO 只取主图，不提取实况。"""
 import hashlib
 import os
 from pathlib import Path
 import shutil
 import tempfile
 import unittest
-from unittest.mock import patch
 
 from PIL import Image, UnidentifiedImageError
 
-from app.journal_worker import metadata, process
+from app.journal_worker import process
 
 
 def write_mpo(path: Path) -> bytes:
@@ -33,15 +32,11 @@ class JournalMpoTests(unittest.TestCase):
             with Image.open(folder / 'original') as original:
                 self.assertEqual(original.format, 'MPO')
                 self.assertEqual(original.n_frames, 2)
-            with patch('app.journal_worker.metadata', return_value={'File:FileType': 'JPEG'}), \
-                    patch('app.journal_worker.run', return_value=b''):
-                result = process(folder)
+            result = process(folder)
             self.assertEqual(result['mime'], 'image/jpeg')
-            self.assertEqual(result['live_kind'], 'still')
-            self.assertFalse(result['motion'])
             self.assertEqual((result['width'], result['height']), (80, 120))
             self.assertEqual((folder / 'original').read_bytes(), before)
-            self.assertFalse((folder / 'motion.mp4').exists())
+            self.assertEqual({p.name for p in folder.iterdir()}, {'original', 'preview.jpg', 'thumbnail.jpg'})
             for filename in ('preview.jpg', 'thumbnail.jpg'):
                 with Image.open(folder / filename) as preview:
                     self.assertEqual(preview.format, 'JPEG')
@@ -51,96 +46,63 @@ class JournalMpoTests(unittest.TestCase):
                     self.assertGreater(red, 240)
                     self.assertLess(max(green, blue), 15)
 
-    def test_mpo_apple_identifier_is_preserved_without_inventing_video(self):
-        with tempfile.TemporaryDirectory() as temp:
-            folder = Path(temp)
-            write_mpo(folder / 'original')
-            with patch('app.journal_worker.metadata', return_value={
-                'File:FileType': 'JPEG', 'Apple:ContentIdentifier': 'test-apple-pair',
-            }), patch('app.journal_worker.run', return_value=b''):
+    def test_supported_formats_decode_without_modifying_original(self):
+        for file_format, mime in [('JPEG', 'image/jpeg'), ('PNG', 'image/png'),
+                                  ('WEBP', 'image/webp'), ('HEIF', 'image/heic')]:
+            with self.subTest(format=file_format), tempfile.TemporaryDirectory() as temp:
+                folder = Path(temp)
+                Image.new('RGB', (80, 60), 'green').save(folder / 'original', format=file_format)
+                before = (folder / 'original').read_bytes()
                 result = process(folder)
-            self.assertEqual(result['live_kind'], 'apple_photo')
-            self.assertEqual(result['pair_identifier'], 'test-apple-pair')
-            self.assertFalse(result['motion'])
+                self.assertEqual(result['mime'], mime)
+                self.assertEqual(result['kind'], 'image')
+                self.assertFalse({'motion', 'live_kind', 'pair_identifier'} & result.keys())
+                self.assertEqual((folder / 'original').read_bytes(), before)
+                with Image.open(folder / 'preview.jpg') as image:
+                    self.assertEqual(image.size, (80, 60))
 
-    def test_normal_jpeg_stays_still(self):
-        with tempfile.TemporaryDirectory() as temp:
-            folder = Path(temp)
-            Image.new('RGB', (80, 60), 'green').save(folder / 'original', format='JPEG')
-            before = (folder / 'original').read_bytes()
-            with patch('app.journal_worker.metadata', return_value={'File:FileType': 'JPEG'}), \
-                    patch('app.journal_worker.run', return_value=b''):
-                result = process(folder)
-            self.assertEqual(result['mime'], 'image/jpeg')
-            self.assertEqual(result['live_kind'], 'still')
-            self.assertEqual((folder / 'original').read_bytes(), before)
-
-    def test_other_decodable_formats_remain_rejected_with_format_hint(self):
+    def test_other_decodable_formats_rejected_with_format_hint(self):
         for file_format in ('GIF', 'TIFF', 'BMP'):
             with self.subTest(format=file_format), tempfile.TemporaryDirectory() as temp:
                 folder = Path(temp)
                 Image.new('RGB', (8, 8)).save(folder / 'original', format=file_format)
-                with patch('app.journal_worker.metadata', return_value={'File:FileType': file_format}):
-                    with self.assertRaises(ValueError) as caught:
-                        process(folder)
+                with self.assertRaises(ValueError) as caught:
+                    process(folder)
                 self.assertIn(file_format, str(caught.exception))
                 self.assertNotIn(temp, str(caught.exception))
                 self.assertFalse((folder / 'preview.jpg').exists())
 
-    def test_invalid_jpeg_signature_is_not_accepted(self):
-        with tempfile.TemporaryDirectory() as temp:
-            folder = Path(temp)
-            (folder / 'original').write_bytes(b'\xff\xd8\xffinvalid')
-            with patch('app.journal_worker.metadata', return_value={'File:FileType': 'JPEG'}):
+    def test_invalid_jpeg_and_disguised_video_rejected(self):
+        for raw in (b'\xff\xd8\xffinvalid', b'\x00\x00\x00\x18ftypqt  invalid video',
+                    b'\x00\x00\x00\x18ftypmp42invalid video'):
+            with self.subTest(raw=raw), tempfile.TemporaryDirectory() as temp:
+                folder = Path(temp)
+                (folder / 'original').write_bytes(raw)
                 with self.assertRaises(UnidentifiedImageError):
                     process(folder)
+                self.assertFalse((folder / 'preview.jpg').exists())
 
-
-class JournalMpoRealToolsTests(unittest.TestCase):
-    def setUp(self):
-        if not shutil.which(os.getenv('EXIFTOOL_PATH', 'exiftool')):
-            self.skipTest('真实媒体测试需要 ExifTool')
-
-    def test_generated_mpf_jpeg_with_real_exiftool(self):
-        with tempfile.TemporaryDirectory() as temp:
-            folder = Path(temp)
-            before = write_mpo(folder / 'original')
-            self.assertEqual(metadata(folder / 'original')['File:FileType'], 'JPEG')
-            result = process(folder)
-            self.assertEqual(result['mime'], 'image/jpeg')
-            self.assertEqual(result['live_kind'], 'still')
-            self.assertFalse(result['motion'])
-            self.assertEqual((folder / 'original').read_bytes(), before)
-
-    def test_public_live_samples_with_real_tools(self):
+    def test_public_live_samples_are_static_and_mov_rejected(self):
         samples = os.getenv('JOURNAL_REAL_MEDIA_SAMPLES')
         if not samples:
             self.skipTest('设置 JOURNAL_REAL_MEDIA_SAMPLES 以测试已下载的公开实况原件')
-        results = {}
-        for filename, expected_kind in (
-            ('apple-iphone15.heic', 'apple_photo'),
-            ('apple-iphone15.mov', 'apple_video'),
-            ('pixel-8a.jpg', 'motion_photo'),
-            ('samsung-one-ui-6.heic', 'motion_photo'),
-        ):
+        for filename in ('apple-iphone15.heic', 'pixel-8a.jpg', 'samsung-one-ui-6.heic', 'apple-iphone15.mov'):
             with self.subTest(sample=filename), tempfile.TemporaryDirectory() as temp:
                 source = Path(samples) / filename
                 self.assertTrue(source.is_file(), f'缺少测试素材 {filename}')
                 folder = Path(temp)
                 shutil.copyfile(source, folder / 'original')
                 before = hashlib.sha256(source.read_bytes()).hexdigest()
-                result = process(folder)
-                self.assertEqual(result['live_kind'], expected_kind)
-                self.assertEqual(hashlib.sha256((folder / 'original').read_bytes()).hexdigest(), before)
-                self.assertEqual(result['motion'], expected_kind != 'apple_photo')
-                if result['motion']:
-                    self.assertGreater((folder / 'motion.mp4').stat().st_size, 0)
+                if filename.endswith('.mov'):
+                    with self.assertRaises(UnidentifiedImageError):
+                        process(folder)
                 else:
+                    result = process(folder)
+                    self.assertEqual(result['kind'], 'image')
+                    self.assertFalse({'motion', 'live_kind', 'pair_identifier'} & result.keys())
                     self.assertTrue((folder / 'preview.jpg').exists())
-                results[filename] = result
-        self.assertTrue(results['apple-iphone15.heic']['pair_identifier'])
-        self.assertEqual(results['apple-iphone15.heic']['pair_identifier'],
-                         results['apple-iphone15.mov']['pair_identifier'])
+                self.assertEqual(hashlib.sha256((folder / 'original').read_bytes()).hexdigest(), before)
+                self.assertFalse((folder / 'motion.mp4').exists())
 
 
 if __name__ == '__main__':

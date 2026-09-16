@@ -21,7 +21,8 @@ load_dotenv(ROOT / '.env')
 from app.db import _db_config
 
 parser = argparse.ArgumentParser(description=__doc__)
-parser.add_argument('--base', default='http://127.0.0.1:3067')
+parser.add_argument('--base', required=True)
+parser.add_argument('--database', required=True, help='显式指定本轮独立测试库')
 parser.add_argument('--samples', required=True)
 parser.add_argument('--output', default=str(ROOT.parent / '.review/journal-edit-api-evidence.json'))
 args = parser.parse_args()
@@ -31,6 +32,7 @@ health = c.get('/health')
 database = health.headers.get('X-Pantry-Nook-Test-Database', '')
 assert re.fullmatch(r'pantry_nook_test_[0-9a-f]{32}', database), '数据库标记缺失'
 assert health.headers.get('X-Pantry-Nook-Test-Media') == database, '媒体标记不一致'
+assert database == args.database, '拒绝写入非预期测试库'
 config = _db_config()
 assert config['host'] in ('localhost', '127.0.0.1'), '数据库必须本机'
 config['database'] = database
@@ -78,7 +80,7 @@ def current(entry):
 
 
 def assert_inaccessible(asset):
-    for variant in ('original', 'preview', 'thumbnail', 'motion'):
+    for variant in ('original', 'preview', 'thumbnail'):
         path = '/api/journal/media/' + asset['id'] + '/' + variant
         for method, headers in [('GET', {}), ('HEAD', {}), ('GET', {'Range': 'bytes=0-15'})]:
             assert c.request(method, path, headers=headers).status_code == 404
@@ -175,18 +177,89 @@ asyncio.run(rollback_test())
 checks.append('归属写入后数据库故障整事务回滚，原照片/封面/版本不变；已成功移除原件仍保存在磁盘')
 
 samples = Path(args.samples)
-apple = upload((samples / 'apple-iphone15.heic').read_bytes(), 'different-a.heic')
-mov = upload((samples / 'apple-iphone15.mov').read_bytes(), 'different-b.mov')
-live = create([mov, apple], apple)
-assert len(live['photos']) == 1 and live['photos'][0]['live_status'] == 'live'
+apple_raw = (samples / 'apple-iphone15.heic').read_bytes()
+mov_raw = (samples / 'apple-iphone15.mov').read_bytes()
+apple = upload(apple_raw, 'different-a.heic')
+for name in ('different-b.mov', 'different-b.mp4', 'disguised.jpg', 'disguised.heic'):
+    response = c.post('/api/journal/uploads', headers={'X-Upload-ID': uid()}, files={'file': (name, mov_raw)})
+    assert response.status_code in (400, 422), (name, response.text)
+assert not ({'live_kind', 'pair_identifier', 'video_url'} & apple.keys())
+live = create([apple, more[1]], apple)
 live_path = f"/api/journal/entries/{live['id']}"
-assert c.patch(live_path, json=edit_body(live, [mov, apple], mov)).status_code == 400
-assert c.patch(live_path, json=edit_body(live, [mov, more[1]], more[1])).status_code == 400
-live_replaced = request('PATCH', live_path, json=edit_body(live, [more[1]], more[1]))
-assert live_replaced['photos'][0]['live_status'] == 'still'
+
+
+async def legacy_video_fixture():
+    # 只在已验证双标记的本机专属测试库/媒体目录注入旧版记录，不触及用户数据。
+    health = c.get('/health')
+    assert health.headers.get('X-Pantry-Nook-Test-Database') == database
+    assert health.headers.get('X-Pantry-Nook-Test-Media') == database
+    media_root = (ROOT.parent / '.review/media-test' / database).resolve()
+    assert (media_root / '.pantry-test-database').read_text(encoding='utf-8') == database
+    video_id = uid()
+    relative = f'assets/{video_id}/{uid()}'
+    directory = media_root / relative
+    assert directory.resolve().is_relative_to(media_root)
+    directory.mkdir(parents=True)
+    (directory / 'original').write_bytes(mov_raw)
+    # 历史派生文件也必须保留，应用不再读取或转换它。
+    (directory / 'motion.mp4').write_bytes(b'historical derived video test bytes')
+    conn = await asyncpg.connect(**config)
+    try:
+        image_details = json.loads(await conn.fetchval('SELECT details::text FROM journal_uploads WHERE id=$1', apple['id']))
+        image_details.update(live_kind='apple_photo', pair_identifier='legacy-test-pair', motion=False)
+        await conn.execute('UPDATE journal_uploads SET details=$2::jsonb WHERE id=$1', apple['id'], json.dumps(image_details))
+        details = dict(kind='video', live_kind='apple_video', pair_identifier='legacy-test-pair',
+                       width=100, height=100, preview_width=100, preview_height=100, mime='video/quicktime', motion=True)
+        await conn.execute("""INSERT INTO journal_uploads(id,sha256,status,original_name,original_size,details,storage_path,entry_id,position)
+            VALUES($1,$2,'ready','legacy.mov',$3,$4::jsonb,$5,$6,2)""", video_id, hashlib.sha256(mov_raw).hexdigest(),
+            len(mov_raw), json.dumps(details), relative, live['id'])
+        snapshot = dict(await conn.fetchrow('SELECT * FROM journal_uploads WHERE id=$1', video_id))
+        image_path = await conn.fetchval('SELECT storage_path FROM journal_uploads WHERE id=$1', apple['id'])
+        return video_id, directory, snapshot, media_root / image_path / 'original'
+    finally:
+        await conn.close()
+
+
+video_id, old_directory, old_row, old_image_path = asyncio.run(legacy_video_fixture())
+old_bytes = {name: (old_directory / name).read_bytes() for name in ('original', 'motion.mp4')}
+
+
+async def verify_old_video_unchanged():
+    conn = await asyncpg.connect(**config)
+    try:
+        assert dict(await conn.fetchrow('SELECT * FROM journal_uploads WHERE id=$1', video_id)) == old_row
+        assert old_image_path.read_bytes() == apple_raw
+        for name, raw in old_bytes.items():
+            assert (old_directory / name).read_bytes() == raw
+    finally:
+        await conn.close()
+
+
+loaded = current(live)
+assert all(set(photo) == {'id', 'image'} for photo in loaded['photos'])
+assert all(not ({'live_kind', 'pair_identifier', 'video_url'} & photo['image'].keys()) for photo in loaded['photos'])
+assert [p['id'] for p in loaded['photos']] == [apple['id'], more[1]['id']]
+assert_inaccessible({'id': video_id})
+for asset_id in (video_id, apple['id']):
+    assert c.get(f'/api/journal/media/{asset_id}/motion').status_code in (400, 422)
+# 创建/修改不能把历史视频重新绑定进静态照片列表。
+assert c.patch(live_path, json=edit_body(loaded, [apple, {'id': video_id}], apple)).status_code == 400
+assert c.post('/api/journal/entries', json=dict(entry_date='2039-09-21', upload_ids=[video_id], client_request_id=uid())).status_code == 409
+# 先只改文字，再换封面并重排，最后替换原配照片；视频行和原件始终不变。
+text_edited = request('PATCH', live_path, json=dict(entry_date='2039-09-21', caption='旧实况文字编辑', expected_updated_at=loaded['updated_at']))
+asyncio.run(verify_old_video_unchanged())
+cover_edited = request('PATCH', live_path, json=edit_body(text_edited, [more[1], apple], more[1]))
+assert cover_edited['cover_upload_id'] == more[1]['id']
+assert c.get(apple['original_url']).content == apple_raw
+asyncio.run(verify_old_video_unchanged())
+static_replaced = request('PATCH', live_path, json=edit_body(cover_edited, [more[1]], more[1]))
+assert len(static_replaced['photos']) == 1
 assert_inaccessible(apple)
-assert_inaccessible(mov)
-checks.append('真实Apple不同文件名配对、视频不能做封面、孤立视频拒绝、整组替换后原图与视频都不可访问')
+asyncio.run(verify_old_video_unchanged())
+request('DELETE', live_path)
+assert_inaccessible(more[1])
+asyncio.run(verify_old_video_unchanged())
+checks.append('MOV/MP4及伪装视频拒绝；旧实况仅静图，编辑文字/封面/替换/软删除保留历史视频完整数据库行及原件、派生文件')
 
 other = create([more[0]])
 contenders = [(legacy, [photos[10], more[2]]), (other, [more[0], more[2]])]

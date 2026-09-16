@@ -47,10 +47,9 @@ class JournalEditTests(unittest.TestCase):
     def test_extension_and_decoded_content_must_agree(self):
         for name, mime in [('A.JPG', 'image/jpeg'), ('a.jpeg', 'image/jpeg'),
                            ('a.png', 'image/png'), ('a.webp', 'image/webp'),
-                           ('a.heic', 'image/heic'), ('a.heif', 'image/heic'),
-                           ('a.MOV', 'video/quicktime')]:
+                           ('a.heic', 'image/heic'), ('a.heif', 'image/heic')]:
             validate_filename(name, mime)
-        for name in ('report.pdf', 'photo.jpg.exe', 'document.docx', 'zip.zip', 'clip.mp4', 'no-extension'):
+        for name in ('report.pdf', 'photo.jpg.exe', 'document.docx', 'zip.zip', 'clip.mp4', 'clip.MOV', 'no-extension'):
             with self.assertRaises(AppError):
                 validate_filename(name)
         for name, mime in [('fake.jpg', 'application/pdf'), ('fake.png', 'image/jpeg'), ('fake.mov', 'video/mp4')]:

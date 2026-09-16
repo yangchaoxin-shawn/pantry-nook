@@ -13,14 +13,14 @@ class JournalInput(BaseModel):
 
 
 class EntryCreate(JournalInput):
-    upload_ids: list[UUID] = Field(min_length=1, max_length=18)
+    upload_ids: list[UUID] = Field(min_length=1, max_length=9)
     client_request_id: UUID
     cover_upload_id: UUID | None = None
 
 
 class EntryUpdate(JournalInput):
     expected_updated_at: datetime
-    upload_ids: list[UUID] | None = Field(default=None, min_length=1, max_length=18)
+    upload_ids: list[UUID] | None = Field(default=None, min_length=1, max_length=9)
     cover_upload_id: UUID | None = None
     client_request_id: UUID | None = None
 
@@ -34,9 +34,7 @@ class EntryUpdate(JournalInput):
 
 class UploadedAsset(BaseModel):
     id: UUID
-    kind: Literal['image', 'video']
-    live_kind: Literal['still', 'apple_photo', 'apple_video', 'motion_photo']
-    pair_identifier: str | None
+    kind: Literal['image']
     original_name: str
     original_size: int
     sha256: str
@@ -44,18 +42,14 @@ class UploadedAsset(BaseModel):
     height: int
     preview_width: int
     preview_height: int
-    preview_url: str | None
-    thumbnail_url: str | None
+    preview_url: str
+    thumbnail_url: str
     original_url: str
-    video_url: str | None
 
 
 class JournalPhoto(BaseModel):
     id: UUID
     image: UploadedAsset
-    motion: UploadedAsset | None
-    live_status: Literal['still', 'live', 'missing_video']
-    video_url: str | None
 
 
 class JournalEntry(BaseModel):

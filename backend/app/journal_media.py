@@ -39,7 +39,7 @@ def safe_path(relative: str) -> Path:
 
 
 async def process_media(directory: Path) -> dict:
-    # 独立进程使原生解码卡死也能终止；子进程工具本身还有更短超时。
+    # 独立进程使原生图片解码卡死也能在时限后终止。
     proc = await asyncio.create_subprocess_exec(
         sys.executable, '-m', 'app.journal_worker', str(directory),
         stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,

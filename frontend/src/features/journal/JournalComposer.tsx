@@ -4,8 +4,8 @@ import Uppy, { type UppyFile } from '@uppy/core';
 import XHRUpload from '@uppy/xhr-upload';
 import { Dialog, Field } from '../../shared/ui/Primitives';
 import { localDate } from '../../shared/api/client';
-import { journalApi, JournalError, mediaUrl, uploadPairing, type UploadedAsset, type JournalEntry, type EntryPayload, type EditPayload } from './api';
-import { PHOTO_ACCEPT, isMovie, validateSource, restoreRemoval, type DraftSource, type Removal } from './draft';
+import { journalApi, JournalError, mediaUrl, type UploadedAsset, type JournalEntry, type EntryPayload, type EditPayload } from './api';
+import { PHOTO_ACCEPT, MAX_PHOTOS, validateSource, restoreRemoval, type DraftSource, type Removal } from './draft';
 
 type UploadMeta = { uploadId: string; [key: string]: unknown };
 type UploadBody = { data: UploadedAsset; [key: string]: unknown };
@@ -19,7 +19,7 @@ function PhotoPreview({ src, label, fallbackName }: { src?: string; label: strin
 export default function JournalComposer({ active, open, setOpen, onSaved, entry }: { active: boolean; open: boolean; setOpen: (open: boolean) => void; onSaved: () => void; entry?: JournalEntry }) {
   const [uppy, setUppy] = useState<Uppy<UploadMeta, UploadBody> | null>(null);
   const [files, setFiles] = useState<QueueFile[]>([]);
-  const [sources, setSources] = useState<DraftSource[]>(() => entry ? entry.photos.flatMap(photo => [photo.image, ...(photo.motion ? [photo.motion] : [])].map(asset => ({ key: asset.id, asset }))) : []);
+  const [sources, setSources] = useState<DraftSource[]>(() => entry ? entry.photos.map(photo => ({ key: photo.image.id, asset: photo.image })) : []);
   const [removed, setRemoved] = useState<Set<string>>(new Set());
   const [cover, setCover] = useState<string | null>(entry?.cover_upload_id || null);
   const [undos, setUndos] = useState<Removal[]>([]);
@@ -35,9 +35,6 @@ export default function JournalComposer({ active, open, setOpen, onSaved, entry 
   const [dragging, setDragging] = useState(false);
   const [pendingSave, setPendingSave] = useState(false);
   const picker = useRef<HTMLInputElement>(null);
-  const originalPicker = useRef<HTMLInputElement>(null);
-  const motionPicker = useRef<HTMLInputElement>(null);
-  const motionHelp = useRef<HTMLDetailsElement>(null);
   const replacePicker = useRef<HTMLInputElement>(null);
   const replaceTarget = useRef<string | null>(null);
   const requestId = useRef(createUploadId());
@@ -52,25 +49,13 @@ export default function JournalComposer({ active, open, setOpen, onSaved, entry 
   const busyInput = blocked || reading || !!replacement || !!candidates.length;
   const fileByKey = new Map(files.map(file => [file.meta.uploadId, file]));
   const assetFor = (source: DraftSource) => source.asset || fileByKey.get(source.key)?.response?.body?.data;
-  const imageSource = (source: DraftSource) => source.asset ? source.asset.kind === 'image' : !isMovie(source.file?.name || '');
-  const visible = sources.filter(source => !removed.has(source.key));
-  const images = visible.filter(imageSource);
-  const assets = visible.flatMap(source => { const asset = assetFor(source); return asset ? [asset] : []; });
-  const pairing = uploadPairing(assets);
-  const relatedKeys = (source: DraftSource) => {
-    const image = assetFor(source);
-    return [source.key, ...visible.filter(other => {
-      const asset = assetFor(other);
-      return image?.pair_identifier && image.live_kind === 'apple_photo' && asset?.kind === 'video' && asset.pair_identifier === image.pair_identifier && !images.some(otherImage => otherImage.key !== source.key && assetFor(otherImage)?.pair_identifier === image.pair_identifier);
-    }).map(other => other.key)];
-  };
-  const looseMovies = visible.filter(source => !imageSource(source) && (!assetFor(source) || pairing.unmatched.some(asset => asset.id === assetFor(source)?.id)));
+  const images = sources.filter(source => !removed.has(source.key));
+  const assets = images.flatMap(source => { const asset = assetFor(source); return asset ? [asset] : []; });
   const complete = (source: DraftSource) => !!source.asset || !!fileByKey.get(source.key)?.progress.uploadComplete;
-  const motionProcessing = visible.some(source => !imageSource(source) && !complete(source) && !fileByKey.get(source.key)?.error);
-  const canSave = images.length > 0 && images.length <= 9 && visible.every(complete) && !pairing.unmatched.length && !pairing.duplicateImages.length && !!cover && images.some(source => source.key === cover) && !replacement && !reading && !candidates.length;
+  const canSave = images.length > 0 && images.length <= MAX_PHOTOS && images.every(complete) && !!cover && images.some(source => source.key === cover) && !replacement && !reading && !candidates.length;
   useEffect(() => {
     alive.current = true;
-    const queue = new Uppy<UploadMeta, UploadBody>({ autoProceed: true, restrictions: { maxFileSize: 50 * 1024 * 1024, allowedFileTypes: ['.jpg', '.jpeg', '.png', '.webp', '.heic', '.heif', '.mov'] } }).use(XHRUpload, {
+    const queue = new Uppy<UploadMeta, UploadBody>({ autoProceed: true, restrictions: { maxFileSize: 50 * 1024 * 1024, allowedFileTypes: ['.jpg', '.jpeg', '.png', '.webp', '.heic', '.heif'] } }).use(XHRUpload, {
       endpoint: mediaUrl('/api/journal/uploads'), fieldName: 'file', formData: true, allowedMetaFields: false,
       limit: 1, timeout: 180000, shouldRetry: () => false,
       locale: { strings: { uploadStalled: '上传已等待 %{seconds} 秒，可以检查网络后重试。' } },
@@ -82,7 +67,7 @@ export default function JournalComposer({ active, open, setOpen, onSaved, entry 
           throw new Error(message);
         }
         const asset = JSON.parse(xhr.responseText)?.data;
-        if (!asset?.id || !['image', 'video'].includes(asset.kind) || !asset.original_url) throw new Error('未收到完整的上传结果，请重试核对原文件。');
+        if (!asset?.id || asset.kind !== 'image' || !asset.original_url || !asset.preview_url) throw new Error('未收到完整的上传结果，请重试核对原文件。');
       },
     });
     const update = () => setFiles(queue.getFiles());
@@ -102,36 +87,25 @@ export default function JournalComposer({ active, open, setOpen, onSaved, entry 
     window.addEventListener('beforeunload', warn);
     return () => window.removeEventListener('beforeunload', warn);
   }, [sources.length, caption]);
-  // 替换先独立上传；整个新组整理成功才替换草稿卡片，原记录在保存前始终不动。
+  // 替换先独立上传；新照片整理成功才替换草稿卡片，原记录在保存前始终不动。
   useEffect(() => {
     if (!replacement) return;
     const records = replacement.sources.map(source => files.find(file => file.meta.uploadId === source.key));
     if (records.some(record => !record?.progress.uploadComplete || !record.response?.body?.data)) return;
-    const newAssets = records.map(record => record!.response!.body!.data);
-    const pairs = uploadPairing(newAssets);
-    if (pairs.images.length !== 1 || pairs.unmatched.length) return;
     const target = sources.find(source => source.key === replacement.target);
     if (!target) return;
-    const targetAsset = target.asset || files.find(file => file.meta.uploadId === target.key)?.response?.body?.data;
-    const oldKeys = sources.filter(source => {
-      const asset = source.asset || files.find(file => file.meta.uploadId === source.key)?.response?.body?.data;
-      return source.key === target.key || (targetAsset?.pair_identifier && asset?.kind === 'video' && asset.pair_identifier === targetAsset.pair_identifier && !sources.some(other => {
-        const remaining = other.asset || files.find(file => file.meta.uploadId === other.key)?.response?.body?.data;
-        return !removed.has(other.key) && other.key !== target.key && remaining?.kind === 'image' && remaining.pair_identifier === targetAsset.pair_identifier;
-      }));
-    }).map(source => source.key);
-    const replacementImage = replacement.sources.find(source => !isMovie(source.file!.name))!;
+    const replacementImage = replacement.sources[0];
     let current = true;
     // Uppy 的外部上传结果落到一次草稿更新；卸载或取消替换后不再应用。
     queueMicrotask(() => {
       if (!current) return;
       setSources(previous => previous.flatMap(source => source.key === target.key ? [...replacement.sources, source] : [source]));
-      setRemoved(previous => new Set([...previous, ...oldKeys]));
+      setRemoved(previous => new Set([...previous, target.key]));
       setCover(previous => previous === target.key ? replacementImage.key : previous);
       setReplacement(null);
     });
     return () => { current = false; };
-  }, [replacement, files, sources, removed]);
+  }, [replacement, files, sources]);
   function preview(file: File) { const url = URL.createObjectURL(file); urls.current.add(url); return url; }
   function enqueue(selected: File[]): DraftSource[] {
     const result: DraftSource[] = [];
@@ -141,7 +115,7 @@ export default function JournalComposer({ active, open, setOpen, onSaved, entry 
       try {
         // 允许同一原文件在不同草稿位置再次使用；每次有独立上传标识。
         uppy!.addFile({ id: key, name: file.name, type: file.type, data: file, source: 'local', meta: { uploadId: key, relativePath: key } });
-        result.push({ key, file, preview: isMovie(file.name) ? undefined : preview(file) });
+        result.push({ key, file, preview: preview(file) });
       } catch { failures.push(`「${file.name}」未能加入，请重新选择。`); }
     }
     if (failures.length) setRejected(current => [...current, ...failures]);
@@ -151,7 +125,7 @@ export default function JournalComposer({ active, open, setOpen, onSaved, entry 
     const added = enqueue(selected);
     setSources(current => [...current, ...added]);
     if (!hasAdded.current) {
-      const first = added.find(source => !isMovie(source.file!.name));
+      const first = added[0];
       if (first) { setCover(first.key); hasAdded.current = true; }
     }
   }
@@ -165,15 +139,15 @@ export default function JournalComposer({ active, open, setOpen, onSaved, entry 
       if (!alive.current) return;
       setRejected(failures);
       if (target) {
-        if (accepted.filter(file => !isMovie(file.name)).length !== 1 || accepted.filter(file => isMovie(file.name)).length > 1 || failures.length) {
-          setError('替换时请选择 1 张照片，可一并选择它对应的 1 个实况 MOV。原照片保持不变。'); return;
+        if (accepted.length !== 1 || failures.length) {
+          setError('替换时请选择 1 张照片。原照片保持不变。'); return;
         }
         const next = enqueue(accepted);
         if (next.length === accepted.length) setReplacement({ target, sources: next });
         return;
       }
-      if (images.length + accepted.filter(file => !isMovie(file.name)).length > 9 || visible.filter(source => !imageSource(source)).length + accepted.filter(file => isMovie(file.name)).length > 9) {
-        setCandidates(accepted.map(file => ({ key: createUploadId(), file, preview: isMovie(file.name) ? '' : preview(file), selected: false })));
+      if (images.length + accepted.length > MAX_PHOTOS) {
+        setCandidates(accepted.map(file => ({ key: createUploadId(), file, preview: preview(file), selected: false })));
       } else append(accepted);
     } finally { readLock.current = false; if (alive.current) setReading(false); }
   };
@@ -191,7 +165,7 @@ export default function JournalComposer({ active, open, setOpen, onSaved, entry 
     return () => { window.removeEventListener('dragenter', enter); window.removeEventListener('dragover', over); window.removeEventListener('dragleave', leave); window.removeEventListener('drop', drop); window.removeEventListener('blur', clear); };
   }, [active]);
   function removeSource(source: DraftSource) {
-    const keys = relatedKeys(source);
+    const keys = [source.key];
     setRemoved(current => new Set([...current, ...keys]));
     const oldCover = keys.includes(cover || '') ? cover : null;
     if (oldCover) setCover(null);
@@ -199,8 +173,7 @@ export default function JournalComposer({ active, open, setOpen, onSaved, entry 
   }
   function undoRemove() {
     const undo = undos.at(-1); if (!undo) return;
-    const result = restoreRemoval(removed, undo, cover, coverRevision.current, images.length, sources.some(source => undo.keys.includes(source.key) && imageSource(source)));
-    if (visible.length + undo.keys.filter(key => removed.has(key)).length > 18) { setError('实况源文件已满，请先移除不需要的片段再撤销。'); return; }
+    const result = restoreRemoval(removed, undo, cover, coverRevision.current, images.length);
     if (!result) { setError('已选满 9 张，请先移除一张再撤销。'); return; }
     setRemoved(result.removed); setCover(result.cover); setUndos(current => current.slice(0, -1));
   }
@@ -227,50 +200,34 @@ export default function JournalComposer({ active, open, setOpen, onSaved, entry 
     } finally { setSaving(false); saveLock.current = false; }
   }
   const toggleCandidate = (key: string) => setCandidates(current => current.map(item => item.key === key ? { ...item, selected: !item.selected } : item));
-  const selectedImages = candidates.filter(item => item.selected && !isMovie(item.file.name)).length;
-  const selectedMovies = candidates.filter(item => item.selected && isMovie(item.file.name)).length;
-  const movieRoom = 9 - visible.filter(source => !imageSource(source)).length;
-  const replacementAssets = replacement?.sources.flatMap(source => { const asset = assetFor(source); return asset ? [asset] : []; }) || [];
-  const replacementUnmatched = replacement && replacement.sources.every(complete) && !!uploadPairing(replacementAssets).unmatched.length;
+  const selectedImages = candidates.filter(item => item.selected).length;
   const sourceStatus = (source: DraftSource) => {
-    const file = fileByKey.get(source.key); const asset = assetFor(source);
+    const file = fileByKey.get(source.key);
     if (file?.error) return /[\u4e00-\u9fff]/.test(file.error) ? file.error : '上传未完成，请检查网络后重试';
     if (!complete(source)) return `${file?.progress.percentage || 0}% · 上传与整理中`;
-    if (asset && pairing.duplicateVideos.includes(asset)) return '重复的实况片段，请移除此片段后保存';
-    if (asset && pairing.duplicateImages.includes(asset)) return '同一实况原片重复加入，请移除重复照片';
-    if (asset?.live_kind === 'apple_photo' && pairing.missing.some(item => item.id === asset.id)) return '已收到照片，尚未收到实况视频；可补充 MOV，也可先保存静态照片';
-    if (asset?.live_kind === 'motion_photo' || (asset?.live_kind === 'apple_photo' && !pairing.missing.some(item => item.id === asset.id))) return '◎ 实况已就绪';
     return '';
   };
-  function showMotionHelp() {
-    if (!motionHelp.current) return;
-    motionHelp.current.open = true;
-    motionHelp.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-  }
   return <>
     {open && <Dialog title={entry ? '改一改这篇手记' : '记下这一餐'} onClose={() => setOpen(false)} busy={saving || pendingSave}>
       <form className={`journal-composer ${dragging ? 'is-dragging' : ''}`} onSubmit={event => { event.preventDefault(); void save(); }}>
         {candidates.length > 0 ? <section className="journal-candidates" aria-label="挑选本次照片">
           <h3>留哪几张，慢慢选。</h3><p>已有 {images.length} 张，还可加入 {9 - images.length} 张。已选 {selectedImages} 张照片。</p>
-          <p className="journal-draft-note">确认前不会上传。实况 MOV 不计张数，请同时选中需要的对应片段；整理后按真实标识匹配。</p>
+          <p className="journal-draft-note">确认前不会上传，最多留下 9 张照片。</p>
           <div className="journal-draft-grid">{candidates.map((item, index) => {
-            const movie = isMovie(item.file.name); const disabled = !item.selected && (movie ? selectedMovies >= movieRoom : selectedImages >= 9 - images.length);
-            return <button type="button" key={item.key} className={`journal-candidate ${item.selected ? 'is-selected' : ''}`} aria-pressed={item.selected} disabled={disabled} onClick={() => toggleCandidate(item.key)} aria-label={`选择候选${movie ? '实况片段' : '照片'} ${index + 1} ${item.file.name}`}>
-              {movie ? <span className="journal-photo-placeholder">▷<small>实况片段 · 不计张数</small></span> : <PhotoPreview src={item.preview} label={`候选照片 ${index + 1}`} fallbackName={item.file.name} />}
-              <span>{item.selected ? '✓ 已选择' : movie ? item.file.name : `照片 ${index + 1}`}</span>
+            const disabled = !item.selected && selectedImages >= MAX_PHOTOS - images.length;
+            return <button type="button" key={item.key} className={`journal-candidate ${item.selected ? 'is-selected' : ''}`} aria-pressed={item.selected} disabled={disabled} onClick={() => toggleCandidate(item.key)} aria-label={`选择候选照片 ${index + 1} ${item.file.name}`}>
+              <PhotoPreview src={item.preview} label={`候选照片 ${index + 1}`} fallbackName={item.file.name} />
+              <span>{item.selected ? '✓ 已选择' : `照片 ${index + 1}`}</span>
             </button>;
           })}</div>
-          {!selectedImages && !selectedMovies && <p className="journal-draft-note">点选想留下的照片。未选照片会留在你的设备上。</p>}
-          <div className="journal-form-footer"><button type="button" className="btn-ghost" onClick={() => setCandidates([])}>返回整理</button><button type="button" className="btn-primary" disabled={!selectedImages && !selectedMovies} onClick={() => { append(candidates.filter(item => item.selected).map(item => item.file)); setCandidates([]); }}>加入所选{selectedImages ? ` ${selectedImages} 张` : '实况片段'}</button></div>
+          {!selectedImages && <p className="journal-draft-note">点选想留下的照片。未选照片会留在你的设备上。</p>}
+          <div className="journal-form-footer"><button type="button" className="btn-ghost" onClick={() => setCandidates([])}>返回整理</button><button type="button" className="btn-primary" disabled={!selectedImages} onClick={() => { append(candidates.filter(item => item.selected).map(item => item.file)); setCandidates([]); }}>加入所选 {selectedImages} 张</button></div>
         </section> : <>
-          <div className="journal-dropzone"><button type="button" className="btn-primary" disabled={!uppy || busyInput} onClick={() => picker.current?.click()}>＋ 从相册选照片</button><p>也可以直接拖进来 · 最多 9 张<br />JPG / PNG / WebP / HEIC · 实况照片和对应 MOV 算 1 张</p><button type="button" className="journal-live-help-link" onClick={showMotionHelp}>Apple 实况怎么上传？</button></div>
-          <input ref={picker} type="file" hidden multiple accept={PHOTO_ACCEPT} onChange={event => { if (event.target.files) void addFiles(Array.from(event.target.files)); event.target.value = ''; }} aria-label="选择照片及实况视频" />
-          <input ref={originalPicker} type="file" hidden multiple accept={PHOTO_ACCEPT} onChange={event => { if (event.target.files) void addFiles(Array.from(event.target.files)); event.target.value = ''; }} aria-label="选择导出的照片和实况原件" />
-          <input ref={motionPicker} type="file" hidden multiple accept="video/quicktime,.mov" onChange={event => { if (event.target.files) void addFiles(Array.from(event.target.files)); event.target.value = ''; }} aria-label="补充实况 MOV 原件" />
-          <input ref={replacePicker} type="file" hidden multiple accept={PHOTO_ACCEPT} onChange={event => { if (event.target.files) void addFiles(Array.from(event.target.files), replaceTarget.current); event.target.value = ''; }} aria-label="选择替换照片及对应实况片段" />
+          <div className="journal-dropzone"><button type="button" className="btn-primary" disabled={!uppy || busyInput} onClick={() => picker.current?.click()}>＋ 从相册选照片</button><p>也可以直接拖进来 · 最多 9 张<br />JPG / PNG / WebP / HEIC / HEIF · 每张不超过 50 MiB</p></div>
+          <input ref={picker} type="file" hidden multiple accept={PHOTO_ACCEPT} onChange={event => { if (event.target.files) void addFiles(Array.from(event.target.files)); event.target.value = ''; }} aria-label="选择照片" />
+          <input ref={replacePicker} type="file" hidden accept={PHOTO_ACCEPT} onChange={event => { if (event.target.files) void addFiles(Array.from(event.target.files), replaceTarget.current); event.target.value = ''; }} aria-label="选择替换照片" />
           <p className="journal-selection-count">已选 {images.length} / 9 张 · 点照片选封面</p>
           {reading && <p role="status">正在读取文件格式…</p>}
-          {motionProcessing && <p className="journal-draft-note" role="status">正在整理实况片段，完成后即可整张移除或替换。</p>}
           <div className="journal-draft-grid">{images.map((source, index) => {
             const asset = assetFor(source); const file = fileByKey.get(source.key); const status = sourceStatus(source);
             const src = asset?.preview_url ? mediaUrl(asset.preview_url) : source.preview;
@@ -278,28 +235,20 @@ export default function JournalComposer({ active, open, setOpen, onSaved, entry 
             const working = !complete(source) && !file?.error;
             return <article key={source.key} data-upload-id={source.key} className={`journal-draft-photo ${cover === source.key ? 'is-cover' : ''}`}>
               <button type="button" className="journal-cover-choice" disabled={blocked || !!replacement || reading} aria-pressed={cover === source.key} aria-label={`将第 ${index + 1} 张照片选为封面`} onClick={() => { setCover(source.key); coverRevision.current++; }}><PhotoPreview key={src} src={src} label={`第 ${index + 1} 张照片`} /></button>
-              <button type="button" className="journal-photo-remove" aria-label={`移除第 ${index + 1} 张照片`} disabled={blocked || !!replacement || working || reading || motionProcessing} onClick={() => removeSource(source)}>×</button>
-              <div className="journal-photo-tools"><span>{cover === source.key ? '✓ 当前封面' : ''}</span><button type="button" disabled={busyInput || working || motionProcessing} onClick={() => { replaceTarget.current = source.key; replacePicker.current?.click(); }}>替换</button></div>
+              <button type="button" className="journal-photo-remove" aria-label={`移除第 ${index + 1} 张照片`} disabled={blocked || !!replacement || working || reading} onClick={() => removeSource(source)}>×</button>
+              <div className="journal-photo-tools"><span>{cover === source.key ? '✓ 当前封面' : ''}</span><button type="button" disabled={busyInput || working} onClick={() => { replaceTarget.current = source.key; replacePicker.current?.click(); }}>替换</button></div>
               {status && <p className={file?.error ? 'journal-error' : 'journal-draft-note'}>{status}</p>}
-              {asset?.live_kind === 'apple_photo' && pairing.missing.some(item => item.id === asset.id) && <div className="journal-motion-recovery"><button type="button" disabled={!uppy || busyInput || motionProcessing} onClick={() => motionPicker.current?.click()}>补充 MOV</button><button type="button" onClick={showMotionHelp}>怎么获取？</button></div>}
               {working && <progress value={file?.progress.percentage || 0} max={100} aria-label={`第 ${index + 1} 张上传进度`} />}
               {file?.error && <button type="button" disabled={blocked} onClick={() => void retry(source)}>重试上传</button>}
-              {updating && <div className="journal-replacement" role="status"><p>新照片整理完成后替换，旧照片已保留。</p>{replacement.sources.map(next => <div key={next.key}><small>{isMovie(next.file!.name) ? '实况片段' : '新照片'}：{complete(next) ? '已收到' : sourceStatus(next)}</small>{fileByKey.get(next.key)?.error && <button type="button" onClick={() => void retry(next)}>重试</button>}</div>)}{replacementUnmatched && <p>新照片与动态片段不匹配，请重新选择同一张实况原件。</p>}<button type="button" onClick={() => { setReplacement(null); }}>取消替换</button></div>}
+              {updating && <div className="journal-replacement" role="status"><p>新照片整理完成后替换，旧照片已保留。</p>{replacement.sources.map(next => <div key={next.key}><small>新照片：{complete(next) ? '已收到' : sourceStatus(next)}</small>{fileByKey.get(next.key)?.error && <button type="button" onClick={() => void retry(next)}>重试</button>}</div>)}<button type="button" onClick={() => { setReplacement(null); }}>取消替换</button></div>}
             </article>;
           })}</div>
           {!!undos.length && <div className="journal-undo" role="status">已从草稿移除<button type="button" disabled={blocked || !!replacement} onClick={undoRemove}>撤销</button><small>8 秒内可恢复</small></div>}
           {images.length > 0 && !cover && <p className="journal-warning" role="status">请选择新的封面，再保存这一餐。</p>}
           {images.length === 0 && <p className="journal-draft-note">至少留一张照片，记住这一餐。</p>}
-          {!!looseMovies.length && <section className="journal-loose-movies" aria-label="等待配对的实况片段"><p>这些动态片段还在等待对应照片，不计入照片张数；配对完成后会合在照片里。</p>{looseMovies.map(source => <div key={source.key}><span>{source.file?.name || source.asset?.original_name}<small>{sourceStatus(source) || '未找到对应原片，请补充照片或移除片段'}</small></span>{fileByKey.get(source.key)?.error && <button type="button" disabled={blocked} onClick={() => void retry(source)}>重试</button>}<button type="button" disabled={blocked || (!complete(source) && !fileByKey.get(source.key)?.error)} onClick={() => removeSource(source)} aria-label={`移除动态片段 ${source.file?.name || source.asset?.original_name}`}>×</button></div>)}</section>}
           <Field label="这一天"><input type="date" required value={entryDate} disabled={blocked} onChange={event => setEntryDate(event.target.value)} /></Field>
           <Field label="留一句话 · 不写也可以"><textarea maxLength={2000} value={caption} disabled={blocked} onChange={event => setCaption(event.target.value)} placeholder="今天的饭，有什么想记住的？" rows={3} /></Field>
-          <details ref={motionHelp} className="journal-motion-help"><summary>原片和实况，怎样保留？</summary>
-            <p>iPhone / iPad 直接从相册选择时，浏览器可能只提供照片，没有提供对应的动态视频。没有收到的视频无法在网页里还原。</p>
-            <ol><li>在系统“照片”中选中实况，打开分享菜单，查找“导出未修改的原片”（可能需要先连接外置存储设备）。</li><li>选择系统提供的可用存储位置，确认导出结果同时包含照片（HEIC 或 JPG）和对应的 MOV。普通“存储到文件”不保证保留实况。</li><li>回到这里点“从文件添加原件”，在系统菜单中选择“选取文件”，一起加入照片和 MOV。系统会核对真实配对标识，显示“实况已就绪”后再保存。</li></ol>
-            <p>已经上传但缺少动态的照片，可用“补充 MOV”加入对应原件；若系统已改写照片的配对信息，请用“替换”重新选择同一组导出的原件。系统版本与可用存储位置不同，若导出后只有一张图片，仍不能保留实况。</p>
-            <button type="button" className="btn-ghost" disabled={!uppy || busyInput} onClick={() => originalPicker.current?.click()}>从文件添加原件</button>
-            <p>收到的原文件完整保留，单个文件不超过 50 MiB。安卓选择原始动态照片；微信已转成普通 JPG 的文件无法还原动态。<a href="https://support.apple.com/zh-cn/guide/iphone/iph480caa1f3/ios" target="_blank" rel="noreferrer">查看 Apple 原件导出说明</a></p>
-          </details>
+          <p className="journal-draft-note">收到的照片原文件完整保留，浏览时使用整理后的预览图。</p>
           {conflict && <p className="journal-warning">这篇手记已在其他页面修改，当前草稿未覆盖它。请先保留需要的文字，再取消编辑、刷新后重新整理。</p>}
           {pendingSave && !saving && <p className="journal-warning">保存结果尚未确认。请点击“核对并重试”，核对前暂时不能改稿或关闭面板。</p>}
           <div className="journal-form-footer"><button type="button" className="btn-ghost" disabled={saving || pendingSave} onClick={() => setOpen(false)}>{entry ? '取消编辑' : '稍后再记'}</button><button className="btn-primary" disabled={saving || conflict || (!canSave && !pendingSave)}>{saving ? '正在保存…' : pendingSave ? '核对并重试' : entry ? '保存修改' : '保存这一餐'}</button></div>

@@ -636,14 +636,6 @@ export interface components {
              */
             id: string;
             image: components["schemas"]["UploadedAsset"];
-            motion: components["schemas"]["UploadedAsset"] | null;
-            /**
-             * Live Status
-             * @enum {string}
-             */
-            live_status: "still" | "live" | "missing_video";
-            /** Video Url */
-            video_url: string | null;
         };
         /** UploadResponse */
         UploadResponse: {
@@ -658,16 +650,9 @@ export interface components {
             id: string;
             /**
              * Kind
-             * @enum {string}
+             * @constant
              */
-            kind: "image" | "video";
-            /**
-             * Live Kind
-             * @enum {string}
-             */
-            live_kind: "still" | "apple_photo" | "apple_video" | "motion_photo";
-            /** Pair Identifier */
-            pair_identifier: string | null;
+            kind: "image";
             /** Original Name */
             original_name: string;
             /** Original Size */
@@ -683,13 +668,11 @@ export interface components {
             /** Preview Height */
             preview_height: number;
             /** Preview Url */
-            preview_url: string | null;
+            preview_url: string;
             /** Thumbnail Url */
-            thumbnail_url: string | null;
+            thumbnail_url: string;
             /** Original Url */
             original_url: string;
-            /** Video Url */
-            video_url: string | null;
         };
         /** ValidationError */
         ValidationError: {
@@ -3350,7 +3333,7 @@ export interface operations {
             header?: never;
             path: {
                 upload_id: string;
-                variant: "original" | "preview" | "thumbnail" | "motion";
+                variant: "original" | "preview" | "thumbnail";
             };
             cookie?: never;
         };
@@ -3480,7 +3463,7 @@ export interface operations {
             header?: never;
             path: {
                 upload_id: string;
-                variant: "original" | "preview" | "thumbnail" | "motion";
+                variant: "original" | "preview" | "thumbnail";
             };
             cookie?: never;
         };

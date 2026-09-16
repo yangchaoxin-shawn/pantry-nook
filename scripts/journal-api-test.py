@@ -14,7 +14,8 @@ import httpx
 from PIL import Image
 
 parser = argparse.ArgumentParser(description=__doc__)
-parser.add_argument('--base', default='http://127.0.0.1:3060')
+parser.add_argument('--base', required=True)
+parser.add_argument('--database', required=True, help='显式指定本轮独立库，禁止写用户验收库')
 parser.add_argument('--samples', required=True, help='上轮公开真实样本所在目录')
 parser.add_argument('--output', default='.review/journal-api-evidence.json')
 args = parser.parse_args()
@@ -47,7 +48,8 @@ def validate_response(response):
 c = httpx.Client(base_url=args.base, timeout=180,event_hooks={'response':[validate_response]})
 health = c.get('/health')
 assert health.headers.get('X-Pantry-Nook-Test-Database', '').startswith('pantry_nook_test_')
-assert health.headers.get('X-Pantry-Nook-Test-Media'), '缺少测试媒体标记，拒绝写入'
+assert health.headers.get('X-Pantry-Nook-Test-Database') == args.database
+assert health.headers.get('X-Pantry-Nook-Test-Media') == args.database
 checks=[]
 samples=Path(args.samples)
 
@@ -66,7 +68,7 @@ def upload(raw,name='sample.jpg',key=None):
 def publish(ids,key=None,caption='仅测试：一餐手记',day='2039-09-16'):
     return c.post('/api/journal/entries',json={'entry_date':day,'caption':caption,'upload_ids':ids,'client_request_id':key or uid()})
 def all_media(asset):
-    return [asset[k] for k in ('original_url','preview_url','thumbnail_url','video_url') if asset.get(k)]
+    return [asset[k] for k in ('original_url','preview_url','thumbnail_url')]
 
 business={p:c.get('/api/'+p+'?limit=100&offset=0').json() for p in ['ingredients','dishes','meal-plans','daily-battles','consumptions','inventory-adjustments']}
 asset,key=upload(synthetic())
@@ -91,43 +93,42 @@ assert c.patch(f"/api/journal/entries/{entry['id']}",json={'entry_date':'2039-09
 assert c.get('/api/journal/entries?month=2039-09&limit=1&offset=0').json()['meta']['limit']==1
 checks.append('编辑日期文字、版本冲突与月份分页')
 apple_photo,_=upload((samples/'apple-iphone15.heic').read_bytes(),'apple.heic')
-apple_movie,_=upload((samples/'apple-iphone15.mov').read_bytes(),'unrelated-filename.mov')
-assert apple_photo['pair_identifier']==apple_movie['pair_identifier'] and apple_photo['pair_identifier']
-pair=publish([apple_movie['id'],apple_photo['id']]);assert pair.status_code==201,pair.text
-pair=pair.json()['data'];assert len(pair['photos'])==1 and pair['photos'][0]['live_status']=='live'
-checks.append('Apple真实标识自动配对、不依赖文件名及上传顺序、两份原件回读')
-missing,_=upload((samples/'apple-iphone15.heic').read_bytes(),'missing.heic')
-still=publish([missing['id']]);assert still.status_code==201,still.text
-assert still.json()['data']['photos'][0]['live_status']=='missing_video'
-orphan,_=upload((samples/'apple-iphone15.mov').read_bytes(),'orphan.mov')
-assert 400<=publish([orphan['id']]).status_code<500
-checks.append('苹果缺视频明确静图状态、孤立MOV不能发布')
+pair=publish([apple_photo['id']]);assert pair.status_code==201,pair.text
+pair=pair.json()['data'];assert len(pair['photos'])==1
+assert set(pair['photos'][0])=={'id','image'}
+assert not {'live_kind','pair_identifier','video_url'} & apple_photo.keys()
+checks.append('Apple HEIC作为静态图片直接保存，无缺视频提示与配对字段')
+for filename in ['apple.mov','apple.mp4','disguised.jpg','disguised.heic']:
+    rejected=c.post('/api/journal/uploads',headers={'X-Upload-ID':uid()},files={'file':(filename,(samples/'apple-iphone15.mov').read_bytes())})
+    assert 400<=rejected.status_code<500,(filename,rejected.status_code)
+checks.append('真实MOV/MP4以及伪装成JPEG/HEIC的视频均拒绝')
 for name in ['pixel-8a.jpg','samsung-one-ui-6.heic']:
     motion,_=upload((samples/name).read_bytes(),name)
     motion_entry=publish([motion['id']]);assert motion_entry.status_code==201,motion_entry.text
-    assert motion_entry.json()['data']['photos'][0]['live_status']=='live'
-    assert motion.get('video_url')
-checks.append('Pixel JPG与三星HEIC真实内嵌实况、原文件含视频逐字节保留')
+    assert set(motion_entry.json()['data']['photos'][0])=={'id','image'}
+    assert not {'live_kind','pair_identifier','video_url'} & motion.keys()
+    assert c.get(f"/api/journal/media/{motion['id']}/motion").status_code>=400
+checks.append('安卓动态JPEG/HEIC作为静态照片，无播放资源，原文件逐字节保留')
 race_asset,_=upload(synthetic((77,90,131)))
 with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
     responses=list(pool.map(lambda _:publish([race_asset['id']]),range(2)))
 assert sorted(r.status_code for r in responses)==[201,409],[(r.status_code,r.text) for r in responses]
 checks.append('并发发布同一资源只成功一次')
-for media in [asset,apple_photo,apple_movie]:
+for media in [asset,apple_photo]:
     for url in all_media(media):
         full=c.get(url);assert full.status_code==200,(url,full.status_code)
         assert 'no-store' in full.headers.get('cache-control','')
         part=c.get(url,headers={'Range':'bytes=0-15'})
         assert part.status_code==206 and part.content==full.content[:16],(url,part.status_code)
         assert c.head(url).status_code==200
-checks.append('图片与视频GET/HEAD/Range实际字节及禁止缓存')
+checks.append('图片GET/HEAD/Range实际字节及禁止缓存')
 for item in [entry,pair]:
     assert c.delete(f"/api/journal/entries/{item['id']}").status_code==200
-for media in [asset,apple_photo,apple_movie]:
+for media in [asset,apple_photo]:
     for url in all_media(media):
         for method,headers in [('GET',{}),('HEAD',{}),('GET',{'Range':'bytes=0-15'}),('GET',{'If-None-Match':'*'})]:
             assert c.request(method,url,headers=headers).status_code==404,(method,url)
-checks.append('删除后图像/独立MOV/兼容视频含条件请求均不可读取')
+checks.append('删除后图像含条件请求均不可读取')
 unbound,_=upload(synthetic((77,20,99)))
 assert c.delete('/api/journal/uploads/'+unbound['id']).status_code==200
 assert c.get(unbound['original_url']).status_code==404

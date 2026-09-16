@@ -2882,8 +2882,7 @@
               "enum": [
                 "original",
                 "preview",
-                "thumbnail",
-                "motion"
+                "thumbnail"
               ],
               "type": "string",
               "title": "Variant"
@@ -3093,8 +3092,7 @@
               "enum": [
                 "original",
                 "preview",
-                "thumbnail",
-                "motion"
+                "thumbnail"
               ],
               "type": "string",
               "title": "Variant"
@@ -3878,7 +3876,7 @@
               "format": "uuid"
             },
             "type": "array",
-            "maxItems": 18,
+            "maxItems": 9,
             "minItems": 1,
             "title": "Upload Ids"
           },
@@ -3967,7 +3965,7 @@
                   "format": "uuid"
                 },
                 "type": "array",
-                "maxItems": 18,
+                "maxItems": 9,
                 "minItems": 1
               },
               {
@@ -4120,45 +4118,12 @@
           },
           "image": {
             "$ref": "#/components/schemas/UploadedAsset"
-          },
-          "motion": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/UploadedAsset"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "live_status": {
-            "type": "string",
-            "enum": [
-              "still",
-              "live",
-              "missing_video"
-            ],
-            "title": "Live Status"
-          },
-          "video_url": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Video Url"
           }
         },
         "type": "object",
         "required": [
           "id",
-          "image",
-          "motion",
-          "live_status",
-          "video_url"
+          "image"
         ],
         "title": "JournalPhoto"
       },
@@ -4183,32 +4148,8 @@
           },
           "kind": {
             "type": "string",
-            "enum": [
-              "image",
-              "video"
-            ],
+            "const": "image",
             "title": "Kind"
-          },
-          "live_kind": {
-            "type": "string",
-            "enum": [
-              "still",
-              "apple_photo",
-              "apple_video",
-              "motion_photo"
-            ],
-            "title": "Live Kind"
-          },
-          "pair_identifier": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Pair Identifier"
           },
           "original_name": {
             "type": "string",
@@ -4239,49 +4180,22 @@
             "title": "Preview Height"
           },
           "preview_url": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
+            "type": "string",
             "title": "Preview Url"
           },
           "thumbnail_url": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
+            "type": "string",
             "title": "Thumbnail Url"
           },
           "original_url": {
             "type": "string",
             "title": "Original Url"
-          },
-          "video_url": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Video Url"
           }
         },
         "type": "object",
         "required": [
           "id",
           "kind",
-          "live_kind",
-          "pair_identifier",
           "original_name",
           "original_size",
           "sha256",
@@ -4291,8 +4205,7 @@
           "preview_height",
           "preview_url",
           "thumbnail_url",
-          "original_url",
-          "video_url"
+          "original_url"
         ],
         "title": "UploadedAsset"
       },

@@ -25,14 +25,13 @@ router = APIRouter()
 ALLOWED_EXTENSIONS = {
     '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png',
     '.webp': 'image/webp', '.heic': 'image/heic', '.heif': 'image/heic',
-    '.mov': 'video/quicktime',
 }
 
 
 def validate_filename(filename: str, mime: str | None = None):
     expected = ALLOWED_EXTENSIONS.get(Path(filename).suffix.lower())
     if not expected:
-        raise validation_error('请选择 JPG、PNG、WebP、HEIC 照片或配对的实况 MOV；不支持文档和压缩包')
+        raise validation_error('请选择 JPG、PNG、WebP 或 HEIC 照片；不支持视频、文档和压缩包')
     if mime is not None and mime != expected:
         raise validation_error('文件扩展名与实际内容不一致，请选择未经改名的原片')
 
@@ -47,43 +46,37 @@ def check_cover(ordered, requested: UUID | None) -> UUID:
     grouped = photos(ordered)
     cover = requested if requested is not None else grouped[0]['id']
     if cover not in {photo['id'] for photo in grouped}:
-        raise validation_error('封面必须是本篇手记中的照片，不能选择视频片段')
+        raise validation_error('封面必须是本篇手记中的照片')
     return cover
 
 
-def asset(row) -> dict:
+def asset_details(row) -> dict:
     details = row['details']
-    if isinstance(details, str):
-        details = json.loads(details)
+    return json.loads(details) if isinstance(details, str) else (details or {})
+
+
+def is_image(row) -> bool:
+    # 旧版成功处理记录也有明确 kind；缺失或未知类型不能当作图片暴露。
+    return asset_details(row).get('kind') == 'image'
+
+
+def asset(row) -> dict:
+    details = asset_details(row)
+    if not is_image(row):
+        raise validation_error('仅支持静态照片，请重新选择照片')
     base = f"/api/journal/media/{row['id']}"
-    return {**{k: details[k] for k in ('kind', 'live_kind', 'pair_identifier', 'width', 'height', 'preview_width', 'preview_height')},
+    return {**{k: details[k] for k in ('kind', 'width', 'height', 'preview_width', 'preview_height')},
             **{k: row[k] for k in ('id', 'sha256', 'original_name', 'original_size')},
-            'original_url': base + '/original',
-            'preview_url': base + '/preview' if details['kind'] == 'image' else None,
-            'thumbnail_url': base + '/thumbnail' if details['kind'] == 'image' else None,
-            'video_url': base + '/motion' if details['motion'] else None}
+            'original_url': base + '/original', 'preview_url': base + '/preview',
+            'thumbnail_url': base + '/thumbnail'}
 
 
 def photos(rows) -> list[dict]:
-    assets = [asset(row) for row in rows]
-    images = [a for a in assets if a['kind'] == 'image']
-    videos = [a for a in assets if a['kind'] == 'video']
+    # 历史实况中的视频行原样保留，只展示照片，不再读取或判断配对元信息。
+    images = [asset(row) for row in rows if is_image(row)]
     if not 1 <= len(images) <= 9:
         raise validation_error('每篇手记需要 1 至 9 张照片')
-    pairs = [a['pair_identifier'] for a in images if a['pair_identifier']]
-    if len(set(pairs)) != len(pairs):
-        raise validation_error('同一实况照片请只选择一份原片')
-    video_pairs = [a['pair_identifier'] for a in videos]
-    if len(set(video_pairs)) != len(video_pairs) or any(p not in pairs for p in video_pairs):
-        raise validation_error('动态片段缺少匹配的原片，请选择同一张实况的照片与 MOV')
-    result = []
-    for image in images:
-        video = next((v for v in videos if v['pair_identifier'] == image['pair_identifier']), None)
-        url = image['video_url'] or (video['video_url'] if video else None)
-        result.append({'id': image['id'], 'image': image, 'motion': video,
-                       'live_status': 'live' if url else ('missing_video' if image['live_kind'] == 'apple_photo' else 'still'),
-                       'video_url': url})
-    return result
+    return [{'id': image['id'], 'image': image} for image in images]
 
 
 async def entry(conn, row) -> dict:
@@ -182,20 +175,20 @@ async def cancel_upload(upload_id: UUID):
 
 @router.get('/media/{upload_id}/{variant}', response_class=FileResponse, operation_id='journal_media_get')
 @router.head('/media/{upload_id}/{variant}', response_class=FileResponse, operation_id='journal_media_head')
-async def media(upload_id: UUID, variant: Literal['original', 'preview', 'thumbnail', 'motion']):
+async def media(upload_id: UUID, variant: Literal['original', 'preview', 'thumbnail']):
     pool = await get_pool()
     row = await pool.fetchrow("""SELECT u.* FROM journal_uploads u LEFT JOIN journal_entries e ON e.id=u.entry_id
         WHERE u.id=$1 AND u.status='ready' AND (u.entry_id IS NULL OR e.deleted_at IS NULL)""", upload_id)
     if not row:
         raise not_found('图片')
-    details = row['details']
-    if (variant in ('preview', 'thumbnail') and details['kind'] != 'image') or (variant == 'motion' and not details['motion']):
+    details = asset_details(row)
+    if not is_image(row):
         raise not_found('图片')
-    name = {'original': 'original', 'preview': 'preview.jpg', 'thumbnail': 'thumbnail.jpg', 'motion': 'motion.mp4'}[variant]
+    name = {'original': 'original', 'preview': 'preview.jpg', 'thumbnail': 'thumbnail.jpg'}[variant]
     path = safe_path(row['storage_path']) / name
     if not path.is_file():
         raise not_found('图片')
-    return FileResponse(path, media_type=details['mime'] if variant == 'original' else ('video/mp4' if variant == 'motion' else 'image/jpeg'),
+    return FileResponse(path, media_type=details['mime'] if variant == 'original' else 'image/jpeg',
                         filename=row['original_name'] if variant == 'original' else None,
                         headers={'Cache-Control': 'private, no-store', 'X-Content-Type-Options': 'nosniff'})
 
@@ -236,6 +229,8 @@ async def create_entry(body: EntryCreate, response: Response):
         rows = await conn.fetch('SELECT * FROM journal_uploads WHERE id=ANY($1::uuid[]) ORDER BY id FOR UPDATE', body.upload_ids)
         if len(rows) != len(body.upload_ids) or any(r['status'] != 'ready' or r['entry_id'] is not None for r in rows):
             raise conflict('部分照片尚未就绪、已取消或已保存，请检查后重试')
+        if any(not is_image(r) for r in rows):
+            raise validation_error('只能添加照片，不能添加视频')
         ordered = sorted(rows, key=lambda r: body.upload_ids.index(r['id']))
         cover = check_cover(ordered, body.cover_upload_id)
         row = await conn.fetchrow('''INSERT INTO journal_entries(client_request_id,request_sha256,entry_date,caption,cover_upload_id)
@@ -274,10 +269,12 @@ async def update_entry(entry_id: int, body: EntryUpdate):
             selected = {r['id']: r for r in rows if r['id'] in body.upload_ids}
             if len(selected) != len(body.upload_ids) or any(r['status'] != 'ready' or r['entry_id'] not in (None, entry_id) for r in selected.values()):
                 raise conflict('部分照片尚未就绪、已移除或属于其他手记，请检查后重试')
+            if any(not is_image(r) for r in selected.values()):
+                raise validation_error('只能添加照片，不能添加视频')
             ordered = [selected[uid] for uid in body.upload_ids]
             cover = check_cover(ordered, body.cover_upload_id)
-            # 先验证全部目标资源和实况配对，再在同一事务内替换归属。
-            await conn.execute("UPDATE journal_uploads SET status='cancelled',entry_id=NULL,position=NULL,updated_at=clock_timestamp() WHERE entry_id=$1 AND NOT(id=ANY($2::uuid[]))", entry_id, body.upload_ids)
+            # 仅替换照片归属；历史视频保持归属和状态，避免静态编辑使其成为待清理孤儿。
+            await conn.execute("UPDATE journal_uploads SET status='cancelled',entry_id=NULL,position=NULL,updated_at=clock_timestamp() WHERE entry_id=$1 AND details->>'kind'='image' AND NOT(id=ANY($2::uuid[]))", entry_id, body.upload_ids)
             for position, upload_id in enumerate(body.upload_ids):
                 await conn.execute('UPDATE journal_uploads SET entry_id=$2,position=$3,updated_at=clock_timestamp() WHERE id=$1', upload_id, entry_id, position)
         row = await conn.fetchrow('UPDATE journal_entries SET entry_date=$2,caption=$3,cover_upload_id=$4,updated_at=clock_timestamp() WHERE id=$1 RETURNING *', entry_id, body.entry_date, body.caption, cover)

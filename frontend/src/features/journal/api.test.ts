@@ -1,30 +1,4 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { uploadPairing, type UploadedAsset } from './api';
-
-function asset(id: string, kind: UploadedAsset['live_kind'], pair: string | null): UploadedAsset {
-  return { id, kind: kind === 'apple_video' ? 'video' : 'image', live_kind: kind, pair_identifier: pair, original_name: `${id}.heic`, original_size: 100, sha256: 'test', width: 3000, height: 4000, preview_width: 1920, preview_height: 2560, preview_url: `/api/journal/media/${id}/preview`, thumbnail_url: null, original_url: `/api/journal/media/${id}/original`, video_url: null };
-}
-describe('实况队列的发布提示', () => {
-  it('MOV 先到仍按配对标识匹配，不依赖选择顺序或文件名', () => {
-    const result = uploadPairing([asset('video', 'apple_video', 'pair-a'), asset('unrelated', 'still', null), asset('photo', 'apple_photo', 'pair-a')]);
-    expect(result.images).toHaveLength(2); expect(result.unmatched).toHaveLength(0); expect(result.missing).toHaveLength(0);
-  });
-  it('错配视频阻止发布提示，Apple 只传照片明确缺动态', () => {
-    const result = uploadPairing([asset('photo', 'apple_photo', 'pair-a'), asset('video', 'apple_video', 'pair-b')]);
-    expect(result.missing.map(item => item.id)).toEqual(['photo']); expect(result.unmatched.map(item => item.id)).toEqual(['video']);
-  });
-  it('同一实况重复原片和MOV可被明确识别，多余MOV留作可移除冲突', () => {
-    const result = uploadPairing([asset('photo', 'apple_photo', 'pair-a'), asset('photo-again', 'apple_photo', 'pair-a'), asset('video', 'apple_video', 'pair-a'), asset('video-again', 'apple_video', 'pair-a')]);
-    expect(result.duplicateImages.map(item => item.id)).toEqual(['photo-again']);
-    expect(result.duplicateVideos.map(item => item.id)).toEqual(['video-again']);
-    expect(result.unmatched.map(item => item.id)).toEqual(['video-again']);
-    expect(result.missing).toEqual([]);
-  });
-  it('普通图片和安卓内嵌视频不被错误要求另传 MOV', () => {
-    const result = uploadPairing([asset('still', 'still', null), asset('android', 'motion_photo', null)]);
-    expect(result.missing).toEqual([]); expect(result.unmatched).toEqual([]);
-  });
-});
 describe('手记独立 API', () => {
   afterEach(() => { vi.unstubAllEnvs(); vi.unstubAllGlobals(); vi.resetModules(); });
   it('子路径同时应用于接口和媒体，发布 UUID 原样保留', async () => {

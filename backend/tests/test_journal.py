@@ -25,22 +25,25 @@ def sample(kind='image', live='still', pair=None, motion=False):
 
 
 class JournalTests(unittest.TestCase):
-    def test_pair_metadata_not_filename_and_missing_video(self):
+    def test_old_live_metadata_is_ignored_and_video_hidden(self):
         image = sample(live='apple_photo', pair='a')
         video = sample('video', 'apple_video', 'a', True)
-        self.assertEqual(photos([image, video])[0]['live_status'], 'live')
-        self.assertEqual(photos([image])[0]['live_status'], 'missing_video')
-        with self.assertRaises(AppError):
-            photos([image, sample('video', 'apple_video', 'b', True)])
+        result = photos([image, video])
+        self.assertEqual(result, photos([image]))
+        self.assertEqual(set(result[0]), {'id', 'image'})
+        self.assertFalse({'live_kind', 'pair_identifier', 'video_url'} & result[0]['image'].keys())
+        self.assertEqual(photos([image, sample('video', 'apple_video', 'b', True)]), result)
         with self.assertRaises(AppError):
             photos([video])
+        unknown = sample()
+        unknown['details'].pop('kind')
+        self.assertEqual(photos([image, unknown]), result)
 
-    def test_nine_photo_cap_and_duplicates(self):
+    def test_nine_photo_cap_and_pair_metadata_does_not_group(self):
         self.assertEqual(len(photos([sample() for _ in range(9)])), 9)
         with self.assertRaises(AppError):
             photos([sample() for _ in range(10)])
-        with self.assertRaises(AppError):
-            photos([sample(pair='a'), sample(pair='a')])
+        self.assertEqual(len(photos([sample(pair='a'), sample(pair='a')])), 2)
 
     def test_content_length_blocked_before_multipart(self):
         response = TestClient(app).post('/api/journal/uploads', content=b'bad',
@@ -75,23 +78,25 @@ class JournalTests(unittest.TestCase):
             exif[270] = 'private metadata'
             Image.new('RGB', (120, 80)).save(folder / 'original', format='JPEG', exif=exif)
             before = (folder / 'original').read_bytes()
-            with patch('app.journal_worker.metadata', return_value={'File:FileType': 'JPEG'}), patch('app.journal_worker.run', return_value=b''):
-                result = process(folder)
+            result = process(folder)
             self.assertEqual((result['width'], result['height']), (80, 120))
             self.assertEqual((folder / 'original').read_bytes(), before)
             with Image.open(folder / 'preview.jpg') as image:
                 self.assertEqual(image.size, (80, 120))
                 self.assertFalse(image.getexif())
 
-    def test_stale_motion_flag_does_not_create_live(self):
+    def test_trailing_video_bytes_preserved_without_external_tools(self):
         with tempfile.TemporaryDirectory() as temp:
             folder = Path(temp)
             Image.new('RGB', (8, 8)).save(folder / 'original', format='JPEG')
-            with patch('app.journal_worker.metadata', return_value={'File:FileType': 'JPEG', 'XMP-GCamera:MotionPhoto': 1}), patch('app.journal_worker.run', return_value=b''):
-                self.assertEqual(process(folder)['live_kind'], 'still')
-            with patch('app.journal_worker.metadata', return_value={'File:FileType': 'JPEG', 'XMP-GCamera:MotionPhoto': 0}), patch('app.journal_worker.run') as tools:
-                self.assertEqual(process(folder)['live_kind'], 'still')
-                tools.assert_not_called()
+            with (folder / 'original').open('ab') as original:
+                original.write(b'\x00\x00\x00\x18ftypmp42embedded video fixture')
+            before = (folder / 'original').read_bytes()
+            with patch('subprocess.run', side_effect=AssertionError('不能提取或转码视频')):
+                result = process(folder)
+            self.assertEqual((folder / 'original').read_bytes(), before)
+            self.assertFalse({'motion', 'pair_identifier', 'live_kind'} & result.keys())
+            self.assertEqual({p.name for p in folder.iterdir()}, {'original', 'preview.jpg', 'thumbnail.jpg'})
 
     def test_openapi_uuid_and_multipart(self):
         schema = app.openapi()
@@ -101,6 +106,8 @@ class JournalTests(unittest.TestCase):
         self.assertNotEqual(media['get']['operationId'], media['head']['operationId'])
         uuid = next(p for p in media['get']['parameters'] if p['name'] == 'upload_id')
         self.assertEqual(uuid['schema']['format'], 'uuid')
+        variant = next(p for p in media['get']['parameters'] if p['name'] == 'variant')
+        self.assertEqual(variant['schema']['enum'], ['original', 'preview', 'thumbnail'])
 
 
 if __name__ == '__main__':
