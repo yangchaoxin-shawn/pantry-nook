@@ -1,6 +1,6 @@
 # Pantry Nook 当前状态
 
-更新：2026-09-15。当前线上正式版本为 `v1.1.0`，代码位于 `codex/ui-review-feedback`。公司预览入口为 [https://preview.aihuashen.com/pantry-nook/](https://preview.aihuashen.com/pantry-nook/)，使用服务器本机 Nginx、Docker FastAPI/PostgreSQL 与项目级 Basic Auth。
+更新：2026-09-16。当前线上正式版本为 `v1.1.0`，代码位于 `codex/ui-review-feedback`。公司预览入口为 [https://preview.aihuashen.com/pantry-nook/](https://preview.aihuashen.com/pantry-nook/)，使用服务器本机 Nginx、Docker FastAPI/PostgreSQL 与项目级 Basic Auth。
 
 ## 当前阶段
 
@@ -47,6 +47,8 @@ MVP 功能、两轮 UI / UX 反馈、正式视觉接入、本地类生产门禁�
 - 产品版本由用户确认；满足 [Git 自动提交门禁](git.md#自动提交门禁)后 Codex 可建立本地 commit。push、merge、tag 和部署仍遵循各自门禁。
 
 ## 下一步
+
+做饭影集的独立设计稿 02 已获用户认可，用户确认外部浏览器可拖入图片。已完成独立上传/图库组件、原文件保留、合成 HEIC、Linux Docker 与临时 Nginx 图片鉴权验证；尚未接入正式项目或生产数据库。下一阶段按已确认设计冻结媒体模型与契约，再进入普通照片链路实现；真实实况仍需 Apple / Android 原始样本和真机相册验证。见 [影集技术验证与接入门禁](photo-journal-technical-validation-2026-09-16.md)。设计评审入口 5217 保持，技术探针 5218 与其分开。
 
 由用户体验验收 `v1.1.0` 的“汤料”分类及第二批库存实际使用效果。后续家庭库存、菜品或搭配继续先整理给用户确认，再通过独立批次、生产备份和全量校验写入；实际业务数据文件仍不进入代码库。每次正式版本继续执行本地类生产预检、准确制品绑定、生产备份、线上核验和用户批准的版本/tag 门禁。
 
