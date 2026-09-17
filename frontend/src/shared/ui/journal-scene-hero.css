@@ -91,6 +91,7 @@
   object-fit: contain;
 }
 .journal-page-hero-menu .journal-page-scene img { height: 154px; margin-top: 12px; }
+.journal-page-hero-journal .journal-page-scene img { height: 165px; margin-top: 7px; }
 .journal-page-scene > span {
   position: absolute;
   inset: auto 0 1px;
@@ -162,7 +163,8 @@
     padding-bottom: 20px;
   }
   .journal-page-scene img,
-  .journal-page-hero-menu .journal-page-scene img { height: 112px; margin-top: 0; }
+  .journal-page-hero-menu .journal-page-scene img,
+  .journal-page-hero-journal .journal-page-scene img { height: 112px; margin-top: 0; }
   .journal-page-scene > span { bottom: 0; font-size: 11px; gap: 8px; }
   .journal-page-actions { order: 3; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); margin-top: 12px; }
   .journal-page-actions > button { width: 100%; padding-inline: 10px; }
@@ -173,7 +175,8 @@
   .journal-page-actions { grid-template-columns: minmax(0, 1fr); }
   .journal-page-scene { height: 125px; }
   .journal-page-scene img,
-  .journal-page-hero-menu .journal-page-scene img { height: 101px; }
+  .journal-page-hero-menu .journal-page-scene img,
+  .journal-page-hero-journal .journal-page-scene img { height: 101px; }
 }
 @media (prefers-reduced-motion: reduce) {
   .journal-page-scene,

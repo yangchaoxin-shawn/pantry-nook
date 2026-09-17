@@ -143,7 +143,7 @@
 .journal-undo button { border:0; min-height:44px; color:var(--primary); background:transparent; text-decoration:underline; }
 .journal-undo small { color:var(--ink-muted); font-size:12px; }
 .journal-candidates h3 { font-size:24px; font-weight:400; }
-.journal-candidate { position:relative; padding:8px; border:1px solid var(--hairline); border-radius:6px; color:var(--ink); background:var(--surface); text-align:left; overflow:hidden; }
+.journal-candidate { position:relative; min-width:0; padding:8px; border:1px solid var(--hairline); border-radius:6px; color:var(--ink); background:var(--surface); text-align:left; overflow:hidden; }
 .journal-candidate > span:last-child { display:block; padding:8px 3px; overflow-wrap:anywhere; font-size:13px; }
 .journal-candidate.is-selected { outline:2px solid var(--primary); background:var(--primary-50); }
 .journal-candidate:disabled { opacity:.55; }
@@ -166,4 +166,28 @@
  .journal-photo-tools, .journal-photo-tools button { font-size:12px; }
  .journal-photo-tools { gap:0; }
  .journal-photo-remove { width:44px; height:44px; font-size:23px; }
+}
+
+/* 已确认设计：弹窗只滚动内容区，主要操作始终留在底部。 */
+.journal-composer-dialog { width:720px; overflow:hidden; }
+.journal-composer-dialog[open] { display:flex; flex-direction:column; }
+.journal-composer-dialog > .dialog-heading { flex:0 0 auto; }
+.journal-composer-dialog .journal-composer { display:flex; flex:1 1 auto; flex-direction:column; min-height:0; padding:0; }
+.journal-composer-scroll { flex:1 1 auto; min-height:0; overflow:auto; overscroll-behavior:contain; padding:5px 4px 10px; scrollbar-gutter:stable; }
+.journal-composer-footer { display:flex; flex:0 0 auto; align-items:center; justify-content:space-between; gap:12px; padding:16px 4px 0; border-top:1px solid var(--hairline); }
+.journal-composer-footer > span { color:var(--ink-muted); font-size:12px; }
+.journal-composer-footer .journal-form-footer { display:flex; align-items:center; justify-content:flex-end; gap:14px; margin:0; padding:0; border:0; }
+
+/* 7—9 张且封面为竖图时使用连续三列，避免封面跨两行留下大块空白。 */
+@media(min-width:641px) {
+  .journal-photo-story.has-portrait-cover { grid-template-columns:repeat(3,minmax(0,1fr)); align-items:start; }
+  .journal-photo-story.has-portrait-cover > .journal-print { grid-column:auto; grid-row:auto; align-self:start; margin-top:0; }
+  .journal-photo-story.has-portrait-cover img { width:100%; height:auto; max-height:none; }
+}
+@media(max-width:640px) {
+  .journal-composer-dialog { width:calc(100vw - 24px); max-width:calc(100vw - 24px); max-height:calc(100dvh - 24px); }
+  .journal-composer-footer { flex-wrap:wrap; gap:8px; padding-top:12px; }
+  .journal-composer-footer > span { flex-basis:100%; }
+  .journal-composer-footer .journal-form-footer { display:grid; grid-template-columns:auto minmax(0,1fr); width:100%; gap:8px; }
+  .journal-composer-footer .journal-form-footer button { padding-inline:12px; }
 }

@@ -1,8 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import pantryScene from '../../assets/journal/pantry-home.webp';
 
 /** 已确认的透明插画只承担装饰，实际库存始终来自业务 API。 */
-export function JournalHero() {
+export function JournalHero({ actions }: { actions: ReactNode }) {
   const [playing, setPlaying] = useState(false);
   useEffect(() => {
     const preference = window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -16,6 +16,7 @@ export function JournalHero() {
       <h1 id="inventory-title">家里还有什么？</h1>
       <p>好好收着，也好好吃掉。</p>
     </div>
+    <div className="journal-hero-actions">{actions}</div>
     <button type="button" className={`journal-scene${playing ? ' is-playing' : ''}`}
       aria-label="播放收纳小动画" onClick={() => { if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) setPlaying(true); }}
       onAnimationEnd={() => setPlaying(false)}>

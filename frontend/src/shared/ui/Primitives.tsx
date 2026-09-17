@@ -28,7 +28,7 @@ export function Field({ label, children }: { label: string; children: ReactNode 
   return <label className="field"><span>{label}</span>{children}</label>;
 }
 
-export function Dialog({ title, onClose, children, busy }: { title: string; onClose: () => void; children: ReactNode; busy: boolean }) {
+export function Dialog({ title, onClose, children, busy, className }: { title: string; onClose: () => void; children: ReactNode; busy: boolean; className?: string }) {
   const ref = useRef<HTMLDialogElement>(null);
   useEffect(() => {
     const dialog = ref.current;
@@ -39,7 +39,7 @@ export function Dialog({ title, onClose, children, busy }: { title: string; onCl
       if (previous instanceof HTMLElement) previous.focus();
     };
   }, []);
-  return <dialog ref={ref} aria-labelledby="dialog-title" onCancel={(event) => {
+  return <dialog ref={ref} className={className} aria-labelledby="dialog-title" onCancel={(event) => {
     // 文件选择器也会派发 cancel；只有弹窗本身的 Escape 才关闭弹窗。
     if (event.target !== event.currentTarget) return;
     event.preventDefault(); if (!busy) onClose();

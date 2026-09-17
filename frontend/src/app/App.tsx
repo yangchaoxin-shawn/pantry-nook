@@ -296,7 +296,7 @@ export default function App() {
       </header>
       <main id="main" className="main">
         {parentPage && <div className="subpage-navigation"><nav aria-label="当前位置"><button type="button" onClick={() => navigate(parentPage.page)}>{parentPage.label}</button><span aria-hidden="true">/</span><span aria-current="page">{parentPage.current}</span></nav><button type="button" className="btn-ghost subpage-back" onClick={() => navigate(parentPage.page)}><span aria-hidden="true">←</span> 返回{parentPage.label}</button></div>}
-        {page === 'journal' ? null : page === 'ingredients' ? <JournalHero /> : page === 'battles' ? <JournalSceneHero
+        {page === 'journal' ? null : page === 'ingredients' ? <JournalHero actions={inventoryActions} /> : page === 'battles' ? <JournalSceneHero
           kind="menu"
           eyebrow={dateLabel}
           actions={<>
@@ -377,7 +377,6 @@ export default function App() {
                 retry={reload}
                 openIngredient={(item) => open({ kind: "ingredientDetail", item })}
                 openLocationEditor={(item) => open({ kind: 'ingredient', item, focusLocation: true })}
-                actions={inventoryActions}
               />}
               {page === "adjustments" && <InventoryAdjustmentsPage busy={busy} refreshKey={revision}
                 revoke={(id) => open({ kind: "recovery", recoveryKind: "adjustment", id })} />}

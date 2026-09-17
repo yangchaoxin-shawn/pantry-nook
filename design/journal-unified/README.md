@@ -46,3 +46,7 @@ python design/journal-unified/serve.py --port 5232 --samples 'C:\Users\yangchaox
 - 实际证据仅本机保留：`.review/unified-design-check.json`、`.review/online-review-integration.json`及对应截图。
 
 本轮设计调整待用户评审，未更改版本、tag或部署。
+
+## 正式实现进度
+
+用户确认菜品保留线上原样并同意继续后，2026-09-17已将确认过的库存头部、手记专属标题区、录入弹窗滚动与底部操作、多张竖图排版接入正式本地前端。设计稿继续作为取舍记录；正式实现与验证见 [UI接入记录](../../docs/photo-journal-ui-integration-2026-09-17.md)。正式前端尚待用户体验验收，未部署。

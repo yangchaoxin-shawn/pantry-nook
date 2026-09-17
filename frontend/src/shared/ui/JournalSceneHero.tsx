@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from "react";
 import kitchenTeam from "../../assets/journal/kitchen-team.webp";
 import recipeTime from "../../assets/journal/recipe-time.webp";
+import tableMemories from "../../assets/journal/table-memories.png";
 import "./journal-scene-hero.css";
 
 const scenes = {
@@ -25,6 +26,17 @@ const scenes = {
     description: "存下熟悉的味道，下次直接选。",
     caption: "翻到喜欢的那页",
     page: "03 / 菜品簿",
+  },
+  journal: {
+    image: tableMemories,
+    width: 1862,
+    height: 845,
+    label: "播放收藏饭桌照片的小动画",
+    kicker: "OUR TABLE, OUR LITTLE DAYS",
+    title: <>把这一餐，<span>留在日子里。</span></>,
+    description: "照片里有饭，也有我们好好过的每一天。",
+    caption: "这一餐，值得留一张",
+    page: "04 / 饭桌手记",
   },
 } as const;
 

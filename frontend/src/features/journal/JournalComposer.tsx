@@ -208,8 +208,9 @@ export default function JournalComposer({ active, open, setOpen, onSaved, entry 
     return '';
   };
   return <>
-    {open && <Dialog title={entry ? '改一改这篇手记' : '记下这一餐'} onClose={() => setOpen(false)} busy={saving || pendingSave}>
+    {open && <Dialog className="journal-composer-dialog" title={entry ? '改一改这篇手记' : '记下这一餐'} onClose={() => setOpen(false)} busy={saving || pendingSave}>
       <form className={`journal-composer ${dragging ? 'is-dragging' : ''}`} onSubmit={event => { event.preventDefault(); void save(); }}>
+        <div className="journal-composer-scroll">
         {candidates.length > 0 ? <section className="journal-candidates" aria-label="挑选本次照片">
           <h3>留哪几张，慢慢选。</h3><p>已有 {images.length} 张，还可加入 {9 - images.length} 张。已选 {selectedImages} 张照片。</p>
           <p className="journal-draft-note">确认前不会上传，最多留下 9 张照片。</p>
@@ -221,7 +222,6 @@ export default function JournalComposer({ active, open, setOpen, onSaved, entry 
             </button>;
           })}</div>
           {!selectedImages && <p className="journal-draft-note">点选想留下的照片。未选照片会留在你的设备上。</p>}
-          <div className="journal-form-footer"><button type="button" className="btn-ghost" onClick={() => setCandidates([])}>返回整理</button><button type="button" className="btn-primary" disabled={!selectedImages} onClick={() => { append(candidates.filter(item => item.selected).map(item => item.file)); setCandidates([]); }}>加入所选 {selectedImages} 张</button></div>
         </section> : <>
           <div className="journal-dropzone"><button type="button" className="btn-primary" disabled={!uppy || busyInput} onClick={() => picker.current?.click()}>＋ 从相册选照片</button><p>也可以直接拖进来 · 最多 9 张<br />JPG / PNG / WebP / HEIC / HEIF · 每张不超过 50 MiB</p></div>
           <input ref={picker} type="file" hidden multiple accept={PHOTO_ACCEPT} onChange={event => { if (event.target.files) void addFiles(Array.from(event.target.files)); event.target.value = ''; }} aria-label="选择照片" />
@@ -251,11 +251,21 @@ export default function JournalComposer({ active, open, setOpen, onSaved, entry 
           <p className="journal-draft-note">收到的照片原文件完整保留，浏览时使用整理后的预览图。</p>
           {conflict && <p className="journal-warning">这篇手记已在其他页面修改，当前草稿未覆盖它。请先保留需要的文字，再取消编辑、刷新后重新整理。</p>}
           {pendingSave && !saving && <p className="journal-warning">保存结果尚未确认。请点击“核对并重试”，核对前暂时不能改稿或关闭面板。</p>}
-          <div className="journal-form-footer"><button type="button" className="btn-ghost" disabled={saving || pendingSave} onClick={() => setOpen(false)}>{entry ? '取消编辑' : '稍后再记'}</button><button className="btn-primary" disabled={saving || conflict || (!canSave && !pendingSave)}>{saving ? '正在保存…' : pendingSave ? '核对并重试' : entry ? '保存修改' : '保存这一餐'}</button></div>
           <p className="journal-draft-note">{entry ? '保存后才会更新原记录；取消编辑会放弃本次修改。' : '关闭面板会保留本次草稿；刷新网页后未发布草稿不会保留。'}</p>
         </>}
         {!!rejected.length && <div className="journal-error" role="alert"><strong>这些文件没有加入</strong><ul>{rejected.map((reason, index) => <li key={index}>{reason}</li>)}</ul></div>}
         {error && <p className="journal-error" role="alert">{error}</p>}
+        </div>
+        <div className="journal-composer-footer">
+          <span>{candidates.length ? `已选 ${selectedImages} / ${MAX_PHOTOS - images.length} 张 · 加入后继续整理` : '选好照片，留住这一餐。'}</span>
+          <div className="journal-form-footer">{candidates.length ? <>
+            <button type="button" className="btn-ghost" onClick={() => setCandidates([])}>返回整理</button>
+            <button type="button" className="btn-primary" disabled={!selectedImages} onClick={() => { append(candidates.filter(item => item.selected).map(item => item.file)); setCandidates([]); }}>加入所选 {selectedImages} 张</button>
+          </> : <>
+            <button type="button" className="btn-ghost" disabled={saving || pendingSave} onClick={() => setOpen(false)}>{entry ? '取消编辑' : '稍后再记'}</button>
+            <button className="btn-primary" disabled={saving || conflict || (!canSave && !pendingSave)}>{saving ? '正在保存…' : pendingSave ? '核对并重试' : entry ? '保存修改' : '保存这一餐'}</button>
+          </>}</div>
+        </div>
       </form>
     </Dialog>}
     {dragging && !open && <div className="journal-drop-overlay" aria-hidden="true">松开，把照片放进这一餐<small>可以一次拖入多张 · 原文件保留</small></div>}
