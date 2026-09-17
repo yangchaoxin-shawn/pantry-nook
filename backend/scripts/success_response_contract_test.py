@@ -436,9 +436,9 @@ def data(body: dict):
 
 
 def main() -> None:
-    if len(EXPECTED_OPERATIONS) != 34:
+    if len(EXPECTED_OPERATIONS) != 35:
         raise AssertionError(
-            f"归档成功 operation 数量已变化：预期 34，实际 {len(EXPECTED_OPERATIONS)}；"
+            f"归档成功 operation 数量已变化：预期 35，实际 {len(EXPECTED_OPERATIONS)}；"
             "请同步扩展本脚本场景"
         )
     database = assert_empty_isolated_database()
@@ -472,6 +472,19 @@ def main() -> None:
         "/api/ingredients/{ingredient_id}",
     )
     ingredient = data(body)
+    _, body = contract_call(
+        "POST",
+        f"/api/ingredients/{ingredient_id}/use",
+        "/api/ingredients/{ingredient_id}/use",
+        {
+            "stock_text": "1",
+            "stock_value": 1,
+            "stock_unit": ingredient["stock_unit"],
+            "client_request_id": str(uuid4()),
+            "expected_updated_at": ingredient["updated_at"],
+        },
+    )
+    ingredient = data(body)["inventory"]
     _, body = contract_call(
         "PATCH",
         f"/api/ingredients/{ingredient_id}",

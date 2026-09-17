@@ -73,6 +73,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/ingredients/{ingredient_id}/use": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Use */
+        post: operations["use_api_ingredients__ingredient_id__use_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/ingredients/{ingredient_id}/adjustments": {
         parameters: {
             query?: never;
@@ -992,12 +1009,24 @@ export interface components {
             /** Format: date-time */
             expected_updated_at: string;
         };
+        /** @description 记录不属于餐安排的日常食用或使用；同一 client_request_id 重试只扣减一次。 */
+        InventoryUse: {
+            /** @description 去除首尾空白后不能为空。 */
+            stock_text: string;
+            stock_value: number;
+            stock_unit: string;
+            /** Format: uuid */
+            client_request_id: string;
+            /** Format: date-time */
+            expected_updated_at: string;
+        };
         InventoryAdjustment: {
             id: number;
             ingredient_id: number;
             /** @enum {string} */
-            reason: "spoiled" | "damaged" | "other";
+            reason: "used" | "spoiled" | "damaged" | "other";
             note: string | null;
+            client_request_id: string | null;
             stock_before_text: string;
             stock_before_value: number;
             stock_before_unit: string;
@@ -1164,7 +1193,7 @@ export interface components {
             final_stock_text?: string;
             final_stock_value?: number;
         };
-        /** @description 库存变化后恢复必须提交预览版本和所有选择；报废支持同一 ID 按本次报废量加回当前库存，整餐仍执行保守版本校验。可换算时后端计算，不接受客户端恢复量。预览过期返回 RECORD_CHANGED，未选择返回 MERGE_REQUIRED。 */
+        /** @description 库存变化后恢复必须提交预览版本和所有选择；独立库存处理按本次减少量加回当前库存，整餐仍执行保守版本校验。可换算时后端计算，不接受客户端恢复量。预览过期返回 RECORD_CHANGED，未选择返回 MERGE_REQUIRED。 */
         RecoveryRequest: {
             /** Format: date-time */
             expected_updated_at?: string;
@@ -1201,8 +1230,9 @@ export interface components {
             id: number;
             ingredient_id: number;
             /** @enum {string} */
-            reason: "spoiled" | "damaged" | "other";
+            reason: "used" | "spoiled" | "damaged" | "other";
             note: string | null;
+            client_request_id: string | null;
             stock_before_text: string;
             stock_before_value: number;
             stock_before_unit: string;
@@ -1229,6 +1259,12 @@ export interface components {
             meta: components["schemas"]["PaginationMeta"];
         };
         InventoryWasteResponse: {
+            data: {
+                inventory: components["schemas"]["Ingredient"];
+                adjustment: components["schemas"]["InventoryAdjustment"];
+            };
+        };
+        InventoryUseResponse: {
             data: {
                 inventory: components["schemas"]["Ingredient"];
                 adjustment: components["schemas"]["InventoryAdjustment"];
@@ -1558,6 +1594,68 @@ export interface operations {
             };
         };
     };
+    use_api_ingredients__ingredient_id__use_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ingredient_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InventoryUse"];
+            };
+        };
+        responses: {
+            /** @description 创建成功 */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InventoryUseResponse"];
+                };
+            };
+            /** @description 请求参数或 JSON 格式不正确 */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description 当前业务状态不允许该操作 */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description 服务器内部错误 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     history_api_ingredients__ingredient_id__adjustments_get: {
         parameters: {
             query?: never;
@@ -1724,7 +1822,7 @@ export interface operations {
                 limit?: number;
                 offset?: number;
                 status?: "active" | "reversed";
-                reason?: "spoiled" | "damaged" | "other";
+                reason?: "used" | "spoiled" | "damaged" | "other";
             };
             header?: never;
             path?: never;

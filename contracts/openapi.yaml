@@ -422,6 +422,89 @@
         }
       }
     },
+    "/api/ingredients/{ingredient_id}/use": {
+      "post": {
+        "tags": [
+          "ingredients"
+        ],
+        "summary": "Use",
+        "operationId": "use_api_ingredients__ingredient_id__use_post",
+        "parameters": [
+          {
+            "name": "ingredient_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9007199254740991
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "创建成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InventoryUseResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "请求参数或 JSON 格式不正确",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "资源不存在",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "当前业务状态不允许该操作",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "服务器内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InventoryUse"
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/ingredients/{ingredient_id}/adjustments": {
       "get": {
         "tags": [
@@ -724,6 +807,7 @@
             "schema": {
               "type": "string",
               "enum": [
+                "used",
                 "spoiled",
                 "damaged",
                 "other"
@@ -6078,6 +6162,44 @@
           "expected_updated_at"
         ]
       },
+      "InventoryUse": {
+        "type": "object",
+        "properties": {
+          "stock_text": {
+            "type": "string",
+            "maxLength": 255,
+            "minLength": 1,
+            "description": "去除首尾空白后不能为空。"
+          },
+          "stock_value": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 999999999.999999,
+            "multipleOf": 1e-06,
+            "exclusiveMinimum": 0
+          },
+          "stock_unit": {
+            "type": "string",
+            "maxLength": 50
+          },
+          "client_request_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "expected_updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "stock_text",
+          "stock_value",
+          "stock_unit",
+          "client_request_id",
+          "expected_updated_at"
+        ],
+        "description": "记录不属于餐安排的日常食用或使用；同一 client_request_id 重试只扣减一次。"
+      },
       "InventoryAdjustment": {
         "type": "object",
         "properties": {
@@ -6094,6 +6216,7 @@
           "reason": {
             "type": "string",
             "enum": [
+              "used",
               "spoiled",
               "damaged",
               "other"
@@ -6104,6 +6227,17 @@
               {
                 "type": "string",
                 "maxLength": 255
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "client_request_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
               },
               {
                 "type": "null"
@@ -6176,6 +6310,7 @@
           "ingredient_id",
           "reason",
           "note",
+          "client_request_id",
           "stock_before_text",
           "stock_before_value",
           "stock_before_unit",
@@ -6921,7 +7056,7 @@
           }
         },
         "required": [],
-        "description": "库存变化后恢复必须提交预览版本和所有选择；报废支持同一 ID 按本次报废量加回当前库存，整餐仍执行保守版本校验。可换算时后端计算，不接受客户端恢复量。预览过期返回 RECORD_CHANGED，未选择返回 MERGE_REQUIRED。"
+        "description": "库存变化后恢复必须提交预览版本和所有选择；独立库存处理按本次减少量加回当前库存，整餐仍执行保守版本校验。可换算时后端计算，不接受客户端恢复量。预览过期返回 RECORD_CHANGED，未选择返回 MERGE_REQUIRED。"
       },
       "IngredientResponse": {
         "type": "object",
@@ -7041,6 +7176,7 @@
           "reason": {
             "type": "string",
             "enum": [
+              "used",
               "spoiled",
               "damaged",
               "other"
@@ -7051,6 +7187,17 @@
               {
                 "type": "string",
                 "maxLength": 255
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "client_request_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
               },
               {
                 "type": "null"
@@ -7138,6 +7285,7 @@
           "ingredient_id",
           "reason",
           "note",
+          "client_request_id",
           "stock_before_text",
           "stock_before_value",
           "stock_before_unit",
@@ -7186,6 +7334,29 @@
         ]
       },
       "InventoryWasteResponse": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "object",
+            "properties": {
+              "inventory": {
+                "$ref": "#/components/schemas/Ingredient"
+              },
+              "adjustment": {
+                "$ref": "#/components/schemas/InventoryAdjustment"
+              }
+            },
+            "required": [
+              "inventory",
+              "adjustment"
+            ]
+          }
+        },
+        "required": [
+          "data"
+        ]
+      },
+      "InventoryUseResponse": {
         "type": "object",
         "properties": {
           "data": {

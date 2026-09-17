@@ -13,7 +13,7 @@ from ..validation import enum_value, pagination
 router = APIRouter()
 
 ADJUSTMENT_STATUSES = ["active", "reversed"]
-REASONS = ["spoiled", "damaged", "other"]
+REASONS = ["used", "spoiled", "damaged", "other"]
 
 
 @router.get("")

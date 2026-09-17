@@ -135,9 +135,15 @@ def build_schemas() -> dict:
                                  "reason": {"type": "string", "enum": ["spoiled", "damaged", "other"]},
                                  "note": nullable(TEXT), "expected_updated_at": TIME},
                                 ["stock_text", "stock_value", "stock_unit", "reason", "expected_updated_at"]),
+        "InventoryUse": obj({"stock_text": REQUIRED_TEXT, "stock_value": {**NUMBER, "exclusiveMinimum": 0},
+                               "stock_unit": {"type": "string", "maxLength": 50},
+                               "client_request_id": {"type": "string", "format": "uuid"},
+                               "expected_updated_at": TIME},
+                              ["stock_text", "stock_value", "stock_unit", "client_request_id", "expected_updated_at"],
+                              description="记录不属于餐安排的日常食用或使用；同一 client_request_id 重试只扣减一次。"),
         "InventoryAdjustment": obj({"id": ID, "ingredient_id": ID,
-                                     "reason": {"type": "string", "enum": ["spoiled", "damaged", "other"]},
-                                     "note": nullable(TEXT), "stock_before_text": TEXT, "stock_before_value": NUMBER,
+                                     "reason": {"type": "string", "enum": ["used", "spoiled", "damaged", "other"]},
+                                     "note": nullable(TEXT), "client_request_id": nullable({"type": "string", "format": "uuid"}), "stock_before_text": TEXT, "stock_before_value": NUMBER,
                                      "stock_before_unit": TEXT, "stock_after_text": TEXT, "stock_after_value": NUMBER,
                                      "stock_after_unit": TEXT, "status": {"type": "string", "enum": ["active", "reversed"]},
                                      "reversed_at": nullable(TIME), **TIMESTAMPS}),
@@ -189,7 +195,7 @@ def build_schemas() -> dict:
         'final_stock_text':REQUIRED_TEXT, 'final_stock_value':{**NUMBER,'exclusiveMinimum':0}},
         ['source_ingredient_id','target_ingredient_id','source_updated_at','target_updated_at','stock_unit'])
     schemas['RecoveryRequest'] = obj({'expected_updated_at':TIME,'merge_resolutions':array(ref('MergeResolution'),maxItems=500)}, [],
-        description='库存变化后恢复必须提交预览版本和所有选择；报废支持同一 ID 按本次报废量加回当前库存，整餐仍执行保守版本校验。可换算时后端计算，不接受客户端恢复量。预览过期返回 RECORD_CHANGED，未选择返回 MERGE_REQUIRED。')
+        description='库存变化后恢复必须提交预览版本和所有选择；独立库存处理按本次减少量加回当前库存，整餐仍执行保守版本校验。可换算时后端计算，不接受客户端恢复量。预览过期返回 RECORD_CHANGED，未选择返回 MERGE_REQUIRED。')
     schemas['BattleRevoke']['properties'].update(schemas['RecoveryRequest']['properties'])
     for name in ['Consumption','BattleConsumption','IngredientConsumption','InventoryAdjustment']:
         schemas[name]['properties']['recovery_merges'] = array(ref('RecoveryMerge'))
@@ -198,8 +204,8 @@ def build_schemas() -> dict:
         schemas[f"{name}Response"] = obj({"data": ref(name)})
     schemas["IngredientBatchResponse"] = obj({"data": array(ref("Ingredient"))})
     adjustment_record = {"id": ID, "ingredient_id": ID,
-                         "reason": {"type": "string", "enum": ["spoiled", "damaged", "other"]},
-                         "note": nullable(TEXT), "stock_before_text": TEXT, "stock_before_value": NUMBER,
+                         "reason": {"type": "string", "enum": ["used", "spoiled", "damaged", "other"]},
+                         "note": nullable(TEXT), "client_request_id": nullable({"type": "string", "format": "uuid"}), "stock_before_text": TEXT, "stock_before_value": NUMBER,
                          "stock_before_unit": TEXT, "stock_after_text": TEXT, "stock_after_value": NUMBER,
                          "stock_after_unit": TEXT, "status": ADJUSTMENT_STATUS,
                          "reversed_at": nullable(TIME), "ingredient_name": TEXT, "category": CATEGORY, **TIMESTAMPS}
@@ -207,6 +213,7 @@ def build_schemas() -> dict:
     schemas["InventoryAdjustmentList"] = obj({"data": array(ref("InventoryAdjustmentRecord"))})
     schemas["InventoryAdjustmentPage"] = obj({"data": array(ref("InventoryAdjustmentRecord")), "meta": ref("PaginationMeta")})
     schemas["InventoryWasteResponse"] = obj({"data": obj({"inventory": ref("Ingredient"), "adjustment": ref("InventoryAdjustment")})})
+    schemas["InventoryUseResponse"] = schemas["InventoryWasteResponse"]
     for name in ["Ingredient", "Dish", "MealPlan", "DailyBattle", "Consumption"]:
         schemas[f"{name}List"] = obj({"data": array(ref(name)), "meta": ref("PaginationMeta")})
     for name in ["DishMealPlan", "BattleConsumption", "IngredientConsumption"]:
@@ -237,6 +244,7 @@ def install_openapi(app: FastAPI) -> None:
         ("/api/ingredients/{ingredient_id}", "get", "IngredientResponse", None, False, 200),
         ("/api/ingredients/{ingredient_id}", "patch", "IngredientResponse", "IngredientUpdate", True, 200),
         ("/api/ingredients/{ingredient_id}/waste", "post", "InventoryWasteResponse", "InventoryWaste", True, 201),
+        ("/api/ingredients/{ingredient_id}/use", "post", "InventoryUseResponse", "InventoryUse", True, 201),
         ("/api/ingredients/{ingredient_id}/adjustments", "get", "InventoryAdjustmentList", None, False, 200),
         ("/api/ingredients/adjustments/{adjustment_id}/revoke", "post", "InventoryWasteResponse", "RecoveryRequest", False, 200),
         ("/api/dishes", "get", "DishList", None, False, 200),
@@ -265,7 +273,7 @@ def install_openapi(app: FastAPI) -> None:
     ]
     list_queries = {
         "/api/ingredients": [*PAGINATION, SEARCH, query("category", CATEGORY), query("location", LOCATION)],
-        "/api/inventory-adjustments": [*PAGINATION, query("status", ADJUSTMENT_STATUS), query("reason", {"type": "string", "enum": ["spoiled", "damaged", "other"]})],
+        "/api/inventory-adjustments": [*PAGINATION, query("status", ADJUSTMENT_STATUS), query("reason", {"type": "string", "enum": ["used", "spoiled", "damaged", "other"]})],
         "/api/dishes": [*PAGINATION, SEARCH],
         "/api/meal-plans": PAGINATION,
         "/api/daily-battles": [*PAGINATION, *DATE_RANGE, query("status", BATTLE_STATUS), query('meal_slot', MEAL_SLOT)],

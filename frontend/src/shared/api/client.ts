@@ -139,6 +139,8 @@ export const api = {
     reason: "spoiled" | "damaged" | "other"; note?: string | null;
     expected_updated_at: string;
   }) => request<{ inventory: Ingredient; adjustment: InventoryAdjustment }>(`/api/ingredients/${id}/waste`, "POST", payload),
+  useIngredient: (id: number, payload: components["schemas"]["InventoryUse"]) =>
+    request<{ inventory: Ingredient; adjustment: InventoryAdjustment }>(`/api/ingredients/${id}/use`, "POST", payload),
   ingredientAdjustments: (id: number) => request<InventoryAdjustment[]>(`/api/ingredients/${id}/adjustments`),
   inventoryAdjustments: (s?: AbortSignal) => list<InventoryAdjustmentRecord>("/api/inventory-adjustments", s),
   revokeAdjustment: (id: number) => request<{ inventory: Ingredient; adjustment: InventoryAdjustment }>(`/api/ingredients/adjustments/${id}/revoke`, "POST"),

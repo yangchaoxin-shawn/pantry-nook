@@ -8,6 +8,7 @@ export type Modal =
   | { kind: "ingredientSingle" }
   | { kind: "ingredientBatch"; suggestedNames?: string[] }
   | { kind: "ingredientDetail"; item: Ingredient }
+  | { kind: "ingredientUse"; item: Ingredient }
   | { kind: "ingredientWaste"; item: Ingredient }
   | { kind: "dish"; item?: Dish }
   | { kind: "dishInPlans"; item: Dish; planNames: string[] }

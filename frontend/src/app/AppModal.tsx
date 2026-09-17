@@ -1,7 +1,7 @@
 import type { Dispatch, SetStateAction } from "react";
 import { api, type Dish, type Ingredient, type MealPlan } from "../shared/api/client";
 import { CatalogEditor } from "../features/catalog/CatalogEditors";
-import { IngredientDetail, WasteEditor } from "../features/inventory/InventoryDetails";
+import { CasualUseEditor, IngredientDetail, WasteEditor } from "../features/inventory/InventoryDetails";
 import { IngredientBatchEditor, IngredientEditor } from "../features/inventory/InventoryEditors";
 import { stockLabel } from "../features/inventory/inventory-format";
 import { FreshMenuEditor } from "../features/menu/FreshMenuEditor";
@@ -39,6 +39,7 @@ function title(modal: Modal) {
   if (modal.kind === "ingredientSingle") return "记录食材";
   if (modal.kind === "ingredientBatch") return "批量记录食材";
   if (modal.kind === "ingredientDetail") return `查看食材 · ${modal.item.name}`;
+  if (modal.kind === "ingredientUse") return `用掉了 · ${modal.item.name}`;
   if (modal.kind === "ingredientWaste") return `处理变质/损坏 · ${modal.item.name}`;
   if (modal.kind === "dishInPlans") return "先处理常用搭配";
   if (modal.kind === "dishInMenus") return "先处理待完成菜单";
@@ -73,6 +74,7 @@ export function AppModal(props: Props) {
       <button type="button" className="btn-ghost" onClick={() => {
         setModal((current) => {
           if (current?.kind === "ingredient") return { ...current, item: editConflict as Ingredient };
+          if (current?.kind === "ingredientUse") return { ...current, item: editConflict as Ingredient };
           if (current?.kind === "dish") return { ...current, item: editConflict as Dish };
           if (current?.kind === "plan") return { ...current, item: editConflict as MealPlan };
           return current;
@@ -82,7 +84,8 @@ export function AppModal(props: Props) {
     </section>}
     {modal.kind === "ingredient" && <IngredientEditor item={modal.item} focusLocation={modal.focusLocation} busy={busy} blocked={!!editConflict} save={(payload) => void mutate(() => api.saveIngredient(modal.item.id, payload), "食材已保存")} />}
     {(modal.kind === "ingredientBatch" || modal.kind === "ingredientSingle") && <IngredientBatchEditor busy={busy} single={modal.kind === "ingredientSingle"} suggestedNames={modal.kind === "ingredientBatch" ? modal.suggestedNames : undefined} existingIngredients={data.ingredients} save={(ingredients, resolutions, categoryResolutions, manualTotals) => void mutate(() => api.saveIngredientsBatch(ingredients, resolutions, categoryResolutions, manualTotals), `已记录 ${ingredients.length} 项食材`)} />}
-    {modal.kind === "ingredientDetail" && <IngredientDetail item={modal.item} busy={busy} edit={() => open({ kind: "ingredient", item: modal.item })} waste={() => open({ kind: "ingredientWaste", item: modal.item })} />}
+    {modal.kind === "ingredientDetail" && <IngredientDetail item={modal.item} busy={busy} edit={() => open({ kind: "ingredient", item: modal.item })} use={() => open({ kind: "ingredientUse", item: modal.item })} waste={() => open({ kind: "ingredientWaste", item: modal.item })} />}
+    {modal.kind === "ingredientUse" && <CasualUseEditor item={modal.item} busy={busy} blocked={!!editConflict} save={(payload) => void mutate(() => api.useIngredient(modal.item.id, payload), "已记录日常用掉，库存已更新")} />}
     {modal.kind === "ingredientWaste" && <WasteEditor item={modal.item} busy={busy} save={(payload) => void mutate(() => api.wasteIngredient(modal.item.id, payload), "库存已更新")} />}
     {modal.kind === "dish" && <form onSubmit={(event) => { event.preventDefault(); const form = new FormData(event.currentTarget); void mutate(() => api.saveDish(modal.item?.id, String(form.get("name")), modal.item?.updated_at), "菜品已保存"); }}>
       <Field label="菜品名称"><input name="name" required maxLength={255} defaultValue={modal.item?.name} placeholder="例如：番茄炒蛋" /></Field>

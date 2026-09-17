@@ -1,5 +1,6 @@
 from __future__ import annotations
 from decimal import Decimal
+from uuid import UUID
 from fastapi import APIRouter, Request
 from ..db import get_pool, lock_inventory_workflow, assert_stock_name_available
 from ..errors import conflict, not_found, validation_error
@@ -8,7 +9,7 @@ from ..validation import enum_value, ensure_object_body, optional_number, option
 from ..menu_workflow import assert_version
 from ..quantity import normalize_stock, parse_planned_quantity, render_stock
 router=APIRouter()
-CATEGORIES=["碳水","蔬菜","蛋白质","水果","汤料","其他"]; LOCATIONS=["冰箱冷藏","冰箱冷冻","室温","其他"]; REASONS=["spoiled","damaged","other"]
+CATEGORIES=["碳水","蔬菜","蛋白质","水果","汤料","其他"]; LOCATIONS=["冰箱冷藏","冰箱冷冻","室温","其他"]; WASTE_REASONS=["spoiled","damaged","other"]
 FACTORS={"g":("m",Decimal(1)),"kg":("m",Decimal(1000)),"斤":("m",Decimal(500)),"ml":("v",Decimal(1)),"L":("v",Decimal(1000))}
 def dto(x):
  return {k:x[k] for k in ("id","name","category","stock_text","stock_value","stock_unit","location","note","created_at","updated_at")}
@@ -38,6 +39,13 @@ def convert(v,a,b):
  if a==b:return v
  x,y=FACTORS.get(a),FACTORS.get(b)
  return v*x[1]/y[1] if x and y and x[0]==y[0] else None
+async def apply_adjustment(c,old,used,reason,note,depleted_status,client_request_id=None):
+ before=Decimal(old["stock_value"])
+ if used>before:raise conflict(("用掉" if reason=="used" else "处理")+"数量不能超过当前库存")
+ after=before-used;status=depleted_status if after==0 else "active";after_text="0" if after==0 else render(after)
+ row=await c.fetchrow("UPDATE ingredients SET stock_text=$1,stock_value=$2,status=$3,ended_at=CASE WHEN $3::varchar<>'active' THEN NOW() ELSE NULL END,updated_at=NOW() WHERE id=$4 RETURNING *",after_text,after,status,old["id"])
+ adjustment=await c.fetchrow("INSERT INTO inventory_adjustments(ingredient_id,reason,note,client_request_id,stock_before_text,stock_before_value,stock_before_unit,stock_after_text,stock_after_value,stock_after_unit,stock_after_updated_at,ingredient_status_before,ingredient_ended_at_before,ingredient_status_after,ingredient_ended_at_after) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15) RETURNING *",old["id"],reason,note,client_request_id,old["stock_text"],before,old["stock_unit"],after_text,after,old["stock_unit"],row["updated_at"],old["status"],old["ended_at"],row["status"],row["ended_at"])
+ return row,adjustment
 def resolutions(body):
  raw=body.get("resolutions",[])
  if not isinstance(raw,list):raise validation_error("resolutions 必须是数组")
@@ -118,19 +126,41 @@ async def patch(ingredient_id:int,request:Request):
 async def waste(ingredient_id:int,request:Request):
  b=ensure_object_body(await request.json());pid=parse_id(ingredient_id);v=optional_number(b.get("stock_value"),"stock_value",min_value=0,exclusive_min=True)
  if v is None:raise validation_error("stock_value 必须大于零")
- unit=required_text(b.get("stock_unit"),"stock_unit",50);text=required_text(b.get("stock_text"),"stock_text");reason=enum_value(b.get("reason"),"reason",REASONS);note=optional_text(b.get("note"),"note",5000);version=required_text(b.get("expected_updated_at"),"expected_updated_at",64);pool=await get_pool()
+ unit=required_text(b.get("stock_unit"),"stock_unit",50);text=required_text(b.get("stock_text"),"stock_text");reason=enum_value(b.get("reason"),"reason",WASTE_REASONS);note=optional_text(b.get("note"),"note",5000);version=required_text(b.get("expected_updated_at"),"expected_updated_at",64);pool=await get_pool()
  if normalize_stock(parse_planned_quantity(text,unit))!=normalize_stock(Decimal(v)):raise validation_error("处理数量原文与数值不一致")
  async with pool.acquire() as c:
   async with c.transaction():
    await lock_inventory_workflow(c);old=await c.fetchrow("SELECT * FROM ingredients WHERE id=$1 AND status='active' FOR UPDATE",pid)
    if old is None:raise not_found("食材")
-   assert_version(version,old["updated_at"])
+   assert_version(version,old["updated_at"],dto(old))
    if unit!=old["stock_unit"]:raise validation_error("处理单位必须与当前库存单位一致")
-   before,used=Decimal(old["stock_value"]),Decimal(v)
-   if used>before:raise conflict("处理数量不能超过当前库存")
-   after=before-used;status="discarded" if after==0 else "active";text="0" if after==0 else render(after)
-   row=await c.fetchrow("UPDATE ingredients SET stock_text=$1,stock_value=$2,status=$3,ended_at=CASE WHEN $3::varchar='discarded' THEN NOW() ELSE NULL END,updated_at=NOW() WHERE id=$4 RETURNING *",text,after,status,pid)
-   a=await c.fetchrow("INSERT INTO inventory_adjustments(ingredient_id,reason,note,stock_before_text,stock_before_value,stock_before_unit,stock_after_text,stock_after_value,stock_after_unit,stock_after_updated_at,ingredient_status_before,ingredient_ended_at_before,ingredient_status_after,ingredient_ended_at_after) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) RETURNING *",pid,reason,note,old["stock_text"],before,old["stock_unit"],text,after,old["stock_unit"],row["updated_at"],old["status"],old["ended_at"],row["status"],row["ended_at"])
+   row,a=await apply_adjustment(c,old,Decimal(v),reason,note,"discarded")
+ return created({"inventory":dto(row),"adjustment":dict(a)})
+
+@router.post("/{ingredient_id}/use")
+async def use(ingredient_id:int,request:Request):
+ b=ensure_object_body(await request.json());pid=parse_id(ingredient_id);v=optional_number(b.get("stock_value"),"stock_value",min_value=0,exclusive_min=True)
+ if v is None:raise validation_error("stock_value 必须大于零")
+ unit=required_text(b.get("stock_unit"),"stock_unit",50);text=required_text(b.get("stock_text"),"stock_text");version=required_text(b.get("expected_updated_at"),"expected_updated_at",64)
+ try: request_id=UUID(required_text(b.get("client_request_id"),"client_request_id",64))
+ except ValueError: raise validation_error("client_request_id 必须是有效 UUID")
+ if normalize_stock(parse_planned_quantity(text,unit))!=normalize_stock(Decimal(v)):raise validation_error("用掉数量原文与数值不一致")
+ pool=await get_pool()
+ async with pool.acquire() as c:
+  async with c.transaction():
+   await lock_inventory_workflow(c)
+   replay=await c.fetchrow("SELECT * FROM inventory_adjustments WHERE client_request_id=$1 FOR UPDATE",request_id)
+   if replay is not None:
+    replayed_amount=Decimal(replay["stock_before_value"])-Decimal(replay["stock_after_value"])
+    if replay["ingredient_id"]!=pid or replay["reason"]!="used" or replay["stock_before_unit"]!=unit or replayed_amount!=Decimal(v):raise conflict("这次操作标识已经用于其他库存变更")
+    current=await c.fetchrow("SELECT * FROM ingredients WHERE id=$1",pid)
+    if current is None:raise not_found("食材")
+    return created({"inventory":dto(current),"adjustment":dict(replay)})
+   old=await c.fetchrow("SELECT * FROM ingredients WHERE id=$1 AND status='active' FOR UPDATE",pid)
+   if old is None:raise not_found("食材")
+   assert_version(version,old["updated_at"],dto(old))
+   if unit!=old["stock_unit"]:raise validation_error("用掉数量的单位必须与当前库存单位一致")
+   row,a=await apply_adjustment(c,old,Decimal(v),"used",None,"consumed",request_id)
  return created({"inventory":dto(row),"adjustment":dict(a)})
 @router.get("/{ingredient_id}/adjustments")
 async def history(ingredient_id:int):

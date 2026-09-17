@@ -56,7 +56,7 @@ async def load(conn, kind, ident):
         target = await conn.fetchrow("SELECT * FROM ingredients WHERE status='active' AND LOWER(btrim(name))=LOWER(btrim($1)) AND id<>$2", old['name'], iid)
         if target and (old['status'] == 'active' or old['stock_value'] != 0):
             raise conflict('旧库存状态异常，不能合并恢复')
-        # 报废撤销补回该次数量，不覆盖之后的补货、消耗或盘点结果。
+        # 独立库存处理撤销只补回该次数量，不覆盖之后的补货、消耗或盘点结果。
         if kind == 'adjustment' and not target and not unchanged:
             target = old
         rows.append({'source': dict(old), 'target': dict(target) if target else None,

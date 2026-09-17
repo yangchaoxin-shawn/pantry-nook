@@ -185,6 +185,20 @@ describe('写入结果与库存原文', () => {
     expect(JSON.parse(String(fetchMock.mock.calls[1][1]?.body))).toEqual({ stock_text: '2', stock_value: 2, expected_updated_at: '2026-09-12T00:00:00Z' })
   })
 
+  it('日常用掉携带稳定操作标识与库存版本', async () => {
+    fetchMock.mockResolvedValueOnce(json({ data: { inventory: { id: 3 }, adjustment: { id: 8, reason: 'used' } } }, 201))
+    const payload = {
+      stock_text: '0.3', stock_value: 0.3, stock_unit: 'kg',
+      client_request_id: '3d0f04e9-6c30-4b8f-a6c2-a1f2fab0ab36',
+      expected_updated_at: '2026-09-17T09:00:00Z',
+    }
+    await api.useIngredient(3, payload)
+    const [url, init] = fetchMock.mock.calls[0]
+    expect(String(url)).toContain('/api/ingredients/3/use')
+    expect(init?.method).toBe('POST')
+    expect(JSON.parse(String(init?.body))).toEqual(payload)
+  })
+
   it('只改名称的 PATCH 不携带余量，避免覆盖另一设备确认后的库存', async () => {
     fetchMock.mockResolvedValueOnce(json({ data: { id: 3, name: '新名称', stock_text: '两份' } }))
     await api.saveIngredient(3, { name: '新名称', expected_updated_at: '2026-09-12T00:00:00Z' })

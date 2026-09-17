@@ -13,8 +13,10 @@ import {
   type InventoryAdjustmentLedgerState,
 } from "./inventory-adjustment-ledger";
 import "./inventory-adjustment-ledger.css";
+import { casualUseAll, casualUseHalf, casualUseRemaining } from "./casual-use-logic";
+import { createClientRequestId } from "../../shared/clientRequestId";
 
-export function IngredientDetail({ item, busy, edit, waste }: { item: Ingredient; busy: boolean; edit: () => void; waste: () => void }) {
+export function IngredientDetail({ item, busy, edit, use, waste }: { item: Ingredient; busy: boolean; edit: () => void; use: () => void; waste: () => void }) {
   return <div className="ingredient-detail">
     <dl className="detail-grid">
       <div><dt>分类</dt><dd>{item.category}</dd></div>
@@ -22,11 +24,32 @@ export function IngredientDetail({ item, busy, edit, waste }: { item: Ingredient
       <div><dt>存放位置</dt><dd>{item.location || <>未填写 <button type="button" className="text-button" onClick={edit} disabled={busy}>补充位置</button></>}</dd></div>
     </dl>
     {item.note && <div className="detail-note"><h4>备注</h4><p>{item.note}</p></div>}
-    <div className="actions ingredient-detail-actions"><button className="btn-ghost" onClick={edit} disabled={busy}>编辑</button><button className="text-button danger" onClick={waste} disabled={busy}>处理变质/损坏</button></div>
+    <div className="actions ingredient-detail-actions"><button className="btn-primary" onClick={use} disabled={busy}>用掉了</button><button className="btn-ghost" onClick={edit} disabled={busy}>编辑</button><button className="text-button danger" onClick={waste} disabled={busy}>处理变质/损坏</button></div>
   </div>;
 }
 
-const wasteReasonText = { spoiled: "变质", damaged: "损坏", other: "其他" } as const;
+const adjustmentReasonText = { used: "日常用掉", spoiled: "变质", damaged: "损坏", other: "其他" } as const;
+const wasteReasonText = { spoiled: adjustmentReasonText.spoiled, damaged: adjustmentReasonText.damaged, other: adjustmentReasonText.other } as const;
+
+export function CasualUseEditor({ item, busy, blocked, save }: { item: Ingredient; busy: boolean; blocked: boolean; save: (payload: Parameters<typeof api.useIngredient>[1]) => void }) {
+  const [quantity, setQuantity] = useState("");
+  const [requestId] = useState(createClientRequestId);
+  const amount = Number(quantity);
+  const quantityError = quantityInputError(quantity, { required: true, max: item.stock_value });
+  const half = casualUseHalf(item.stock_value);
+  const remaining = casualUseRemaining(item.stock_value, quantity);
+  return <form onSubmit={(event) => { event.preventDefault(); if (!quantityError && !blocked) save({ stock_text: quantity, stock_value: amount, stock_unit: item.stock_unit, client_request_id: requestId, expected_updated_at: item.updated_at }); }}>
+    <p className="dialog-description">当前库存 {stockLabel(item)}。记录平时吃掉或用掉的数量，不关联餐安排。</p>
+    <QuantityInput label={`这次用掉（${item.stock_unit}）`} required disabled={busy || blocked} max={item.stock_value} value={quantity} onValueChange={setQuantity} autoFocus />
+    <div className="unit-choice">
+      <button type="button" className="chip" disabled={busy || blocked || half === null} onClick={() => half && setQuantity(half)}>用掉一半</button>
+      <button type="button" className="chip" disabled={busy || blocked} onClick={() => setQuantity(casualUseAll(item.stock_value))}>全部用完</button>
+    </div>
+    {remaining !== null && <p className="form-hint">记录后预计剩余 {remaining}{item.stock_unit}</p>}
+    <p className="form-hint">已经在餐安排中确认的用量，不需要再次记录。</p>
+    <button className="btn-primary submit" disabled={busy || blocked || Boolean(quantityError)}>{busy ? "保存中…" : "确认用掉"}</button>
+  </form>;
+}
 
 export function WasteEditor({ item, busy, save }: { item: Ingredient; busy: boolean; save: (payload: Parameters<typeof api.wasteIngredient>[1]) => void }) {
   const [all, setAll] = useState(true);
@@ -73,7 +96,7 @@ export function InventoryAdjustmentLedger({ busy, refreshKey, revoke }: { busy: 
   const records = state.records;
   if (!records.length) return <section className="pn-adjustment-ledger-empty">
     <div className="pn-adjustment-ledger-empty-date" aria-hidden="true"><span>—</span><strong>空</strong></div>
-    <Empty title="这本记录簿还是空的">变质或损坏处理会按发生时间留在这里。</Empty>
+    <Empty title="这本记录簿还是空的">日常用掉、变质或损坏处理会按发生时间留在这里。</Empty>
   </section>;
   const active = records.filter((record) => record.status === "active");
   const reversed = records.filter((record) => record.status === "reversed");
@@ -87,19 +110,19 @@ export function InventoryAdjustmentLedger({ busy, refreshKey, revoke }: { busy: 
       <div className="pn-adjustment-record-sheet">
         <header>
           <div className="pn-adjustment-record-title">
-            <span className="pn-adjustment-record-reason">{wasteReasonText[record.reason]}</span>
+            <span className="pn-adjustment-record-reason">{adjustmentReasonText[record.reason]}</span>
             <h4 id={titleId}>{record.ingredient_name}</h4>
           </div>
           <span className={`pn-adjustment-record-status pn-adjustment-record-status--${record.status}`}>{record.status === "active" ? "可撤销" : "已撤销"}</span>
         </header>
-        <div className="pn-adjustment-record-quantity" aria-label={`本次处理数量${inventoryAdjustmentAmountLabel(record)}`}>
-          <span>本次处理</span>
+        <div className="pn-adjustment-record-quantity" aria-label={`${record.reason === "used" ? "本次用掉" : "本次处理"}数量${inventoryAdjustmentAmountLabel(record)}`}>
+          <span>{record.reason === "used" ? "本次用掉" : "本次处理"}</span>
           <strong>{inventoryAdjustmentAmountLabel(record)}</strong>
         </div>
         {record.note && <p className="pn-adjustment-record-note"><span>备注</span>{record.note}</p>}
         {record.status === "active" ? <div className="pn-adjustment-record-action">
-          <span>处理仍可安全撤回</span>
-          <button className="btn-primary" disabled={busy} onClick={() => revoke(record.id)} aria-label={`撤销${record.ingredient_name}的${wasteReasonText[record.reason]}处理`}>撤销处理</button>
+          <span>{record.reason === "used" ? "这条用掉记录可安全撤回" : "处理仍可安全撤回"}</span>
+          <button className="btn-primary" disabled={busy} onClick={() => revoke(record.id)} aria-label={`撤销${record.ingredient_name}的${adjustmentReasonText[record.reason]}记录`}>{record.reason === "used" ? "撤销用掉" : "撤销处理"}</button>
         </div> : <div className="pn-adjustment-record-reversal">
           <p>{record.reversed_at ? <><time dateTime={record.reversed_at}>{inventoryAdjustmentMomentLabel(record.reversed_at)}</time> 已撤销</> : "已撤销"}</p>
           {record.recovery_merges?.map(merge => <p key={merge.id}>恢复数量已合并到<strong>{merge.target_name}</strong>，合并后 {merge.target_after_value}{merge.target_after_unit}</p>)}
@@ -113,7 +136,7 @@ export function InventoryAdjustmentLedger({ busy, refreshKey, revoke }: { busy: 
   </section>);
   return <div className="pn-adjustment-ledger" aria-busy={busy || undefined}>
     <header className="pn-adjustment-ledger-overview">
-      <div><p className="pn-adjustment-ledger-kicker">库存处理时间线</p><h2>每一次处理，都有来处</h2><p>按发生时间留档；仍可撤销的记录放在前面，方便及时找回。</p></div>
+      <div><p className="pn-adjustment-ledger-kicker">库存记录时间线</p><h2>每一次变化，都有来处</h2><p>日常用掉和变质损坏都按发生时间留档；可撤销记录放在前面，方便及时找回。</p></div>
       <dl>
         <div><dt>仍可撤销</dt><dd>{active.length}</dd></div>
         <div><dt>已撤销</dt><dd>{reversed.length}</dd></div>

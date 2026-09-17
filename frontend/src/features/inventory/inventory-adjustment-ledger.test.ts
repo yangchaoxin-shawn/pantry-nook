@@ -71,6 +71,16 @@ describe("库存处理记录时间线", () => {
     } as InventoryAdjustmentRecord)).toBe("3斤");
   });
 
+  it("日常用掉记录沿用库存快照计算本次数量", () => {
+    expect(inventoryAdjustmentAmountLabel({
+      reason: "used",
+      stock_before_value: 1,
+      stock_after_value: 0.7,
+      stock_before_unit: "kg",
+      stock_after_unit: "kg",
+    } as InventoryAdjustmentRecord)).toBe("0.3kg");
+  });
+
   it("快照单位不一致时不猜测处理数量", () => {
     expect(inventoryAdjustmentAmountLabel({
       stock_before_value: 1,

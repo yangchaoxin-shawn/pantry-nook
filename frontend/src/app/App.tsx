@@ -217,7 +217,7 @@ export default function App() {
     dishes: "把拿手菜记下来",
     plans: "好好搭配，好好吃饭",
     consumptions: "每一餐，都有迹可循",
-    adjustments: "变质 / 损坏记录",
+    adjustments: "消耗与处理记录",
     journal: "饭桌手记",
   };
   const subtitles = {
@@ -226,7 +226,7 @@ export default function App() {
     dishes: "留住喜欢的味道，下次做饭不再纠结。",
     plans: "保存喜欢的组合，做饭时随时拿来用。",
     consumptions: "实际用了什么、还剩多少，都记在这里。",
-    adjustments: "变质或损坏后，也能从这里找到并撤销处理。",
+    adjustments: "日常用掉、变质或损坏，都能从这里查看和安全撤销。",
     journal: "把这一餐留在日子里。",
   };
   const dateLabel = new Date(`${date}T12:00:00`).toLocaleDateString("zh-CN", {
@@ -251,7 +251,7 @@ export default function App() {
     {addButton('批量记录', { kind: 'ingredientBatch' })}
   </>;
   const activePage = page === 'adjustments' ? 'ingredients' : page === 'plans' ? 'dishes' : page === 'consumptions' ? 'battles' : page;
-  const parentPage = page === 'adjustments' ? { page: 'ingredients' as const, label: '库存', current: '变质 / 损坏记录' }
+  const parentPage = page === 'adjustments' ? { page: 'ingredients' as const, label: '库存', current: '消耗与处理记录' }
     : page === 'plans' ? { page: 'dishes' as const, label: '菜品', current: '常用搭配' }
     : page === 'consumptions' ? { page: 'battles' as const, label: '餐安排', current: '用料记录' } : null;
   return (
@@ -392,7 +392,7 @@ export default function App() {
             </>
           )
         )}
-        {page === 'ingredients' && <div className="inventory-ledger-link"><button onClick={() => navigate('adjustments')}>变质 / 损坏记录 <Icon name="arrow" size={17} /></button></div>}
+        {page === 'ingredients' && <div className="inventory-ledger-link"><button onClick={() => navigate('adjustments')}>消耗与处理记录 <Icon name="arrow" size={17} /></button></div>}
         <footer className="footer">
           <Icon name="bowl" size={16} />
           一隅烟火，三餐日常。<span>食隅记 Pantry Nook</span>

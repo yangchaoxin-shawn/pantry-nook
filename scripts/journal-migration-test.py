@@ -48,18 +48,18 @@ async def main():
                         await connection.execute("INSERT INTO journal_uploads(id,sha256,status,original_name,original_size,details,entry_id,position) VALUES($1,$2,'ready',$3,10,$4::jsonb,$5,$6)",identifier,'b'*64,'test.mov' if kind=='video' else 'test.jpg',json.dumps({'kind':kind}),legacy_entry['id'],position)
                     uploads_before=[dict(x) for x in await connection.fetch('SELECT * FROM journal_uploads ORDER BY position')]
                 await migrate(connection)
-                assert await connection.fetchval('SELECT COUNT(*) FROM schema_migrations')==14
+                assert await connection.fetchval('SELECT COUNT(*) FROM schema_migrations')==15
                 assert await connection.fetchval("SELECT to_regclass('public.journal_entries')")
                 assert await connection.fetchval("SELECT to_regclass('public.journal_uploads')")
                 await migrate(connection)
-                assert await connection.fetchval('SELECT COUNT(*) FROM schema_migrations')==14
+                assert await connection.fetchval('SELECT COUNT(*) FROM schema_migrations')==15
                 assert [dict(x) for x in await connection.fetch('SELECT * FROM dishes ORDER BY id')]==before
                 if legacy_entry:
                     after=await connection.fetchrow('SELECT * FROM journal_entries WHERE id=$1',legacy_entry['id'])
                     assert after['cover_upload_id']==photo_ids[1]
                     assert all(after[key]==value for key,value in dict(legacy_entry).items())
                     assert [dict(x) for x in await connection.fetch('SELECT * FROM journal_uploads ORDER BY position')]==uploads_before
-                results.append({'case':mode,'database':name,'migration_count':14,'business_unchanged':True,'repeat_safe':True,'legacy_cover_backfill':bool(legacy_entry)})
+                results.append({'case':mode,'database':name,'migration_count':15,'business_unchanged':True,'repeat_safe':True,'legacy_cover_backfill':bool(legacy_entry)})
             finally:await connection.close()
     finally:await admin.close()
     output=ROOT/'.review/journal-migration-evidence.json'
