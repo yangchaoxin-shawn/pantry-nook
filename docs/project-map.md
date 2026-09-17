@@ -1,6 +1,6 @@
 # 项目结构与整理清单
 
-更新：2026-09-15。运行代码已按模块拆分，根目录历史原型和冗长状态记录已归档；缺陷清单和业务冻结证据见 [阶段审查](phase-gate-audit-2026-09-12.md)。
+更新：2026-09-17。运行代码按模块拆分；本页维护职责和入口，当前进度见 [项目状态](project-status.md)。历史缺陷与冻结证据见 [阶段审查](phase-gate-audit-2026-09-12.md)。
 
 ## 当前唯一有效入口
 
@@ -16,7 +16,7 @@
 | Git 提交与保护范围 | [git.md](git.md) |
 | 产品版本与更新记录 | [VERSION](../VERSION)、[CHANGELOG.md](../CHANGELOG.md) |
 | 公司服务器部署 | [DEPLOY.md](../DEPLOY.md)、[DEPLOY-SERVER.md](../DEPLOY-SERVER.md) |
-| 当前正式发布证据 | [v1.0.0 发布记录](deployment-v1.0.0-2026-09-15.md) |
+| 当前正式发布证据 | 从 [项目状态](project-status.md) 进入对应版本记录 |
 
 ## 当前代码职责
 
@@ -45,8 +45,8 @@ frontend/src/
   features/journal/       饭桌手记、上传队列、静态图库浏览
   shared/api/             API 请求层、请求测试和 OpenAPI 生成类型
   shared/ui/              无业务含义的通用弹窗、字段、空状态和图标
-  App.css 等              现有样式；统一新 UI 阶段再按设计系统重建
-scripts/                  版本检查、本地类生产预检、UI 评审环境和线上核验
+  App.css 等              现有共享样式；新模块继承已确认语言，按实际需要抽取
+scripts/                  交接/版本检查、本地类生产预检、UI 评审环境和线上核验
 contracts/                后端导出的 OpenAPI 与前端类型输入
 design/                   当前设计系统、视觉资产和历史原型
 docs/history/             不再作为当前入口的完整历史快照

@@ -1,501 +1,111 @@
-# Pantry Nook 服务器部署执行文档（v1）
+# Pantry Nook 服务器部署执行文档
 
-这是公司服务器部署的唯一执行口径。每次发布都必须使用新的 `RELEASE_ID`，记录包校验值和唯一备份路径，禁止用通配符猜测回滚对象。
+这是公司服务器部署的执行入口。当前版本、代码基线和已发生的发布只看 [项目状态](docs/project-status.md)，历史发布记录用于追溯。每次发布生成唯一 `RELEASE_ID`，记录制品校验值及准确备份路径，禁止以通配符猜测回滚对象。
 
-手记媒体候选版尚未部署。发布包含媒体能力的版本时，必须同时遵循[媒体持久化、备份恢复与附加门禁](docs/photo-journal-operations.md)；下方仅数据库 dump 的旧流程不足以恢复照片，必须在停止写入期间备份数据库和媒体卷。Nginx 示例已包含候选版所需的上传限制与等待时间，不表示服务器已经修改。
+## 部署与数据口径
 
-## 已确认部署口径
+- 服务器 `182.92.205.147`；用户入口 `https://preview.aihuashen.com/pantry-nook/`。
+- 服务器本机 Nginx 托管 `/usr/local/nginx/html/pantry-nook/`；Docker FastAPI 位于 `/data/pantry-nook/`，仅绑定 `127.0.0.1:8014`。
+- PostgreSQL 使用 `pantry-db-data`，照片使用 `pantry-media-data`；共享备份与记录位于 `/data/pantry-nook-shared/`。
+- 项目级 Basic Auth 只保留一个生效用户。秘密只记在忽略 Git 的 `.local/deployment-secrets.md` 和服务器配置，不进入发布包；普通发布不重设口令。
+- 发布只传代码、构建产物和后端镜像，不上传本地业务库、mock、测试照片或 `.env`。
+- 线上已经产生数据：普通发布与回滚不得 seed/reset、清表、删卷、`down -v`，不得以空库验收要求清空线上。首次空库和受批准的业务数据导入是独立流程。
+- 照片发布还须遵循 [媒体持久化、备份恢复](docs/photo-journal-operations.md)。数据库 dump 与媒体归档必须来自同一停写窗口，普通回滚只恢复代码，不回灌生产数据。
 
-- 形态：服务器本机 Nginx 托管前端，Docker 运行 FastAPI 后端与 PostgreSQL。
-- 服务器：`182.92.205.147`；域名：`preview.aihuashen.com`。
-- 用户入口：`https://preview.aihuashen.com/pantry-nook/`。
-- 前端目录：`/usr/local/nginx/html/pantry-nook/`。
-- 后端目录：`/data/pantry-nook/`；宿主机端口：`127.0.0.1:8014`。
-- 项目级 Basic Auth 只保留一个生效用户；用户名、当前口令和应急换密值记录在忽略 Git 的 `.local/deployment-secrets.md`，不进入发布包或版本历史。
-- 应急值只在人工换密时替换当前口令，不作为第二个并存账号。
-- 首次发布使用空数据库执行初始化，不迁移本地测试数据。
-- 首次发布后线上数据进入持久生产阶段：普通发布/回滚禁止 seed、reset、truncate、drop、`docker compose down -v` 和 `docker volume rm`。
-- 必须携带的初始业务数据按版本化 import/migration 处理；测试 seed 只允许带隔离标记的本地测试库。
+## 1. 本地准备与独立审查
 
-## 1. 本地类生产门禁
-
-`.env.docker.local` 只需提供测试数据库密码。预检脚本会在当前进程中临时固定测试容器名、卷、端口和 `FRONTEND_ORIGIN=http://127.0.0.1:18080`，结束后恢复原环境变量，不改写该文件。
+版本和发布范围按用户实际授权执行，已取得的同一许可不重复询问。本地先固定候选提交，再运行：
 
 ```powershell
 pwsh ./scripts/preflight-release.ps1
-```
-
-脚本必须完整通过：版本一致、测试专用空库、Docker 后端、生产前端构建、临时 Nginx、Basic Auth、SPA、真实哈希 CSS/JavaScript/字体和手记分包正文与 MIME、七个真实列表 API、CORS、错误路由，以及超过 1 MiB 的照片上传、媒体鉴权、GET/HEAD/Range、伪装视频拒绝和后端重启后的媒体卷持久化。默认结束时会核实测试容器、测试数据库卷与测试媒体卷已经删除。
-
-## 2. 生成发布包
-
-在仓库根目录执行。脚本只接受与当前 commit 对应的预检证据，复用预检生成的 `frontend/dist` 和后端镜像；后端源代码包排除本机 `.env`、虚拟环境和缓存。
-
-```powershell
 pwsh ./scripts/package-release.ps1
 ```
 
-脚本为每次发布建立独立目录并生成四个文件：前端包、后端源代码包、预检通过的后端 Linux 镜像包和 `release manifest`。Manifest 固定记录完整 commit、版本、预检时间、三个 SHA256、镜像 ID、`uv.lock` 与 Compose 校验值。此时只完成本地准备，尚未连接服务器。
+预检使用带标记的隔离测试库和媒体卷，验证生产子路径、Basic Auth、真实资源正文/MIME、真实 API、超过 1 MiB 图片上传、GET/HEAD/Range、伪装视频拒绝、重启持久化及清理。发布包复用相同候选产物，不在服务器重建。
 
-## 3. 取得连接许可并只读摸查
+打包输出四个文件：前端包、后端代码包、Docker 镜像包和 manifest。核对干净 Git、完整 commit、版本、三个 SHA256、镜像 ID/架构及 migration。独立 agent 检查最终制品与回滚兼容性；主负责人亲自运行门禁。
 
-先按部署 skill 向用户展示并确认本次部署文档，再单独取得本次 SSH/SCP 连接许可。许可前不能运行 `ssh`、`scp` 或任何服务器命令。
+普通升级使用固定 [release.sh](scripts/server/release.sh)，不再把多段 Bash 粘贴到远程 stdin。脚本说明、恢复边界和离线验证见 [工具说明](scripts/server/README.md)。该脚本本轮仅完成离线测试，首次使用前还需在隔离 Linux Docker 环境完成真实升级/恢复演练；历史发布证据不能代替新工具的演练。
 
-取得许可后，先只读检查目标目录、现有容器、8014 端口、Nginx 项目块、磁盘空间、Nginx worker 用户和当前备份列表；确认没有路径或资源冲突后才上传：
+## 2. 连接授权、只读摸查与上传
 
-```powershell
-$releaseDir = '<package-release.ps1 输出的 RELEASE_DIR>'
-$files = @(Get-ChildItem -LiteralPath $releaseDir -File)
-if ($files.Count -ne 4) { throw "发布目录应正好包含 4 个文件，实际为 $($files.Count)。" }
-$files | ForEach-Object { scp $_.FullName root@182.92.205.147:/tmp/; if ($LASTEXITCODE -ne 0) { throw "上传失败：$($_.Name)" } }
-```
+按用户已批准的发布范围和部署 skill 确认本次 SSH/SCP 操作已获授权；缺少授权时再询问。先检查目标目录、现有容器/端口、固定卷、磁盘余量、Nginx 项目块、worker 读取权限、当前发布记录和唯一备份路径。磁盘须足够同时保存新旧制品及数据库/媒体备份。
 
-登录服务器后，先运行下面命令并与本机逐一核对：
+仅在核对上述结果后上传四个发布文件至 `/tmp/`。另外将本次候选提交中的 `release.sh`、`release_checks.py`、`backup_media.py` 上传到唯一 `/tmp/pantry-nook-ops-<RELEASE_ID>/`；它们是代码工具，不是业务数据。工具上传前本地 `bash -n`，上传后逐文件核对本地与服务器 SHA256、LF 行尾，按普通文件执行。
 
-```bash
-RELEASE_ID=填入本机生成的releaseId
-sha256sum "/tmp/pantry-nook-frontend-${RELEASE_ID}.tgz"
-sha256sum "/tmp/pantry-nook-backend-${RELEASE_ID}.tgz"
-sha256sum "/tmp/pantry-nook-backend-image-${RELEASE_ID}.tar.gz"
-test -f "/tmp/pantry-nook-release-${RELEASE_ID}.json"
-```
+manifest 自身 SHA256 从本机生成并留在本轮记录中，不能从服务器收到的同一文件自证。服务器 `.env` 继续使用原文件，权限 `600`；不得把本机 `.env` 覆盖上去，不输出 `docker compose config` 中的口令。
 
-## 4. 服务器配置和唯一备份
+## 3. 默认只读检查
 
-后端生产配置只保存在服务器，不进入发布包。当前 Compose 只要求 `.env` 覆盖数据库密码和前端来源，其余连接值使用仓库内固定默认值。不要用 `cat` 或 `docker compose config` 输出密码；只检查必需键，并用 quiet 模式验证配置：
+下列命令在已授权连接的目标服务器执行，替换两个明确值；不通过管道或重定向把脚本送给 `bash`：
 
 ```bash
-test -f /data/pantry-nook/.env
-stat -c '%a %U:%G %n' /data/pantry-nook/.env
-for key in DB_PASSWORD FRONTEND_ORIGIN PANTRY_MEDIA_VOLUME_NAME; do
-  grep -q "^${key}=" /data/pantry-nook/.env || { echo "缺少 ${key}" >&2; exit 1; }
-done
-chmod 600 /data/pantry-nook/.env
-cd /data/pantry-nook
-docker compose --env-file .env -f docker-compose.yml config --quiet
+RELEASE_ID='<本次 release ID>'
+MANIFEST_SHA256='<本机 manifest SHA256>'
+bash "/tmp/pantry-nook-ops-${RELEASE_ID}/release.sh" \
+  --release-id "${RELEASE_ID}" --manifest-sha256 "${MANIFEST_SHA256}" --check
 ```
 
-首次部署尚无该文件时，先创建 `/data/pantry-nook/.env` 并设置 `chmod 600`；后续发布必须复用当前文件，不能从本机覆盖。媒体功能首次发布前，在服务器 `.env` 明确设置 `PANTRY_MEDIA_VOLUME_NAME=pantry-media-data`；后续不得改名或改为匿名卷。
+无参数只显示帮助；默认 `--check` 不解包、不加载镜像、不停止服务。它拒绝已使用路径、非 v2/未核验的旧发布、镜像或卷不一致、配置漂移和异常服务。
 
-Basic Auth 文件只含一个生效用户。普通代码发布不得重建或重置已有密码；仅在文件不存在的首次部署创建。Nginx worker 必须实际可读：
+固定入口仅处理当前架构的普通兼容升级。首次安装、修改 Nginx/访问控制、PostgreSQL 版本变化、换卷和破坏性 migration 不在其中；这些变更要先形成具体方案和恢复步骤，不能通过取消断言绕过。
+
+## 4. 连续维护窗口与切换
+
+独立审查已确认 migration 对旧后端兼容后，才加显式应用参数：
 
 ```bash
-sudo apt-get install -y apache2-utils
-AUTH_FILE=/usr/local/nginx/.pantry-nook.htpasswd
-NGINX_USER=$(/usr/local/nginx/sbin/nginx -T 2>&1 | sed -n 's/^[[:space:]]*user[[:space:]]\+\([^;[:space:]]\+\).*/\1/p' | head -1)
-NGINX_USER=${NGINX_USER:-nobody}
-NGINX_GROUP=$(id -gn "${NGINX_USER}")
-if [ ! -f "${AUTH_FILE}" ]; then
-  sudo htpasswd -c "${AUTH_FILE}" <读取本地秘密记录中的用户名>
-fi
-test "$(wc -l < "${AUTH_FILE}")" -eq 1
-sudo chown root:"${NGINX_GROUP}" "${AUTH_FILE}"
-sudo chmod 640 "${AUTH_FILE}"
-sudo runuser -u "${NGINX_USER}" -- test -r "${AUTH_FILE}"
+bash "/tmp/pantry-nook-ops-${RELEASE_ID}/release.sh" \
+  --release-id "${RELEASE_ID}" --manifest-sha256 "${MANIFEST_SHA256}" \
+  --apply --compatible-migrations-reviewed
 ```
 
-换密是单独操作，读取本地秘密记录中的用户名并使用交互式 `htpasswd /usr/local/nginx/.pantry-nook.htpasswd <用户名>`，不要把新密码写进命令历史。
+入口先取得本项目发布锁，在旧服务继续运行时完成制品解包、Compose/镜像检查、migration 对照、前端权限和配置备份。准备失败不会停止旧服务。
 
-新后端启动会自动执行 additive migration。媒体版本必须先进入维护窗口并停止后端写入，再在同一个停写时点生成 PostgreSQL custom-format 备份、媒体卷归档和逐文件清单。首个媒体版本即使旧容器尚未挂载 `/data/media`，也要创建并记录固定空卷，禁止省略媒体备份字段。
+之后在同一个受保护流程中停止后端，检查上传已排空，创建 PostgreSQL custom dump、媒体归档和逐文件清单；归档正文逐文件回读校验。备份完成后生成现有 v2 格式发布记录，逐目录切换、只启动后端容器、检查健康/实际镜像/媒体卷/migration。数据库容器和两个生产卷保持原样。
 
-```bash
-set -euo pipefail
-RELEASE_ID=填入本机生成的releaseId
-BACKUP_ROOT=/data/pantry-nook-shared/backups
-RECORD_DIR="/data/pantry-nook-shared/releases/${RELEASE_ID}"
-DB_BACKUP="${BACKUP_ROOT}/pantry_nook-${RELEASE_ID}.dump"
-MEDIA_BACKUP="${BACKUP_ROOT}/pantry-media-${RELEASE_ID}.tar.gz"
-MEDIA_MANIFEST="${RECORD_DIR}/media-manifest.tsv"
-test ! -e "${DB_BACKUP}" && test ! -e "${RECORD_DIR}"
-install -d -m 700 "${BACKUP_ROOT}" "${RECORD_DIR}"
-cd /data/pantry-nook
-MEDIA_VOLUME=$(sed -n 's/^PANTRY_MEDIA_VOLUME_NAME=//p' .env | tail -1)
-[[ "${MEDIA_VOLUME}" =~ ^[A-Za-z0-9][A-Za-z0-9_.-]{0,254}$ ]] || { echo '媒体卷名无效' >&2; exit 1; }
-CURRENT_MEDIA_MOUNT=$(docker inspect pantry-backend --format '{{range .Mounts}}{{if eq .Destination "/data/media"}}{{printf "%s|%s" .Type .Name}}{{end}}{{end}}' 2>/dev/null || true)
-if [ -n "${CURRENT_MEDIA_MOUNT}" ]; then
-  CURRENT_MEDIA_TYPE=${CURRENT_MEDIA_MOUNT%%|*}
-  CURRENT_MEDIA_VOLUME=${CURRENT_MEDIA_MOUNT#*|}
-  test "${CURRENT_MEDIA_TYPE}" = volume || { echo '/data/media 不是命名卷，拒绝把 bind mount 当作空卷' >&2; exit 1; }
-  test "${CURRENT_MEDIA_VOLUME}" = "${MEDIA_VOLUME}"
-fi
-docker volume inspect "${MEDIA_VOLUME}" >/dev/null 2>&1 || docker volume create "${MEDIA_VOLUME}" >/dev/null
-docker volume inspect "${MEDIA_VOLUME}" >/dev/null
-CURRENT_BACKEND_IMAGE=$(docker inspect pantry-backend --format '{{.Image}}')
-[[ "${CURRENT_BACKEND_IMAGE}" =~ ^sha256:[0-9a-f]{64}$ ]]
-restart_old_backend() { docker compose --env-file .env -f docker-compose.yml start pantry-backend >/dev/null 2>&1 || true; }
-trap 'restart_old_backend' ERR
-trap 'restart_old_backend; exit 130' INT
-trap 'restart_old_backend; exit 143' TERM
-# SIGTERM 后立即停止接收新请求，并给进行中的上传最多 180 秒完成 finally 与数据库状态收尾。
-docker compose --env-file .env -f docker-compose.yml stop -t 180 pantry-backend
-HAS_JOURNAL=$(docker compose --env-file .env -f docker-compose.yml exec -T pantry-db \
-  psql -U postgres -d pantry_nook -Atc "select to_regclass('public.journal_uploads') is not null")
-if [ "${HAS_JOURNAL}" = t ]; then
-  PROCESSING_UPLOADS=$(docker compose --env-file .env -f docker-compose.yml exec -T pantry-db \
-    psql -U postgres -d pantry_nook -Atc "select count(*) from journal_uploads where status='processing'")
-  test "${PROCESSING_UPLOADS}" = 0 || { echo '仍有 processing 上传，拒绝备份' >&2; exit 1; }
-fi
-docker compose --env-file .env -f docker-compose.yml exec -T pantry-db \
-  psql -U postgres -d pantry_nook -Atc "select concat_ws(chr(9), version, checksum, applied_at::text) from schema_migrations order by version" \
-  > "${RECORD_DIR}/migrations-before.tsv"
-docker compose --env-file .env -f docker-compose.yml exec -T pantry-db \
-  pg_dump -U postgres -d pantry_nook -Fc > "${DB_BACKUP}"
-docker compose --env-file .env -f docker-compose.yml exec -T pantry-db \
-  pg_restore --list < "${DB_BACKUP}" > "${RECORD_DIR}/db-backup-list.txt"
-docker run --rm --entrypoint python \
-  -e RELEASE_ID="${RELEASE_ID}" \
-  -v "${MEDIA_VOLUME}:/source:ro" \
-  -v "/data/pantry-nook-shared:/shared" \
-  "${CURRENT_BACKEND_IMAGE}" -c '
-import hashlib, os, pathlib, tarfile
-release = os.environ["RELEASE_ID"]
-root = pathlib.Path("/source")
-backup = pathlib.Path("/shared/backups") / f"pantry-media-{release}.tar.gz"
-manifest = pathlib.Path("/shared/releases") / release / "media-manifest.tsv"
-rows = []
-def digest(path):
-    value = hashlib.sha256()
-    with path.open("rb") as stream:
-        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
-            value.update(chunk)
-    return value.hexdigest()
-staging = root / "staging"
-if staging.exists() and any(staging.iterdir()):
-    raise SystemExit("媒体 staging 仍有内容，拒绝备份")
-for item in sorted(root.rglob("*")):
-    if item.is_symlink():
-        raise SystemExit("媒体卷含软链接，拒绝备份")
-    if item.is_file():
-        rows.append(f"{item.relative_to(root).as_posix()}\t{item.stat().st_size}\t{digest(item)}")
-manifest.write_text("\n".join(rows) + ("\n" if rows else ""), encoding="utf-8")
-with tarfile.open(backup, "w:gz") as archive:
-    archive.add(root, arcname=".", recursive=True)
-'
-test -s "${DB_BACKUP}" && test -s "${RECORD_DIR}/db-backup-list.txt" && test -s "${MEDIA_BACKUP}" && test -f "${MEDIA_MANIFEST}"
-chmod 600 "${DB_BACKUP}" "${MEDIA_BACKUP}" "${MEDIA_MANIFEST}" "${RECORD_DIR}/migrations-before.tsv" "${RECORD_DIR}/db-backup-list.txt"
-sha256sum "${DB_BACKUP}" | tee "${RECORD_DIR}/db-backup.sha256"
-sha256sum "${MEDIA_BACKUP}" | tee "${RECORD_DIR}/media-backup.sha256"
-sha256sum "${MEDIA_MANIFEST}" | tee "${RECORD_DIR}/media-manifest.sha256"
-tar -tzf "${MEDIA_BACKUP}" >/dev/null
-trap - ERR INT TERM
-```
+Nginx 配置保留，前后 SHA256 和 diff 必须一致；脚本不重载、不覆盖共享配置。需要修改时只允许精确 Pantry Nook 块，独立备份与审查 diff，执行 `nginx -t` 后再重载；不能顺手修改其他项目。
 
-从停止后端开始到新版本完成部署前，保持维护窗口，不恢复写入。若后续任一步骤失败或主动中止，先在 `/data/pantry-nook` 执行 `docker compose --env-file .env -f docker-compose.yml start pantry-backend` 恢复旧服务，再排查；不要在备份后恢复旧服务并继续接收新写入，否则数据库与媒体备份不再代表切换时点。
+普通错误及 INT/TERM 会尝试恢复已移动的前后端目录和旧后端，再检查旧镜像健康。失败目录与证据保留，恢复失败明确写 `RECOVERY_FAILED`。不能重复使用相同 release ID。SIGKILL、断电和持续基础设施故障不在自动恢复保证内。
 
-数据库备份验证通过后，再备份 Nginx 配置。以下命令必须在同一个 shell 中运行：
+成功结束只表示服务器切换通过，记录仍为 `deploying`，`execution-state.txt` 为 `awaiting_public_verification`，此时不能报告全部发布验收完成。
 
-```bash
-set -euo pipefail
-RELEASE_ID=填入本机生成的releaseId
-NGINX_CONF=/usr/local/nginx/cert.d/preview.conf
-NGINX_BACKUP="${NGINX_CONF}.bak.${RELEASE_ID}"
-test ! -e "${NGINX_BACKUP}" || { echo "RELEASE_ID 已使用，请生成新的 RELEASE_ID" >&2; exit 1; }
-cp -a "${NGINX_CONF}" "${NGINX_BACKUP}"
-test -f "${NGINX_BACKUP}"
-printf '%s\n' "${NGINX_BACKUP}"
-```
+## 5. 线上验收与数据边界
 
-## 5. 解包、替换并启动
+默认生产只读验收：
 
-以下脚本不会清空目标目录。它先解包到新目录、检查内容、继承服务器 `.env`，再把旧目录移动为带本次 `RELEASE_ID` 的唯一备份。
-
-```bash
-set -euo pipefail
-RELEASE_ID=填入本机生成的releaseId
-MANIFEST="/tmp/pantry-nook-release-${RELEASE_ID}.json"
-BACKEND_DIR=/data/pantry-nook
-BACKEND_STAGE="/data/pantry-nook.stage.${RELEASE_ID}"
-BACKEND_BACKUP="/data/pantry-nook.bak.${RELEASE_ID}"
-FRONTEND_DIR=/usr/local/nginx/html/pantry-nook
-FRONTEND_STAGE="/usr/local/nginx/html/pantry-nook.stage.${RELEASE_ID}"
-FRONTEND_BACKUP="/usr/local/nginx/html/pantry-nook.bak.${RELEASE_ID}"
-NGINX_BACKUP="/usr/local/nginx/cert.d/preview.conf.bak.${RELEASE_ID}"
-RECORD_DIR="/data/pantry-nook-shared/releases/${RELEASE_ID}"
-
-[ "${BACKEND_DIR}" = "/data/pantry-nook" ] || exit 1
-[ "${FRONTEND_DIR}" = "/usr/local/nginx/html/pantry-nook" ] || exit 1
-for path in "${BACKEND_STAGE}" "${FRONTEND_STAGE}" "${BACKEND_BACKUP}" "${FRONTEND_BACKUP}"; do
-  test ! -e "${path}" || { echo "RELEASE_ID 已使用或目标已存在：${path}" >&2; exit 1; }
-done
-test -f "/tmp/pantry-nook-backend-${RELEASE_ID}.tgz"
-test -f "/tmp/pantry-nook-frontend-${RELEASE_ID}.tgz"
-test -f "/tmp/pantry-nook-backend-image-${RELEASE_ID}.tar.gz"
-test -f "${MANIFEST}"
-test -d "${RECORD_DIR}"
-
-python3 - "${MANIFEST}" "${RELEASE_ID}" <<'PY'
-import hashlib, json, pathlib, re, sys
-manifest_path, release_id = map(pathlib.Path, [sys.argv[1], sys.argv[2]])
-release_id = str(release_id)
-data = json.loads(manifest_path.read_text(encoding='utf-8-sig'))
-assert data['manifest_version'] == 1 and data['project'] == 'pantry-nook'
-assert data['release_id'] == release_id and data['clean'] is True
-assert re.fullmatch(r'[0-9a-f]{40}', data['commit'])
-assert release_id.startswith(data['version'] + '-')
-artifacts = data['artifacts']
-assert set(artifacts) == {'frontend', 'backend_source', 'backend_image'}
-for item in artifacts.values():
-    name = item['file']
-    assert pathlib.Path(name).name == name
-    path = pathlib.Path('/tmp') / name
-    assert path.is_file()
-    actual = hashlib.sha256(path.read_bytes()).hexdigest()
-    assert actual == item['sha256'], f'SHA256 mismatch: {name}'
-image = artifacts['backend_image']
-assert re.fullmatch(r'[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}', image['tag'])
-assert image['image'] == 'pantry-nook-backend:' + image['tag']
-assert re.fullmatch(r'sha256:[0-9a-f]{64}', image['image_id'])
-assert image['platform'] in {'linux/amd64', 'linux/arm64'}
-print('manifest 与三个制品 SHA256 校验通过')
-PY
-
-cp -a "${MANIFEST}" "${RECORD_DIR}/local-manifest.json"
-MANIFEST="${RECORD_DIR}/local-manifest.json"
-
-IMAGE_TAG=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1], encoding="utf-8-sig"))["artifacts"]["backend_image"]["tag"])' "${MANIFEST}")
-EXPECTED_IMAGE_ID=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1], encoding="utf-8-sig"))["artifacts"]["backend_image"]["image_id"])' "${MANIFEST}")
-EXPECTED_PLATFORM=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1], encoding="utf-8-sig"))["artifacts"]["backend_image"]["platform"])' "${MANIFEST}")
-case "$(uname -m)" in x86_64) SERVER_PLATFORM=linux/amd64 ;; aarch64|arm64) SERVER_PLATFORM=linux/arm64 ;; *) echo '不支持的服务器架构' >&2; exit 1 ;; esac
-test "${EXPECTED_PLATFORM}" = "${SERVER_PLATFORM}"
-tar -xOzf "/tmp/pantry-nook-backend-image-${RELEASE_ID}.tar.gz" | docker image load
-ACTUAL_IMAGE_ID=$(docker image inspect "pantry-nook-backend:${IMAGE_TAG}" --format '{{.Id}}')
-ACTUAL_PLATFORM=$(docker image inspect "pantry-nook-backend:${IMAGE_TAG}" --format '{{.Os}}/{{.Architecture}}')
-test "${ACTUAL_IMAGE_ID}" = "${EXPECTED_IMAGE_ID}"
-test "${ACTUAL_PLATFORM}" = "${EXPECTED_PLATFORM}"
-
-mkdir -p "${BACKEND_STAGE}" "${FRONTEND_STAGE}"
-tar -xzf "/tmp/pantry-nook-backend-${RELEASE_ID}.tgz" -C "${BACKEND_STAGE}"
-tar -xzf "/tmp/pantry-nook-frontend-${RELEASE_ID}.tgz" -C "${FRONTEND_STAGE}"
-test -f "${BACKEND_STAGE}/docker-compose.yml"
-test -f "${BACKEND_STAGE}/backend/Dockerfile"
-test -f "${BACKEND_STAGE}/scripts/server-release-record.py"
-test -f "${FRONTEND_STAGE}/index.html"
-find "${FRONTEND_STAGE}/assets" -maxdepth 1 -type f | grep -q .
-
-test -f "${BACKEND_DIR}/.env"
-cp -a "${BACKEND_DIR}/.env" "${BACKEND_STAGE}/.env"
-
-DB_BACKUP="/data/pantry-nook-shared/backups/pantry_nook-${RELEASE_ID}.dump"
-MEDIA_VOLUME=$(sed -n 's/^PANTRY_MEDIA_VOLUME_NAME=//p' "${BACKEND_STAGE}/.env" | tail -1)
-MEDIA_BACKUP="/data/pantry-nook-shared/backups/pantry-media-${RELEASE_ID}.tar.gz"
-python3 "${BACKEND_STAGE}/scripts/server-release-record.py" prepare \
-  --manifest "${MANIFEST}" \
-  --record "${RECORD_DIR}/deployed-release.txt" \
-  --database-backup "${DB_BACKUP}" \
-  --database-backup-sha-file "${RECORD_DIR}/db-backup.sha256" \
-  --media-volume "${MEDIA_VOLUME}" \
-  --media-backup "${MEDIA_BACKUP}" \
-  --media-backup-sha-file "${RECORD_DIR}/media-backup.sha256" \
-  --media-manifest "${RECORD_DIR}/media-manifest.tsv" \
-  --media-manifest-sha-file "${RECORD_DIR}/media-manifest.sha256" \
-  --backend-backup "${BACKEND_BACKUP}" \
-  --frontend-backup "${FRONTEND_BACKUP}" \
-  --nginx-backup "${NGINX_BACKUP}" \
-  --migrations-before "${RECORD_DIR}/migrations-before.tsv" \
-  --migrations-after "${RECORD_DIR}/migrations-after.tsv"
-python3 "${BACKEND_STAGE}/scripts/server-release-record.py" set-status \
-  --record "${RECORD_DIR}/deployed-release.txt" --status deploying
-cp -a "${RECORD_DIR}/deployed-release.txt" "${BACKEND_STAGE}/DEPLOYED_RELEASE.txt"
-
-if [ -e "${BACKEND_DIR}" ]; then mv "${BACKEND_DIR}" "${BACKEND_BACKUP}"; fi
-mv "${BACKEND_STAGE}" "${BACKEND_DIR}"
-if [ -e "${FRONTEND_DIR}" ]; then mv "${FRONTEND_DIR}" "${FRONTEND_BACKUP}"; fi
-mv "${FRONTEND_STAGE}" "${FRONTEND_DIR}"
-
-find "${FRONTEND_DIR}" -type d -exec chmod 755 {} \;
-find "${FRONTEND_DIR}" -type f -exec chmod 644 {} \;
-cd "${BACKEND_DIR}"
-PANTRY_BACKEND_IMAGE_TAG="${IMAGE_TAG}" docker compose --env-file .env -f docker-compose.yml up -d --no-build
-
-BACKEND_CID=$(docker compose --env-file .env -f docker-compose.yml ps -q pantry-backend)
-test -n "${BACKEND_CID}"
-for _ in $(seq 1 90); do
-  STATUS=$(docker inspect "${BACKEND_CID}" --format '{{.State.Health.Status}}' 2>/dev/null || true)
-  if [ "${STATUS}" = healthy ] && curl -fsS http://127.0.0.1:8014/health >/dev/null; then break; fi
-  sleep 2
-done
-test "$(docker inspect "${BACKEND_CID}" --format '{{.State.Health.Status}}')" = healthy
-curl -fsS http://127.0.0.1:8014/health >/dev/null
-test "$(docker inspect "${BACKEND_CID}" --format '{{.Image}}')" = "${EXPECTED_IMAGE_ID}"
-
-docker compose --env-file .env -f docker-compose.yml exec -T pantry-db \
-  psql -U postgres -d pantry_nook -Atc "select concat_ws(chr(9), version, checksum, applied_at::text) from schema_migrations order by version" \
-  > "${RECORD_DIR}/migrations-after.tsv"
-python3 - "${MANIFEST}" "${RECORD_DIR}/migrations-before.tsv" "${RECORD_DIR}/migrations-after.tsv" <<'PY'
-import json, pathlib, sys
-data = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding='utf-8-sig'))
-expected = {item['file']: item['sha256'] for item in data['inputs']['migrations']}
-def read(path):
-    rows = {}
-    for line in pathlib.Path(path).read_text().splitlines():
-        version, checksum, *_ = line.split('\t')
-        rows[version] = checksum
-    return rows
-before, after = read(sys.argv[2]), read(sys.argv[3])
-assert set(before).issubset(expected) and all(expected[k] == v for k, v in before.items())
-assert after == expected
-print('migration 前后版本与候选 manifest 校验通过')
-PY
-```
-
-上述脚本会在目录切换前生成固定字段的 `status=prepared` 记录，切换前更新为 `status=deploying` 并放入新后端目录。因此即使启动或核验中途失败，也能从 shared 记录按准确 release 回滚。线上全部核验通过后执行：
-
-```bash
-set -euo pipefail
-RELEASE_ID=填入本次releaseId
-RECORD_DIR="/data/pantry-nook-shared/releases/${RELEASE_ID}"
-python3 /data/pantry-nook/scripts/server-release-record.py set-status \
-  --record "${RECORD_DIR}/deployed-release.txt" --status verified
-cp -a "${RECORD_DIR}/deployed-release.txt" /data/pantry-nook/DEPLOYED_RELEASE.txt
-grep -q '^status=verified$' /data/pantry-nook/DEPLOYED_RELEASE.txt
-```
-
-记录固定包含完整 commit、版本、`RELEASE_ID`、三个包 SHA256、镜像 tag/ID、数据库备份路径及 SHA256、媒体卷名、媒体归档与逐文件清单及各自 SHA256、后端/前端/Nginx 备份路径、migration 前后文件及三个阶段时间，且不包含密码或 `.env` 内容。
-
-数据库 dump 与同一时点媒体归档只作为灾难恢复输入，普通代码回滚不恢复数据库，也不删除、重建或覆盖媒体卷。需要恢复时另开已授权任务，把两者恢复到新数据库和新媒体卷并联合核验后再决定切换；禁止直接对当前生产库执行 `pg_restore --clean`。
-
-## 6. Nginx 项目块
-
-只在 `/usr/local/nginx/cert.d/preview.conf` 中维护下列 Pantry Nook 块；其他项目不修改。
-
-```nginx
-location = /pantry-nook {
-    return 302 /pantry-nook/;
-}
-
-location ^~ /pantry-nook/api/ {
-    auth_basic "Private Area";
-    auth_basic_user_file /usr/local/nginx/.pantry-nook.htpasswd;
-    rewrite ^/pantry-nook/api/(.*)$ /api/$1 break;
-    proxy_pass http://127.0.0.1:8014;
-    proxy_http_version 1.1;
-    client_max_body_size 52m;
-    proxy_connect_timeout 15s;
-    proxy_read_timeout 180s;
-    proxy_send_timeout 180s;
-    proxy_set_header Host $host;
-    proxy_set_header X-Real-IP $remote_addr;
-    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-    proxy_set_header X-Forwarded-Proto $scheme;
-}
-
-location ^~ /pantry-nook/assets/ {
-    auth_basic "Private Area";
-    auth_basic_user_file /usr/local/nginx/.pantry-nook.htpasswd;
-    alias /usr/local/nginx/html/pantry-nook/assets/;
-    try_files $uri $uri/ =404;
-}
-
-location ^~ /pantry-nook/ {
-    auth_basic "Private Area";
-    auth_basic_user_file /usr/local/nginx/.pantry-nook.htpasswd;
-    alias /usr/local/nginx/html/pantry-nook/;
-    index index.html;
-    try_files $uri $uri/ /pantry-nook/index.html;
-}
-```
-
-保存后只比较本次唯一备份，配置通过才重新加载：
-
-```bash
-set -euo pipefail
-RELEASE_ID=填入本机生成的releaseId
-NGINX_CONF=/usr/local/nginx/cert.d/preview.conf
-NGINX_BACKUP="${NGINX_CONF}.bak.${RELEASE_ID}"
-test -f "${NGINX_BACKUP}"
-diff "${NGINX_BACKUP}" "${NGINX_CONF}" || [ "$?" -eq 1 ]
-/usr/local/nginx/sbin/nginx -t
-/usr/local/nginx/sbin/nginx -s reload
-```
-
-## 7. 发布后验证
-
-全部通过后才能报告成功：
-
-1. 匿名访问首页、当前真实静态资源和真实 API 均为 401，且含 `WWW-Authenticate: Basic`，前端内容不会先出现。
-2. 登录后首页和 SPA 子路由返回 Pantry Nook HTML。
-3. 从当前首页提取真实哈希 CSS、JavaScript；正文不是 HTML，MIME 正确。
-4. CSS 引用的真实字体返回非空正文和 `font/woff2`；不存在的静态资源返回 404。
-5. ingredients、dishes、meal-plans、consumptions、inventory-adjustments、daily-battles、journal/entries 返回 JSON 200 和 `data`；只有经确认的首次空库才要求为空。
-6. 使用超过 1 MiB 的真实照片经公网 Nginx 上传；原图、预览、缩略图的匿名 GET/HEAD/Range 均为 401，登录后 MIME、正文、HEAD 和原图 206 正确，原图回读 SHA256 与本机一致；随后删除本轮未绑定上传并确认 404。
-7. 不存在的 API 返回后端 JSON 404 与 `ROUTE_NOT_FOUND`。
-8. 服务器宿主机 `curl http://127.0.0.1:8014/health` 返回 JSON 200；公网不提供健康入口。
-9. `docker compose ps` 中后端和数据库健康；后端实际挂载记录中的固定媒体卷，重启后新照片仍可读取，日志没有持续异常。
-10. `namei -l` 和以 Nginx worker 身份读取 Basic Auth 文件及实际 CSS/JS/字体均成功；浏览器 Network 无异常 4xx/5xx，控制台无资源 MIME 或业务 API 404。
-
-本机公网 HTTP 核验：
+1. 匿名首页、当前真实资源、API 和媒体路径均被 Basic Auth 拦截，前端内容不会先显示。
+2. 登录后首页/SPA 正常；从当前 HTML 提取真实哈希 CSS/JS，检查正文及 MIME，字体非空；不存在的资源必须 404。
+3. 七个真实列表接口返回约定 JSON，错误 API 返回后端 JSON 404。普通升级检查现有数据可读与 migration，不强制为空。
+4. 宿主机 `/health`、容器健康、实际镜像、固定媒体卷、Linux 目录/资源读取权限、Nginx worker 读取 Auth 文件正常。
+5. 浏览器页面和控制台正常，日志没有持续异常；记录检查时间和具体基线。
 
 ```powershell
 $credential = Get-Credential -UserName <读取本地秘密记录中的用户名>
-& ./scripts/verify-deployment.ps1 -Credential $credential -JournalSamplePath ./frontend/src/assets/journal/table-memories.png
+./scripts/verify-deployment.ps1 -Credential $credential
 ```
 
-只有经确认的首次空库才追加 `-ExpectEmpty`；用户已经开始录入数据后的普通升级必须省略该参数。`-JournalSamplePath` 会创建一份未绑定上传并在验证后删除，不创建手记；失败时必须核对清理结果。该脚本只证明公网 HTTP 链路；服务器容器、`/health`、Linux 权限、媒体卷和日志仍须人工核对并记录。
+**上传探针是另一种有写入的验收，不能混称为只读。** 只有用户授权临时线上探针且同意清理方式时，才追加 `-JournalSamplePath <明确照片路径>`，验证公网实际上传、媒体 GET/HEAD/Range 与原图 SHA256。API 取消会使未绑定上传不可访问，但不等于当场物理删除全部文件；须按实际清理机制核验，不能承诺“从未上传任何数据”。
 
-## 8. 回滚与记录
+用户要求不上传测试数据时不运行探针。将该项记录为“按数据约束本次未执行，完整链路仅在本地类生产验证，待真实上传体验”，不能记为通过。只有明确的首次空库才允许 `-ExpectEmpty`。本机 HTTP 脚本不能替代服务器和真实设备检查。
 
-从 `/data/pantry-nook-shared/releases/<失败 release id>/deployed-release.txt` 选择要撤销的准确 release；该记录在目录切换前已经建立，不依赖新服务成功。以下回滚段适用于含 `media_volume` 的 v2 发布记录；旧 v1 发布记录继续按对应历史发布文档处理。核对固定字段后执行，禁止使用通配符：
+完成适用验收、写明获准不执行项及剩余边界，并由独立 agent 只读复核后，主负责人再标记：
 
 ```bash
-set -euo pipefail
-ROLLBACK_ID=$(date +%Y%m%d-%H%M%S)
-TARGET_RELEASE_ID=填入DEPLOYED_RELEASE记录中的release
-CURRENT_RECORD="/data/pantry-nook-shared/releases/${TARGET_RELEASE_ID}/deployed-release.txt"
-BACKEND_DIR=/data/pantry-nook
-FRONTEND_DIR=/usr/local/nginx/html/pantry-nook
-NGINX_CONF=/usr/local/nginx/cert.d/preview.conf
-[[ "${TARGET_RELEASE_ID}" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?-[0-9]{8}T[0-9]{6}Z-[0-9a-f]{7,40}$ ]] || { echo "release 格式错误" >&2; exit 1; }
-test -f "${CURRENT_RECORD}"
-test "$(awk -F= '$1=="release_id" {print $2}' "${CURRENT_RECORD}")" = "${TARGET_RELEASE_ID}"
-grep -Eq '^status=(deploying|verified)$' "${CURRENT_RECORD}"
-BACKEND_BACKUP="/data/pantry-nook.bak.${TARGET_RELEASE_ID}"
-FRONTEND_BACKUP="/usr/local/nginx/html/pantry-nook.bak.${TARGET_RELEASE_ID}"
-NGINX_BACKUP="/usr/local/nginx/cert.d/preview.conf.bak.${TARGET_RELEASE_ID}"
-MEDIA_VOLUME=$(awk -F= '$1=="media_volume" {print $2}' "${CURRENT_RECORD}")
-FAILED_BACKEND="/data/pantry-nook.failed.${ROLLBACK_ID}"
-FAILED_FRONTEND="/usr/local/nginx/html/pantry-nook.failed.${ROLLBACK_ID}"
-FAILED_NGINX="/usr/local/nginx/cert.d/preview.conf.failed.${ROLLBACK_ID}"
-
-test "$(awk -F= '$1=="backend_backup" {print $2}' "${CURRENT_RECORD}")" = "${BACKEND_BACKUP}"
-test "$(awk -F= '$1=="frontend_backup" {print $2}' "${CURRENT_RECORD}")" = "${FRONTEND_BACKUP}"
-test "$(awk -F= '$1=="nginx_backup" {print $2}' "${CURRENT_RECORD}")" = "${NGINX_BACKUP}"
-[[ "${MEDIA_VOLUME}" =~ ^[A-Za-z0-9][A-Za-z0-9_.-]{0,254}$ ]]
-docker volume inspect "${MEDIA_VOLUME}" >/dev/null
-
-test -d "${BACKEND_BACKUP}" && test -d "${FRONTEND_BACKUP}" && test -f "${NGINX_BACKUP}"
-test ! -e "${FAILED_BACKEND}" && test ! -e "${FAILED_FRONTEND}" && test ! -e "${FAILED_NGINX}"
-PREVIOUS_IMAGE_TAG=''
-PREVIOUS_IMAGE_ID=''
-if grep -q 'image: pantry-nook-backend:' "${BACKEND_BACKUP}/docker-compose.yml"; then
-  test -f "${BACKEND_BACKUP}/DEPLOYED_RELEASE.txt"
-  PREVIOUS_IMAGE_TAG=$(awk -F= '$1=="backend_image_tag" {print $2}' "${BACKEND_BACKUP}/DEPLOYED_RELEASE.txt")
-  PREVIOUS_IMAGE_ID=$(awk -F= '$1=="backend_image_id" {print $2}' "${BACKEND_BACKUP}/DEPLOYED_RELEASE.txt")
-  [[ "${PREVIOUS_IMAGE_TAG}" =~ ^[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}$ ]]
-  [[ "${PREVIOUS_IMAGE_ID}" =~ ^sha256:[0-9a-f]{64}$ ]]
-  test "$(docker image inspect "pantry-nook-backend:${PREVIOUS_IMAGE_TAG}" --format '{{.Id}}')" = "${PREVIOUS_IMAGE_ID}"
-fi
-cd "${BACKEND_DIR}"
-docker compose --env-file .env -f docker-compose.yml down
-mv "${BACKEND_DIR}" "${FAILED_BACKEND}"
-mv "${BACKEND_BACKUP}" "${BACKEND_DIR}"
-mv "${FRONTEND_DIR}" "${FAILED_FRONTEND}"
-mv "${FRONTEND_BACKUP}" "${FRONTEND_DIR}"
-cp -a "${NGINX_CONF}" "${FAILED_NGINX}"
-cp -a "${NGINX_BACKUP}" "${NGINX_CONF}"
-
-cd "${BACKEND_DIR}"
-if grep -q 'image: pantry-nook-backend:' docker-compose.yml; then
-  PANTRY_BACKEND_IMAGE_TAG="${PREVIOUS_IMAGE_TAG}" docker compose --env-file .env -f docker-compose.yml up -d --no-build
-else
-  docker compose --env-file .env -f docker-compose.yml up -d --build
-fi
-/usr/local/nginx/sbin/nginx -t
-/usr/local/nginx/sbin/nginx -s reload
-docker volume inspect "${MEDIA_VOLUME}" >/dev/null
+RECORD_DIR="/data/pantry-nook-shared/releases/${RELEASE_ID}"
+python3 /data/pantry-nook/scripts/server-release-record.py set-status \
+  --record "${RECORD_DIR}/deployed-release.txt" --status verified
+cp -p "${RECORD_DIR}/deployed-release.txt" /data/pantry-nook/DEPLOYED_RELEASE.txt
 ```
 
-回滚后执行全部发布后验证，并记录 `FAILED_BACKEND`、`FAILED_FRONTEND`、`FAILED_NGINX` 以便审计。
+`verified` 表示本次约定的验收完成；完整记录仍须明确哪些只在本地验证、哪些在线上验证、哪些等待用户体验。tag 只能指向实际已发布且经用户确认的提交，后续文档提交不移动旧 tag。
 
-- 回滚仍必须保留项目级 Basic Auth，不得通过移除鉴权恢复页面。
-- 数据库卷与媒体卷都不随普通代码回滚删除；持久生产卷不得在部署流程中删除。只有经证明为 disposable demo/test 的卷，才可在单独数据维护任务中精确处理。
-- 每次发布记录 `RELEASE_ID`、Git 状态/提交、三个制品 SHA256、数据库与媒体同点备份及清单、三个代码/配置备份路径、验证结果、故障与未覆盖项。
+## 6. 回滚与记录
+
+脚本执行中的自动恢复与发布后人工回滚不同。公网验收失败时，先读取准确 `/data/pantry-nook-shared/releases/<RELEASE_ID>/deployed-release.txt`，核对旧镜像 ID、前后端/Nginx 备份、当前目录位置、`execution-state.txt` 和 migration 兼容性，再形成该次回滚命令。不要重新执行失败的 `--apply`，也不要调用历史 release 的固定脚本。
+
+普通代码回滚的顺序是：停止当前后端；把当前代码移入新的唯一失败目录；恢复对应前后端备份；按记录核对旧镜像并启动后端；保留数据库和媒体卷；重新完成适用线上验收。Nginx 只有本次确实修改过且确认没有其他项目后续变更时才恢复对应配置，否则保持现状。任何一步失败都先核对实际状态，不靠通配符清理重来。
+
+数据库 dump 和媒体归档只作为联合灾难恢复输入；另获授权后先恢复到新数据库/新媒体卷并校验，再决定切换。禁止直接对当前生产库 `pg_restore --clean`，也不以恢复发布前快照覆盖发布后的真实照片或业务数据。
+
+每次发布记录完整 commit/版本、release ID、三个制品和工具 SHA256、旧镜像、同点 DB/媒体备份及逐文件清单、代码/配置备份路径、实际验收、故障、恢复动作和未覆盖项。当前状态只同步到 [项目状态](docs/project-status.md)；详细证据放本次发布记录，不在 PRD 或本执行文档复制临时进度。

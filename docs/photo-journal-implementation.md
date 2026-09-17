@@ -1,6 +1,6 @@
 # 饭桌手记实现范围与接口约定
 
-用户已批准取消所有平台实况能力。当前规格统一静态照片；此前实况验证报告只作为历史证据。本轮分支 `codex/journal-static`，不部署、不改线上数据、不更改版本号。
+用户已批准取消所有平台实况能力。当前规格统一静态照片；此前实况验证报告只作为历史证据。开发、部署和验收状态统一见 [项目状态](project-status.md)，本文件仅维护实现约定。
 
 ## 使用与资源边界
 
@@ -32,7 +32,7 @@ UploadedAsset：`{id, kind:'image', original_name, original_size, sha256, width,
 
 JournalPhoto：`{id: image.id, image: UploadedAsset}`。Entry 保留 `id, entry_date, caption, created_at, updated_at, cover_upload_id, photos`。所有媒体路径统一拼接配置的 API base，支持 `/pantry-nook/` 子路径。
 
-旧本地实况 API 的 `live_kind/pair_identifier/video_url/motion/live_status` 字段退出当前契约；手记未上线，前后端按同一候选版本验证，不将旧前端指向新后端。
+旧本地实况 API 的 `live_kind/pair_identifier/video_url/motion/live_status` 字段不属于当前契约；前后端按同一候选版本验证，不将旧实验前端指向新后端。
 
 ## 验证
 

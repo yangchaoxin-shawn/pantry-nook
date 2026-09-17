@@ -1,26 +1,12 @@
-# Pantry Nook — 当前开发交接
+# Pantry Nook — 开发交接索引
 
-更新：2026-09-15。主负责人：ChatGPT / Codex。项目由 Claude Code CLI 迁入。
+本页只维护入口和交接方法；版本、发布状态、开发基线与下一步统一见 [项目状态](docs/project-status.md)。历史原型和旧分支不能代替当前基线。
 
-## 从这里继续
+1. 读取 [AGENTS.md](AGENTS.md)、[项目状态](docs/project-status.md) 和 [协作流程](docs/collaboration.md)。
+2. 根据交接给出的准确开发 ref，在实际目标目录运行 [基线检查](scripts/check-handoff.ps1)；核对实际 HEAD、干净状态和发布祖先关系。错误基线先纠正，不在旧分支上复制几份文档冒充同步。
+3. 按任务读取 [PRD](docs/PRD.md) 对应模块、实现代码、[API 契约](contracts/openapi.yaml) 与 [测试说明](backend/TESTING.md)，无需重读全部历史报告。
+4. 新会话返回实际工作区、HEAD、当前任务范围和未决项后，才算交接完成；收到排队 ID 不代表代码起点已核实。
 
-1. [AGENTS.md](AGENTS.md)：稳定项目约定与读取顺序。
-2. [项目状态](docs/project-status.md)：实现、验证、用户验收、当前授权及下一步。
-3. [PRD](docs/PRD.md)：当前 MVP 各模块唯一业务规格。
-4. [协作流程](docs/collaboration.md)：范围批准、增量验证、交付方式。
-5. 涉及实现时再读对应代码、[API 契约](contracts/openapi.yaml) 和 [测试说明](backend/TESTING.md)。
+已批准范围内的事实文档修正和必要收尾可直接完成。新产品取舍、版本/tag、部署与数据操作按实际授权处理；已有生产数据持久保护，本地自动化使用独立测试库。
 
-## 当前阶段
-
-用户已确认两轮 UI / UX 反馈，发布前门禁与公司服务器首次部署均已完成。线上使用 `/pantry-nook/` 子路径、项目级 Basic Auth、服务器本机 Nginx、Docker 后端与 PostgreSQL；首发为空库，此后线上数据按持久生产保护。首发后的静态资源 MIME、目录权限和 API 重写问题已修复，详见 [首次发布记录](docs/deployment-2026-09-15.md)。
-
-后续开发使用 mock/test 数据；自动化与演示写入只允许新的端口和带标记隔离测试库。正式环境禁止 seed/reset/删卷。首个 MVP 版本号已批准为 `1.0.0`，`v1.0.0` tag 要等准确 commit 的制品重新部署并通过线上核验。每次发布先运行 `scripts/preflight-release.ps1`，再按 [部署执行文档](DEPLOY-SERVER.md) 和 deploy-company-server skill 执行；发布后运行真实链路核验并更新状态。
-
-历史检查点 3893220、35f1dca 仅用于追溯；当前用户认可的 UI 检查点为 `8ff0ff3`，本地 MVP 候选代码检查点为 `bf17152`。最终状态以 [项目状态](docs/project-status.md) 为准。
-
-## 设计与历史
-
-WorkBuddy WB-V5-2026-09-09 / 设计系统 2.0 保留为视觉输入。
-[设计资料](docs/frontend-design-handoff.md) 说明原稿背景；业务范围由当前 PRD 决定。
-旧提案、审计和交付文档的分类见 [项目状态](docs/project-status.md)，不再要求每次任务全部重读。
-启动使用 [README](README.md)，Git 使用 [约定](docs/git.md)，部署以 [DEPLOY-SERVER.md](DEPLOY-SERVER.md) 为唯一执行口径。
+设计先继承当前产品公共组件与交互；历史视觉材料见 [设计输入](docs/frontend-design-handoff.md)。本地启动见 [README](README.md)，提交见 [Git 约定](docs/git.md)，公司服务器操作见 [部署入口](DEPLOY.md)。
