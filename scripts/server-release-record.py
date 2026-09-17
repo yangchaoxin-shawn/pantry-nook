@@ -10,7 +10,7 @@ from pathlib import Path
 import re
 
 
-REQUIRED_KEYS = (
+REQUIRED_KEYS_V1 = (
     "record_version",
     "status",
     "release_id",
@@ -34,6 +34,16 @@ REQUIRED_KEYS = (
     "verified_at_utc",
 )
 
+REQUIRED_KEYS_V2 = (
+    *REQUIRED_KEYS_V1[:12],
+    "media_volume",
+    "media_backup",
+    "media_backup_sha256",
+    "media_manifest",
+    "media_manifest_sha256",
+    *REQUIRED_KEYS_V1[12:],
+)
+
 
 def now_utc() -> str:
     return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
@@ -48,13 +58,17 @@ def sha256(path: Path) -> str:
 
 
 def assert_value(value: str, label: str) -> str:
-    if not value or "\n" in value or "\r" in value or "=" in label:
+    if not value or "\n" in value or "\r" in value or "=" in value or "=" in label:
         raise ValueError(f"invalid {label}")
     return value
 
 
 def write_record(path: Path, values: dict[str, str]) -> None:
-    if tuple(values) != REQUIRED_KEYS:
+    version = values.get("record_version")
+    if version not in {"1", "2"}:
+        raise ValueError("unsupported release record version")
+    expected = REQUIRED_KEYS_V2 if version == "2" else REQUIRED_KEYS_V1
+    if tuple(values) != expected:
         raise ValueError("release record schema mismatch")
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary = path.with_suffix(path.suffix + ".tmp")
@@ -70,7 +84,11 @@ def read_record(path: Path) -> dict[str, str]:
         if not separator or key in values:
             raise ValueError("invalid release record line")
         values[key] = value
-    if tuple(values) != REQUIRED_KEYS:
+    version = values.get("record_version")
+    if version not in {"1", "2"}:
+        raise ValueError("unsupported release record version")
+    expected = REQUIRED_KEYS_V2 if version == "2" else REQUIRED_KEYS_V1
+    if tuple(values) != expected:
         raise ValueError("release record schema mismatch")
     return values
 
@@ -88,8 +106,19 @@ def prepare(args: argparse.Namespace) -> None:
     expected_backup_sha = Path(args.database_backup_sha_file).read_text(encoding="utf-8").split()[0]
     if not re.fullmatch(r"[0-9a-f]{64}", expected_backup_sha) or sha256(backup) != expected_backup_sha:
         raise ValueError("database backup SHA256 mismatch")
+    media_volume = assert_value(args.media_volume, "media_volume")
+    if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,254}", media_volume):
+        raise ValueError("invalid media volume")
+    media_backup = Path(args.media_backup).resolve()
+    expected_media_backup_sha = Path(args.media_backup_sha_file).read_text(encoding="utf-8").split()[0]
+    if not re.fullmatch(r"[0-9a-f]{64}", expected_media_backup_sha) or sha256(media_backup) != expected_media_backup_sha:
+        raise ValueError("media backup SHA256 mismatch")
+    media_manifest = Path(args.media_manifest).resolve()
+    expected_media_manifest_sha = Path(args.media_manifest_sha_file).read_text(encoding="utf-8").split()[0]
+    if not re.fullmatch(r"[0-9a-f]{64}", expected_media_manifest_sha) or sha256(media_manifest) != expected_media_manifest_sha:
+        raise ValueError("media manifest SHA256 mismatch")
     values = {
-        "record_version": "1",
+        "record_version": "2",
         "status": "prepared",
         "release_id": release_id,
         "version": manifest["version"],
@@ -101,6 +130,11 @@ def prepare(args: argparse.Namespace) -> None:
         "backend_image_artifact_sha256": artifacts["backend_image"]["sha256"],
         "database_backup": str(backup),
         "database_backup_sha256": expected_backup_sha,
+        "media_volume": media_volume,
+        "media_backup": str(media_backup),
+        "media_backup_sha256": expected_media_backup_sha,
+        "media_manifest": str(media_manifest),
+        "media_manifest_sha256": expected_media_manifest_sha,
         "backend_backup": args.backend_backup,
         "frontend_backup": args.frontend_backup,
         "nginx_backup": args.nginx_backup,
@@ -135,6 +169,8 @@ def parser() -> argparse.ArgumentParser:
     create = commands.add_parser("prepare")
     for name in (
         "manifest", "record", "database_backup", "database_backup_sha_file",
+        "media_volume", "media_backup", "media_backup_sha_file",
+        "media_manifest", "media_manifest_sha_file",
         "backend_backup", "frontend_backup", "nginx_backup",
         "migrations_before", "migrations_after",
     ):

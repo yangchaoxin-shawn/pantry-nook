@@ -25,7 +25,7 @@
 pwsh ./scripts/preflight-release.ps1
 ```
 
-脚本必须完整通过：版本一致、测试专用空库、Docker 后端、生产前端构建、临时 Nginx、Basic Auth、SPA、真实哈希 CSS/JavaScript/字体正文与 MIME、六个真实列表 API、CORS 和错误路由。默认结束时会核实测试容器与测试数据库卷已经删除。
+脚本必须完整通过：版本一致、测试专用空库、Docker 后端、生产前端构建、临时 Nginx、Basic Auth、SPA、真实哈希 CSS/JavaScript/字体和手记分包正文与 MIME、七个真实列表 API、CORS、错误路由，以及超过 1 MiB 的照片上传、媒体鉴权、GET/HEAD/Range、伪装视频拒绝和后端重启后的媒体卷持久化。默认结束时会核实测试容器、测试数据库卷与测试媒体卷已经删除。
 
 ## 2. 生成发布包
 
@@ -67,7 +67,7 @@ test -f "/tmp/pantry-nook-release-${RELEASE_ID}.json"
 ```bash
 test -f /data/pantry-nook/.env
 stat -c '%a %U:%G %n' /data/pantry-nook/.env
-for key in DB_PASSWORD FRONTEND_ORIGIN; do
+for key in DB_PASSWORD FRONTEND_ORIGIN PANTRY_MEDIA_VOLUME_NAME; do
   grep -q "^${key}=" /data/pantry-nook/.env || { echo "缺少 ${key}" >&2; exit 1; }
 done
 chmod 600 /data/pantry-nook/.env
@@ -75,7 +75,7 @@ cd /data/pantry-nook
 docker compose --env-file .env -f docker-compose.yml config --quiet
 ```
 
-首次部署尚无该文件时，先创建 `/data/pantry-nook/.env` 并设置 `chmod 600`；后续发布必须复用当前文件，不能从本机覆盖。
+首次部署尚无该文件时，先创建 `/data/pantry-nook/.env` 并设置 `chmod 600`；后续发布必须复用当前文件，不能从本机覆盖。媒体功能首次发布前，在服务器 `.env` 明确设置 `PANTRY_MEDIA_VOLUME_NAME=pantry-media-data`；后续不得改名或改为匿名卷。
 
 Basic Auth 文件只含一个生效用户。普通代码发布不得重建或重置已有密码；仅在文件不存在的首次部署创建。Nginx worker 必须实际可读：
 
@@ -96,7 +96,7 @@ sudo runuser -u "${NGINX_USER}" -- test -r "${AUTH_FILE}"
 
 换密是单独操作，读取本地秘密记录中的用户名并使用交互式 `htpasswd /usr/local/nginx/.pantry-nook.htpasswd <用户名>`，不要把新密码写进命令历史。
 
-新后端启动会自动执行 additive migration，因此必须先在当前运行容器上记录 migration 并生成可读取的 PostgreSQL custom-format 备份。备份放在不会随代码目录切换的 shared 路径中：
+新后端启动会自动执行 additive migration。媒体版本必须先进入维护窗口并停止后端写入，再在同一个停写时点生成 PostgreSQL custom-format 备份、媒体卷归档和逐文件清单。首个媒体版本即使旧容器尚未挂载 `/data/media`，也要创建并记录固定空卷，禁止省略媒体备份字段。
 
 ```bash
 set -euo pipefail
@@ -104,9 +104,37 @@ RELEASE_ID=填入本机生成的releaseId
 BACKUP_ROOT=/data/pantry-nook-shared/backups
 RECORD_DIR="/data/pantry-nook-shared/releases/${RELEASE_ID}"
 DB_BACKUP="${BACKUP_ROOT}/pantry_nook-${RELEASE_ID}.dump"
+MEDIA_BACKUP="${BACKUP_ROOT}/pantry-media-${RELEASE_ID}.tar.gz"
+MEDIA_MANIFEST="${RECORD_DIR}/media-manifest.tsv"
 test ! -e "${DB_BACKUP}" && test ! -e "${RECORD_DIR}"
 install -d -m 700 "${BACKUP_ROOT}" "${RECORD_DIR}"
 cd /data/pantry-nook
+MEDIA_VOLUME=$(sed -n 's/^PANTRY_MEDIA_VOLUME_NAME=//p' .env | tail -1)
+[[ "${MEDIA_VOLUME}" =~ ^[A-Za-z0-9][A-Za-z0-9_.-]{0,254}$ ]] || { echo '媒体卷名无效' >&2; exit 1; }
+CURRENT_MEDIA_MOUNT=$(docker inspect pantry-backend --format '{{range .Mounts}}{{if eq .Destination "/data/media"}}{{printf "%s|%s" .Type .Name}}{{end}}{{end}}' 2>/dev/null || true)
+if [ -n "${CURRENT_MEDIA_MOUNT}" ]; then
+  CURRENT_MEDIA_TYPE=${CURRENT_MEDIA_MOUNT%%|*}
+  CURRENT_MEDIA_VOLUME=${CURRENT_MEDIA_MOUNT#*|}
+  test "${CURRENT_MEDIA_TYPE}" = volume || { echo '/data/media 不是命名卷，拒绝把 bind mount 当作空卷' >&2; exit 1; }
+  test "${CURRENT_MEDIA_VOLUME}" = "${MEDIA_VOLUME}"
+fi
+docker volume inspect "${MEDIA_VOLUME}" >/dev/null 2>&1 || docker volume create "${MEDIA_VOLUME}" >/dev/null
+docker volume inspect "${MEDIA_VOLUME}" >/dev/null
+CURRENT_BACKEND_IMAGE=$(docker inspect pantry-backend --format '{{.Image}}')
+[[ "${CURRENT_BACKEND_IMAGE}" =~ ^sha256:[0-9a-f]{64}$ ]]
+restart_old_backend() { docker compose --env-file .env -f docker-compose.yml start pantry-backend >/dev/null 2>&1 || true; }
+trap 'restart_old_backend' ERR
+trap 'restart_old_backend; exit 130' INT
+trap 'restart_old_backend; exit 143' TERM
+# SIGTERM 后立即停止接收新请求，并给进行中的上传最多 180 秒完成 finally 与数据库状态收尾。
+docker compose --env-file .env -f docker-compose.yml stop -t 180 pantry-backend
+HAS_JOURNAL=$(docker compose --env-file .env -f docker-compose.yml exec -T pantry-db \
+  psql -U postgres -d pantry_nook -Atc "select to_regclass('public.journal_uploads') is not null")
+if [ "${HAS_JOURNAL}" = t ]; then
+  PROCESSING_UPLOADS=$(docker compose --env-file .env -f docker-compose.yml exec -T pantry-db \
+    psql -U postgres -d pantry_nook -Atc "select count(*) from journal_uploads where status='processing'")
+  test "${PROCESSING_UPLOADS}" = 0 || { echo '仍有 processing 上传，拒绝备份' >&2; exit 1; }
+fi
 docker compose --env-file .env -f docker-compose.yml exec -T pantry-db \
   psql -U postgres -d pantry_nook -Atc "select concat_ws(chr(9), version, checksum, applied_at::text) from schema_migrations order by version" \
   > "${RECORD_DIR}/migrations-before.tsv"
@@ -114,10 +142,45 @@ docker compose --env-file .env -f docker-compose.yml exec -T pantry-db \
   pg_dump -U postgres -d pantry_nook -Fc > "${DB_BACKUP}"
 docker compose --env-file .env -f docker-compose.yml exec -T pantry-db \
   pg_restore --list < "${DB_BACKUP}" > "${RECORD_DIR}/db-backup-list.txt"
-test -s "${DB_BACKUP}" && test -s "${RECORD_DIR}/db-backup-list.txt"
-chmod 600 "${DB_BACKUP}" "${RECORD_DIR}/migrations-before.tsv" "${RECORD_DIR}/db-backup-list.txt"
+docker run --rm --entrypoint python \
+  -e RELEASE_ID="${RELEASE_ID}" \
+  -v "${MEDIA_VOLUME}:/source:ro" \
+  -v "/data/pantry-nook-shared:/shared" \
+  "${CURRENT_BACKEND_IMAGE}" -c '
+import hashlib, os, pathlib, tarfile
+release = os.environ["RELEASE_ID"]
+root = pathlib.Path("/source")
+backup = pathlib.Path("/shared/backups") / f"pantry-media-{release}.tar.gz"
+manifest = pathlib.Path("/shared/releases") / release / "media-manifest.tsv"
+rows = []
+def digest(path):
+    value = hashlib.sha256()
+    with path.open("rb") as stream:
+        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+            value.update(chunk)
+    return value.hexdigest()
+staging = root / "staging"
+if staging.exists() and any(staging.iterdir()):
+    raise SystemExit("媒体 staging 仍有内容，拒绝备份")
+for item in sorted(root.rglob("*")):
+    if item.is_symlink():
+        raise SystemExit("媒体卷含软链接，拒绝备份")
+    if item.is_file():
+        rows.append(f"{item.relative_to(root).as_posix()}\t{item.stat().st_size}\t{digest(item)}")
+manifest.write_text("\n".join(rows) + ("\n" if rows else ""), encoding="utf-8")
+with tarfile.open(backup, "w:gz") as archive:
+    archive.add(root, arcname=".", recursive=True)
+'
+test -s "${DB_BACKUP}" && test -s "${RECORD_DIR}/db-backup-list.txt" && test -s "${MEDIA_BACKUP}" && test -f "${MEDIA_MANIFEST}"
+chmod 600 "${DB_BACKUP}" "${MEDIA_BACKUP}" "${MEDIA_MANIFEST}" "${RECORD_DIR}/migrations-before.tsv" "${RECORD_DIR}/db-backup-list.txt"
 sha256sum "${DB_BACKUP}" | tee "${RECORD_DIR}/db-backup.sha256"
+sha256sum "${MEDIA_BACKUP}" | tee "${RECORD_DIR}/media-backup.sha256"
+sha256sum "${MEDIA_MANIFEST}" | tee "${RECORD_DIR}/media-manifest.sha256"
+tar -tzf "${MEDIA_BACKUP}" >/dev/null
+trap - ERR INT TERM
 ```
+
+从停止后端开始到新版本完成部署前，保持维护窗口，不恢复写入。若后续任一步骤失败或主动中止，先在 `/data/pantry-nook` 执行 `docker compose --env-file .env -f docker-compose.yml start pantry-backend` 恢复旧服务，再排查；不要在备份后恢复旧服务并继续接收新写入，否则数据库与媒体备份不再代表切换时点。
 
 数据库备份验证通过后，再备份 Nginx 配置。以下命令必须在同一个 shell 中运行：
 
@@ -213,11 +276,18 @@ test -f "${BACKEND_DIR}/.env"
 cp -a "${BACKEND_DIR}/.env" "${BACKEND_STAGE}/.env"
 
 DB_BACKUP="/data/pantry-nook-shared/backups/pantry_nook-${RELEASE_ID}.dump"
+MEDIA_VOLUME=$(sed -n 's/^PANTRY_MEDIA_VOLUME_NAME=//p' "${BACKEND_STAGE}/.env" | tail -1)
+MEDIA_BACKUP="/data/pantry-nook-shared/backups/pantry-media-${RELEASE_ID}.tar.gz"
 python3 "${BACKEND_STAGE}/scripts/server-release-record.py" prepare \
   --manifest "${MANIFEST}" \
   --record "${RECORD_DIR}/deployed-release.txt" \
   --database-backup "${DB_BACKUP}" \
   --database-backup-sha-file "${RECORD_DIR}/db-backup.sha256" \
+  --media-volume "${MEDIA_VOLUME}" \
+  --media-backup "${MEDIA_BACKUP}" \
+  --media-backup-sha-file "${RECORD_DIR}/media-backup.sha256" \
+  --media-manifest "${RECORD_DIR}/media-manifest.tsv" \
+  --media-manifest-sha-file "${RECORD_DIR}/media-manifest.sha256" \
   --backend-backup "${BACKEND_BACKUP}" \
   --frontend-backup "${FRONTEND_BACKUP}" \
   --nginx-backup "${NGINX_BACKUP}" \
@@ -280,9 +350,9 @@ cp -a "${RECORD_DIR}/deployed-release.txt" /data/pantry-nook/DEPLOYED_RELEASE.tx
 grep -q '^status=verified$' /data/pantry-nook/DEPLOYED_RELEASE.txt
 ```
 
-记录固定包含完整 commit、版本、`RELEASE_ID`、三个包 SHA256、镜像 tag/ID、数据库备份路径及 SHA256、后端/前端/Nginx 备份路径、migration 前后文件及三个阶段时间，且不包含密码或 `.env` 内容。
+记录固定包含完整 commit、版本、`RELEASE_ID`、三个包 SHA256、镜像 tag/ID、数据库备份路径及 SHA256、媒体卷名、媒体归档与逐文件清单及各自 SHA256、后端/前端/Nginx 备份路径、migration 前后文件及三个阶段时间，且不包含密码或 `.env` 内容。
 
-数据库 dump 只作为灾难恢复输入，普通代码回滚不恢复数据库。需要恢复时另开已授权任务，先恢复到新数据库或新卷并核验，再决定切换；禁止直接对当前生产库执行 `pg_restore --clean`。
+数据库 dump 与同一时点媒体归档只作为灾难恢复输入，普通代码回滚不恢复数据库，也不删除、重建或覆盖媒体卷。需要恢复时另开已授权任务，把两者恢复到新数据库和新媒体卷并联合核验后再决定切换；禁止直接对当前生产库执行 `pg_restore --clean`。
 
 ## 6. Nginx 项目块
 
@@ -300,6 +370,7 @@ location ^~ /pantry-nook/api/ {
     proxy_pass http://127.0.0.1:8014;
     proxy_http_version 1.1;
     client_max_body_size 52m;
+    proxy_connect_timeout 15s;
     proxy_read_timeout 180s;
     proxy_send_timeout 180s;
     proxy_set_header Host $host;
@@ -345,25 +416,25 @@ diff "${NGINX_BACKUP}" "${NGINX_CONF}" || [ "$?" -eq 1 ]
 2. 登录后首页和 SPA 子路由返回 Pantry Nook HTML。
 3. 从当前首页提取真实哈希 CSS、JavaScript；正文不是 HTML，MIME 正确。
 4. CSS 引用的真实字体返回非空正文和 `font/woff2`；不存在的静态资源返回 404。
-5. ingredients、dishes、meal-plans、consumptions、inventory-adjustments、daily-battles 返回 JSON 200 和 `data`；首发空库时全部为空。
-6. 不存在的 API 返回后端 JSON 404 与 `ROUTE_NOT_FOUND`。
-7. 服务器宿主机 `curl http://127.0.0.1:8014/health` 返回 JSON 200；公网不提供健康入口。
-8. `docker compose ps` 中后端和数据库健康，日志没有持续异常。
-9. `namei -l` 和以 Nginx worker 身份读取 Basic Auth 文件及实际 CSS/JS/字体均成功。
-10. 浏览器 Network 无异常 4xx/5xx，控制台无资源 MIME 或业务 API 404。
+5. ingredients、dishes、meal-plans、consumptions、inventory-adjustments、daily-battles、journal/entries 返回 JSON 200 和 `data`；只有经确认的首次空库才要求为空。
+6. 使用超过 1 MiB 的真实照片经公网 Nginx 上传；原图、预览、缩略图的匿名 GET/HEAD/Range 均为 401，登录后 MIME、正文、HEAD 和原图 206 正确，原图回读 SHA256 与本机一致；随后删除本轮未绑定上传并确认 404。
+7. 不存在的 API 返回后端 JSON 404 与 `ROUTE_NOT_FOUND`。
+8. 服务器宿主机 `curl http://127.0.0.1:8014/health` 返回 JSON 200；公网不提供健康入口。
+9. `docker compose ps` 中后端和数据库健康；后端实际挂载记录中的固定媒体卷，重启后新照片仍可读取，日志没有持续异常。
+10. `namei -l` 和以 Nginx worker 身份读取 Basic Auth 文件及实际 CSS/JS/字体均成功；浏览器 Network 无异常 4xx/5xx，控制台无资源 MIME 或业务 API 404。
 
 本机公网 HTTP 核验：
 
 ```powershell
 $credential = Get-Credential -UserName <读取本地秘密记录中的用户名>
-& ./scripts/verify-deployment.ps1 -Credential $credential -ExpectEmpty
+& ./scripts/verify-deployment.ps1 -Credential $credential -JournalSamplePath ./frontend/src/assets/journal/table-memories.png
 ```
 
-首次发布或本次明确要求空库时使用 `-ExpectEmpty`；用户已经开始录入数据后的普通升级必须省略该参数。该脚本只证明公网 HTTP 链路；服务器容器、`/health`、Linux 权限和日志仍须人工核对并记录。
+只有经确认的首次空库才追加 `-ExpectEmpty`；用户已经开始录入数据后的普通升级必须省略该参数。`-JournalSamplePath` 会创建一份未绑定上传并在验证后删除，不创建手记；失败时必须核对清理结果。该脚本只证明公网 HTTP 链路；服务器容器、`/health`、Linux 权限、媒体卷和日志仍须人工核对并记录。
 
 ## 8. 回滚与记录
 
-从 `/data/pantry-nook-shared/releases/<失败 release id>/deployed-release.txt` 选择要撤销的准确 release；该记录在目录切换前已经建立，不依赖新服务成功。核对固定字段后执行，禁止使用通配符：
+从 `/data/pantry-nook-shared/releases/<失败 release id>/deployed-release.txt` 选择要撤销的准确 release；该记录在目录切换前已经建立，不依赖新服务成功。以下回滚段适用于含 `media_volume` 的 v2 发布记录；旧 v1 发布记录继续按对应历史发布文档处理。核对固定字段后执行，禁止使用通配符：
 
 ```bash
 set -euo pipefail
@@ -380,6 +451,7 @@ grep -Eq '^status=(deploying|verified)$' "${CURRENT_RECORD}"
 BACKEND_BACKUP="/data/pantry-nook.bak.${TARGET_RELEASE_ID}"
 FRONTEND_BACKUP="/usr/local/nginx/html/pantry-nook.bak.${TARGET_RELEASE_ID}"
 NGINX_BACKUP="/usr/local/nginx/cert.d/preview.conf.bak.${TARGET_RELEASE_ID}"
+MEDIA_VOLUME=$(awk -F= '$1=="media_volume" {print $2}' "${CURRENT_RECORD}")
 FAILED_BACKEND="/data/pantry-nook.failed.${ROLLBACK_ID}"
 FAILED_FRONTEND="/usr/local/nginx/html/pantry-nook.failed.${ROLLBACK_ID}"
 FAILED_NGINX="/usr/local/nginx/cert.d/preview.conf.failed.${ROLLBACK_ID}"
@@ -387,6 +459,8 @@ FAILED_NGINX="/usr/local/nginx/cert.d/preview.conf.failed.${ROLLBACK_ID}"
 test "$(awk -F= '$1=="backend_backup" {print $2}' "${CURRENT_RECORD}")" = "${BACKEND_BACKUP}"
 test "$(awk -F= '$1=="frontend_backup" {print $2}' "${CURRENT_RECORD}")" = "${FRONTEND_BACKUP}"
 test "$(awk -F= '$1=="nginx_backup" {print $2}' "${CURRENT_RECORD}")" = "${NGINX_BACKUP}"
+[[ "${MEDIA_VOLUME}" =~ ^[A-Za-z0-9][A-Za-z0-9_.-]{0,254}$ ]]
+docker volume inspect "${MEDIA_VOLUME}" >/dev/null
 
 test -d "${BACKEND_BACKUP}" && test -d "${FRONTEND_BACKUP}" && test -f "${NGINX_BACKUP}"
 test ! -e "${FAILED_BACKEND}" && test ! -e "${FAILED_FRONTEND}" && test ! -e "${FAILED_NGINX}"
@@ -417,10 +491,11 @@ else
 fi
 /usr/local/nginx/sbin/nginx -t
 /usr/local/nginx/sbin/nginx -s reload
+docker volume inspect "${MEDIA_VOLUME}" >/dev/null
 ```
 
 回滚后执行全部发布后验证，并记录 `FAILED_BACKEND`、`FAILED_FRONTEND`、`FAILED_NGINX` 以便审计。
 
 - 回滚仍必须保留项目级 Basic Auth，不得通过移除鉴权恢复页面。
-- 数据库卷不随普通代码回滚删除；持久生产卷不得在部署流程中删除。只有经证明为 disposable demo/test 的卷，才可在单独数据维护任务中精确处理。
-- 每次发布记录 `RELEASE_ID`、Git 状态/提交、三个制品 SHA256、数据库备份及三个代码/配置备份路径、验证结果、故障与未覆盖项。
+- 数据库卷与媒体卷都不随普通代码回滚删除；持久生产卷不得在部署流程中删除。只有经证明为 disposable demo/test 的卷，才可在单独数据维护任务中精确处理。
+- 每次发布记录 `RELEASE_ID`、Git 状态/提交、三个制品 SHA256、数据库与媒体同点备份及清单、三个代码/配置备份路径、验证结果、故障与未覆盖项。

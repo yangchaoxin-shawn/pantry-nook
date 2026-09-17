@@ -115,9 +115,9 @@ try {
   Wait-DockerDaemon
 
   if ($CleanupOnly) {
-    Write-Host '[清理] 删除测试专用容器与数据库卷'
+    Write-Host '[清理] 删除测试专用容器、数据库卷与媒体卷'
     Remove-TestStack
-    Write-Host '已核实测试专用容器与数据库卷均不存在。'
+    Write-Host '已核实测试专用容器、数据库卷与媒体卷均不存在。'
     return
   }
 
