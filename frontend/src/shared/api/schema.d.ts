@@ -1823,6 +1823,8 @@ export interface operations {
                 offset?: number;
                 status?: "active" | "reversed";
                 reason?: "used" | "spoiled" | "damaged" | "other";
+                /** @description 记录大类：日常用掉或变质/损坏处理。 */
+                kind?: "used" | "waste";
             };
             header?: never;
             path?: never;

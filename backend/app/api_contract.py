@@ -273,7 +273,7 @@ def install_openapi(app: FastAPI) -> None:
     ]
     list_queries = {
         "/api/ingredients": [*PAGINATION, SEARCH, query("category", CATEGORY), query("location", LOCATION)],
-        "/api/inventory-adjustments": [*PAGINATION, query("status", ADJUSTMENT_STATUS), query("reason", {"type": "string", "enum": ["used", "spoiled", "damaged", "other"]})],
+        "/api/inventory-adjustments": [*PAGINATION, query("status", ADJUSTMENT_STATUS), query("reason", {"type": "string", "enum": ["used", "spoiled", "damaged", "other"]}), query("kind", {"type": "string", "enum": ["used", "waste"]}, "记录大类：日常用掉或变质/损坏处理。")],
         "/api/dishes": [*PAGINATION, SEARCH],
         "/api/meal-plans": PAGINATION,
         "/api/daily-battles": [*PAGINATION, *DATE_RANGE, query("status", BATTLE_STATUS), query('meal_slot', MEAL_SLOT)],

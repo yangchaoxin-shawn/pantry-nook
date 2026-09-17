@@ -340,6 +340,15 @@ def scenario_waste_recovery(
     expect(row).to_contain_text("3个")
     row.get_by_role("button", name=re.compile(f"^查看{re.escape(ingredient_name)}")).click()
     dialog = page.get_by_role("dialog")
+    dialog.get_by_role("button", name="用掉了", exact=True).click()
+    expect(dialog.get_by_role("heading", name=f"用掉了 · {ingredient_name}")).to_be_visible()
+    dialog.get_by_role("spinbutton", name="这次用掉（个）", exact=True).fill("1")
+    target.assert_live()
+    dialog.get_by_role("button", name="确认用掉", exact=True).click()
+    expect(dialog).to_be_hidden()
+    expect(row).to_contain_text("2个")
+
+    row.get_by_role("button", name=re.compile(f"^查看{re.escape(ingredient_name)}")).click()
     dialog.get_by_role("button", name="处理变质/损坏", exact=True).click()
     expect(dialog.get_by_role("heading", name=f"处理变质/损坏 · {ingredient_name}")).to_be_visible()
     dialog.get_by_role("button", name="处理部分", exact=True).click()
@@ -347,15 +356,38 @@ def scenario_waste_recovery(
     target.assert_live()
     dialog.get_by_role("button", name="确认处理", exact=True).click()
     expect(dialog).to_be_hidden()
-    expect(row).to_contain_text("2个")
+    expect(row).to_contain_text("1个")
 
-    page.get_by_role("button", name="变质 / 损坏记录", exact=True).click()
+    page.get_by_role("button", name="消耗与处理记录", exact=True).click()
+    used_tab = page.get_by_role("button", name=re.compile(r"^日常用掉记录"))
+    waste_tab = page.get_by_role("button", name=re.compile(r"^变质 \/ 损坏记录"))
+    expect(used_tab).to_have_attribute("aria-pressed", "true")
+    expect(page).to_have_url(re.compile(r"[?&]adjustment=used(?:&|$)"))
+    used_record = page.locator("article", has_text=ingredient_name).filter(
+        has_text="本次用掉1个"
+    )
+    expect(used_record).to_be_visible()
+    expect(page.locator("article", has_text="本次处理1个")).to_have_count(0)
+
+    waste_tab.click()
+    expect(waste_tab).to_have_attribute("aria-pressed", "true")
+    expect(page).to_have_url(re.compile(r"[?&]adjustment=waste(?:&|$)"))
     record = page.locator("article", has_text=ingredient_name).filter(
         has=page.get_by_role("button", name=re.compile(f"^撤销{re.escape(ingredient_name)}"))
     )
     expect(record).to_be_visible()
     expect(record).to_contain_text("本次处理1个")
+    expect(page.locator("article", has_text="本次用掉1个")).to_have_count(0)
     expect(record).not_to_contain_text("→")
+
+    page.reload(wait_until="networkidle")
+    waste_tab = page.get_by_role("button", name=re.compile(r"^变质 \/ 损坏记录"))
+    expect(waste_tab).to_have_attribute("aria-pressed", "true")
+    expect(page.locator("article", has_text=ingredient_name).filter(has_text="本次处理1个")).to_be_visible()
+
+    record = page.locator("article", has_text=ingredient_name).filter(
+        has=page.get_by_role("button", name=re.compile(f"^撤销{re.escape(ingredient_name)}"))
+    )
     record.get_by_role("button", name=re.compile(f"^撤销{re.escape(ingredient_name)}")).click()
     recovery = page.get_by_role("dialog")
     expect(recovery.get_by_role("heading", name="核对恢复库存", exact=True)).to_be_visible()
@@ -364,8 +396,15 @@ def scenario_waste_recovery(
     recovery.get_by_role("button", name="确认撤销", exact=True).click()
     expect(recovery).to_be_hidden()
 
+    used_tab = page.get_by_role("button", name=re.compile(r"^日常用掉记录"))
+    used_tab.click()
+    used_record = page.locator("article", has_text=ingredient_name).filter(
+        has=page.get_by_role("button", name=re.compile(f"^撤销{re.escape(ingredient_name)}"))
+    )
+    expect(used_record).to_contain_text("本次用掉1个")
+
     page.get_by_role("button", name="返回库存", exact=True).click()
-    expect(row).to_contain_text("3个")
+    expect(row).to_contain_text("2个")
     adjustments = [
         item
         for item in target.list_all("/api/inventory-adjustments")
@@ -376,9 +415,10 @@ def scenario_waste_recovery(
         for item in target.list_all("/api/ingredients")
         if item["name"] == ingredient_name
     ]
-    if len(adjustments) != 1 or adjustments[0]["status"] != "reversed":
-        raise AssertionError("撤销处理后，库存处理记录没有进入已撤销状态")
-    if len(refreshed) != 1 or refreshed[0]["stock_value"] != 3:
+    statuses = {item["reason"]: item["status"] for item in adjustments}
+    if len(adjustments) != 2 or statuses.get("used") != "active" or statuses.get("spoiled") != "reversed":
+        raise AssertionError("两类记录没有各自保留正确的撤销状态")
+    if len(refreshed) != 1 or refreshed[0]["stock_value"] != 2:
         raise AssertionError("撤销处理后，库存数量没有恢复")
     assert_no_horizontal_overflow(page, "手机库存处理与撤销页")
 
@@ -444,7 +484,7 @@ def run_browser(browser: Browser, target: SafeTestTarget, timeout_ms: int) -> No
         if restocked is None:
             raise AssertionError("补货确认场景没有返回库存记录")
         run_check(
-            "确认扣减、处理变质并安全撤销",
+            "日常用掉与报废记录分流、刷新保留并安全撤销",
             lambda: scenario_waste_recovery(page, target, restocked),
             results,
         )

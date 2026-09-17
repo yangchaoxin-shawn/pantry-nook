@@ -199,6 +199,20 @@ describe('写入结果与库存原文', () => {
     expect(JSON.parse(String(init?.body))).toEqual(payload)
   })
 
+  it('消耗与处理记录按页签类型分别查询', async () => {
+    const firstPage = Array.from({ length: 100 }, (_, index) => ({ id: index + 1, reason: 'used' }))
+    fetchMock.mockResolvedValueOnce(json({ data: firstPage, meta: { total: 101, limit: 100, offset: 0 } }))
+    fetchMock.mockResolvedValueOnce(json({ data: [{ id: 101, reason: 'used' }], meta: { total: 101, limit: 100, offset: 100 } }))
+    const used = await api.inventoryAdjustments('used')
+    expect(used).toHaveLength(101)
+    expect(String(fetchMock.mock.calls[0][0])).toContain('/api/inventory-adjustments?kind=used&limit=100&offset=0')
+    expect(String(fetchMock.mock.calls[1][0])).toContain('/api/inventory-adjustments?kind=used&limit=100&offset=100')
+
+    fetchMock.mockResolvedValueOnce(json({ data: [{ id: 9, reason: 'damaged' }], meta: { total: 1, limit: 100, offset: 0 } }))
+    await api.inventoryAdjustments('waste')
+    expect(String(fetchMock.mock.calls[2][0])).toContain('/api/inventory-adjustments?kind=waste&limit=100&offset=0')
+  })
+
   it('只改名称的 PATCH 不携带余量，避免覆盖另一设备确认后的库存', async () => {
     fetchMock.mockResolvedValueOnce(json({ data: { id: 3, name: '新名称', stock_text: '两份' } }))
     await api.saveIngredient(3, { name: '新名称', expected_updated_at: '2026-09-12T00:00:00Z' })

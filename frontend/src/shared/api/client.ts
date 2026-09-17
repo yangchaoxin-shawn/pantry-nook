@@ -10,6 +10,7 @@ export type IngredientCreate = components["schemas"]["IngredientCreate"];
 export type IngredientUpdate = components["schemas"]["IngredientUpdate"];
 export type InventoryAdjustment = components["schemas"]["InventoryAdjustment"];
 export type InventoryAdjustmentRecord = components["schemas"]["InventoryAdjustmentRecord"];
+export type InventoryAdjustmentKind = "used" | "waste";
 export type RecoveryPreview = components['schemas']['RecoveryPreview'];
 export type RecoveryRequest = components['schemas']['RecoveryRequest'];
 export type IngredientUnitResolution = { ingredient_id: number; unit: string };
@@ -142,7 +143,8 @@ export const api = {
   useIngredient: (id: number, payload: components["schemas"]["InventoryUse"]) =>
     request<{ inventory: Ingredient; adjustment: InventoryAdjustment }>(`/api/ingredients/${id}/use`, "POST", payload),
   ingredientAdjustments: (id: number) => request<InventoryAdjustment[]>(`/api/ingredients/${id}/adjustments`),
-  inventoryAdjustments: (s?: AbortSignal) => list<InventoryAdjustmentRecord>("/api/inventory-adjustments", s),
+  inventoryAdjustments: (kind: InventoryAdjustmentKind, s?: AbortSignal) =>
+    list<InventoryAdjustmentRecord>(`/api/inventory-adjustments?kind=${kind}`, s),
   revokeAdjustment: (id: number) => request<{ inventory: Ingredient; adjustment: InventoryAdjustment }>(`/api/ingredients/adjustments/${id}/revoke`, "POST"),
   saveDish: (id: number | undefined, name: string, expected_updated_at?: string) =>
     request<Dish>(`/api/dishes${id ? `/${id}` : ""}`, id ? "PATCH" : "POST", {

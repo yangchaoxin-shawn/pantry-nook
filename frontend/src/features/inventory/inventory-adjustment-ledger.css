@@ -5,6 +5,75 @@
   min-width: 0;
 }
 
+.pn-adjustment-kind-tabs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.pn-adjustment-kind-tabs button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  min-width: 0;
+  min-height: 76px;
+  padding: 14px 18px;
+  border: 1px solid var(--hairline);
+  border-radius: 6px 20px 7px 14px;
+  color: var(--ink-soft);
+  background: color-mix(in srgb, var(--surface) 80%, transparent);
+  box-shadow: none;
+  text-align: left;
+}
+
+.pn-adjustment-kind-tabs button:hover {
+  border-color: color-mix(in srgb, var(--primary) 52%, var(--hairline));
+  color: var(--ink);
+}
+
+.pn-adjustment-kind-tabs button.active {
+  border-color: color-mix(in srgb, var(--primary) 65%, var(--hairline));
+  color: var(--ink);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+.pn-adjustment-kind-tabs button > span {
+  display: grid;
+  min-width: 0;
+}
+
+.pn-adjustment-kind-tabs strong {
+  overflow-wrap: anywhere;
+  font-size: 19px;
+  font-weight: 500;
+}
+
+.pn-adjustment-kind-tabs small {
+  margin-top: 3px;
+  color: var(--ink-muted);
+  font-size: 12px;
+}
+
+.pn-adjustment-kind-tabs b {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  min-width: 36px;
+  height: 36px;
+  padding: 0 8px;
+  border-radius: 50%;
+  color: var(--ink-muted);
+  background: var(--surface-warm);
+  font: 14px var(--data-font);
+}
+
+.pn-adjustment-kind-tabs button.active b {
+  color: var(--surface);
+  background: var(--primary);
+}
+
 .pn-adjustment-ledger-overview {
   position: relative;
   display: flex;
@@ -469,6 +538,29 @@
 @media (max-width: 600px) {
   .pn-adjustment-ledger {
     gap: 16px;
+  }
+
+  .pn-adjustment-kind-tabs {
+    gap: 8px;
+  }
+
+  .pn-adjustment-kind-tabs button {
+    min-height: 68px;
+    padding: 11px 12px;
+  }
+
+  .pn-adjustment-kind-tabs strong {
+    font-size: 16px;
+  }
+
+  .pn-adjustment-kind-tabs small {
+    font-size: 10px;
+  }
+
+  .pn-adjustment-kind-tabs b {
+    min-width: 31px;
+    height: 31px;
+    padding-inline: 6px;
   }
 
   .pn-adjustment-ledger-overview {

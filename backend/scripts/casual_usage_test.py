@@ -45,6 +45,17 @@ def main():
         status, _ = t.request("POST", f"/api/ingredients/{grape['id']}/use", use_payload(fresh, amount))
         t.check(f"非法用掉数量 {amount} 被拒绝", status in (400, 409))
 
+    damaged = t.ingredient(f"损坏番茄-{t.STAMP}", category="蔬菜", value=2)
+    damaged_record = t.data("POST", f"/api/ingredients/{damaged['id']}/waste", {
+        "stock_text": "1", "stock_value": 1, "stock_unit": damaged["stock_unit"],
+        "reason": "damaged", "note": None, "expected_updated_at": damaged["updated_at"],
+    }, 201)["adjustment"]
+    used_status, used_page = t.request("GET", "/api/inventory-adjustments?kind=used&limit=1")
+    waste_status, waste_page = t.request("GET", "/api/inventory-adjustments?kind=waste&limit=1")
+    used_records = used_page["data"]
+    waste_records = waste_page["data"]
+    t.check("日常用掉与变质损坏在分页前由服务端分开查询", used_status == waste_status == 200 and used_page["meta"]["total"] == 1 and waste_page["meta"]["total"] == 1 and all(row["reason"] == "used" for row in used_records) and any(row["client_request_id"] == request_id for row in used_records) and all(row["reason"] != "used" for row in waste_records) and any(row["id"] == damaged_record["id"] for row in waste_records))
+
     restocked = t.ingredient(grape["name"], category="水果", value=0.2, unit="kg")
     preview_path = f"/api/ingredients/adjustments/{used['adjustment']['id']}"
     preview = t.data("GET", preview_path + "/recovery-preview")

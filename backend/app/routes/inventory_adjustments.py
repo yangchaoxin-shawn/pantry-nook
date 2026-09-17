@@ -14,6 +14,7 @@ router = APIRouter()
 
 ADJUSTMENT_STATUSES = ["active", "reversed"]
 REASONS = ["used", "spoiled", "damaged", "other"]
+ADJUSTMENT_KINDS = ["used", "waste"]
 
 
 @router.get("")
@@ -29,6 +30,9 @@ async def list_adjustments(request: Request):
     if "reason" in query:
         values.append(enum_value(query["reason"], "reason", REASONS))
         conditions.append(f"a.reason=${len(values)}")
+    if "kind" in query:
+        kind = enum_value(query["kind"], "kind", ADJUSTMENT_KINDS)
+        conditions.append("a.reason='used'" if kind == "used" else "a.reason IN ('spoiled','damaged','other')")
 
     where = f"WHERE {' AND '.join(conditions)}" if conditions else ""
     values.extend([limit, offset])

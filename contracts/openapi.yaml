@@ -814,6 +814,19 @@
               ]
             },
             "description": ""
+          },
+          {
+            "name": "kind",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "used",
+                "waste"
+              ]
+            },
+            "description": "记录大类：日常用掉或变质/损坏处理。"
           }
         ]
       }

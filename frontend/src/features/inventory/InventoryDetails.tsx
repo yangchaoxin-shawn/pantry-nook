@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { api, type Ingredient, type InventoryAdjustmentRecord } from "../../shared/api/client";
+import { api, type Ingredient, type InventoryAdjustmentKind, type InventoryAdjustmentRecord } from "../../shared/api/client";
 import { Empty, Field } from "../../shared/ui/Primitives";
 import { stockLabel } from "./inventory-format";
 import { QuantityInput } from "../../shared/ui/QuantityInput";
@@ -59,7 +59,7 @@ export function WasteEditor({ item, busy, save }: { item: Ingredient; busy: bool
   const quantityError = quantityInputError(quantity, { required: true, max: item.stock_value });
   const invalid = Boolean(quantityError);
   return <form onSubmit={(event) => { event.preventDefault(); if (!invalid) save({ stock_text: quantity, stock_value: amount, stock_unit: item.stock_unit, reason, note: String(new FormData(event.currentTarget).get("note") || "") || null, expected_updated_at: item.updated_at }); }}>
-    <p className="dialog-description">当前库存 {stockLabel(item)}。处理后可在“库存处理记录”里查看。</p>
+    <p className="dialog-description">当前库存 {stockLabel(item)}。处理后可在“消耗与处理记录”的“变质 / 损坏”分类里查看。</p>
     <div className="unit-choice"><button type="button" className={all ? "chip active" : "chip"} onClick={() => { setAll(true); setQuantity(String(item.stock_value)); }}>全部处理</button><button type="button" className={!all ? "chip active" : "chip"} onClick={() => setAll(false)}>处理部分</button></div>
     <QuantityInput label={`处理数量（${item.stock_unit}）`} required disabled={all || busy} max={item.stock_value} value={quantity} onValueChange={setQuantity} />
     {!all && <p className="form-hint">数量每次增减 1，也可直接输入小数。</p>}
@@ -70,7 +70,30 @@ export function WasteEditor({ item, busy, save }: { item: Ingredient; busy: bool
   </form>;
 }
 
-export function InventoryAdjustmentLedger({ busy, refreshKey, revoke }: { busy: boolean; refreshKey: number; revoke: (id: number) => void }) {
+const adjustmentKindCopy = {
+  used: {
+    label: "日常用掉",
+    hint: "平时吃掉或用掉",
+    kicker: "日常消耗",
+    title: "平时吃掉、用掉的记录",
+    description: "不属于餐安排的日常消耗都留在这里，需要时可以安全撤销。",
+    emptyTitle: "还没有日常用掉记录",
+    emptyBody: "从食材详情点击“用掉了”，记录会单独留在这里。",
+    activeEmpty: "目前没有可撤销的日常用掉记录。",
+  },
+  waste: {
+    label: "变质 / 损坏",
+    hint: "报废和其他处理",
+    kicker: "库存处理",
+    title: "变质与损坏记录",
+    description: "变质、损坏和其他报废处理单独留档，不和日常用掉混在一起。",
+    emptyTitle: "还没有变质或损坏记录",
+    emptyBody: "需要处理食材时，记录会单独留在这里。",
+    activeEmpty: "目前没有可撤销的变质或损坏记录。",
+  },
+} as const;
+
+function useInventoryAdjustmentState(kind: InventoryAdjustmentKind, refreshKey: number) {
   const [retryKey, setRetryKey] = useState(0);
   const requestKey = `${refreshKey}:${retryKey}`;
   const [result, setResult] = useState<{ key: string; state: InventoryAdjustmentLedgerState }>({
@@ -79,27 +102,61 @@ export function InventoryAdjustmentLedger({ busy, refreshKey, revoke }: { busy: 
   });
   useEffect(() => {
     let alive = true;
-    void readInventoryAdjustmentLedger(() => api.inventoryAdjustments())
-      .then((next) => { if (alive) setResult({ key: requestKey, state: next }); });
+    void readInventoryAdjustmentLedger(() => api.inventoryAdjustments(kind))
+      .then((state) => { if (alive) setResult({ key: requestKey, state }); });
     return () => { alive = false; };
-  }, [requestKey]);
-  const state: InventoryAdjustmentLedgerState = result.key === requestKey ? result.state : { status: "loading" };
-  if (state.status === "error") return <section className="pn-adjustment-ledger-state pn-adjustment-ledger-state--error" role="alert">
-    <span className="pn-adjustment-ledger-state-mark" aria-hidden="true">!</span>
-    <div><p className="pn-adjustment-ledger-kicker">记录簿暂时合上了</p><h2>没能打开处理记录</h2><p>{state.message}</p></div>
-    <button type="button" className="btn-primary" onClick={() => setRetryKey((value) => value + 1)}>重新读取</button>
-  </section>;
-  if (state.status === "loading") return <div className="pn-adjustment-ledger-state pn-adjustment-ledger-state--loading" role="status">
-    <span className="pn-adjustment-ledger-pulse" aria-hidden="true" />
-    <div><p className="pn-adjustment-ledger-kicker">正在翻找</p><p>正在读取库存处理记录…</p></div>
+  }, [kind, requestKey]);
+  return {
+    state: result.key === requestKey ? result.state : { status: "loading" } as InventoryAdjustmentLedgerState,
+    retry: () => setRetryKey((value) => value + 1),
+  };
+}
+
+export function InventoryAdjustmentLedger({ busy, refreshKey, kind, setKind, revoke }: {
+  busy: boolean;
+  refreshKey: number;
+  kind: InventoryAdjustmentKind;
+  setKind: (kind: InventoryAdjustmentKind) => void;
+  revoke: (id: number) => void;
+}) {
+  const used = useInventoryAdjustmentState("used", refreshKey);
+  const waste = useInventoryAdjustmentState("waste", refreshKey);
+  const states = { used: used.state, waste: waste.state };
+  const state = states[kind];
+  const copy = adjustmentKindCopy[kind];
+  const total = (target: InventoryAdjustmentKind) => states[target].status === "ready" ? states[target].records.length : null;
+  const countLabel = (target: InventoryAdjustmentKind) => states[target].status === "error"
+    ? "读取失败"
+    : states[target].status === "ready" ? `共${states[target].records.length}条` : "正在读取数量";
+  const kindTabs = <div className="pn-adjustment-kind-tabs" role="group" aria-label="记录类型">
+    {(["used", "waste"] as const).map((value) => <button type="button" key={value} className={kind === value ? "active" : ""} aria-label={`${adjustmentKindCopy[value].label}记录，${countLabel(value)}`} aria-pressed={kind === value} onClick={() => setKind(value)}>
+      <span><strong>{adjustmentKindCopy[value].label}</strong><small>{adjustmentKindCopy[value].hint}</small></span>
+      <b aria-hidden="true">{total(value) ?? "—"}</b>
+    </button>)}
   </div>;
+  if (state.status === "error") return <div className="pn-adjustment-ledger">{kindTabs}<section className="pn-adjustment-ledger-state pn-adjustment-ledger-state--error" role="alert">
+    <span className="pn-adjustment-ledger-state-mark" aria-hidden="true">!</span>
+    <div><p className="pn-adjustment-ledger-kicker">记录簿暂时合上了</p><h2>没能打开这类记录</h2><p>{state.message}</p></div>
+    <button type="button" className="btn-primary" onClick={kind === "used" ? used.retry : waste.retry}>重新读取</button>
+  </section></div>;
+  if (state.status === "loading") return <div className="pn-adjustment-ledger">{kindTabs}<div className="pn-adjustment-ledger-state pn-adjustment-ledger-state--loading" role="status">
+    <span className="pn-adjustment-ledger-pulse" aria-hidden="true" />
+    <div><p className="pn-adjustment-ledger-kicker">正在翻找</p><p>正在读取{copy.label}记录…</p></div>
+  </div></div>;
   const records = state.records;
-  if (!records.length) return <section className="pn-adjustment-ledger-empty">
-    <div className="pn-adjustment-ledger-empty-date" aria-hidden="true"><span>—</span><strong>空</strong></div>
-    <Empty title="这本记录簿还是空的">日常用掉、变质或损坏处理会按发生时间留在这里。</Empty>
-  </section>;
   const active = records.filter((record) => record.status === "active");
   const reversed = records.filter((record) => record.status === "reversed");
+  const overview = <header className="pn-adjustment-ledger-overview">
+    <div><p className="pn-adjustment-ledger-kicker">{copy.kicker}</p><h2>{copy.title}</h2><p>{copy.description}</p></div>
+    <dl>
+      <div><dt>仍可撤销</dt><dd>{active.length}</dd></div>
+      <div><dt>已撤销</dt><dd>{reversed.length}</dd></div>
+    </dl>
+  </header>;
+  if (!records.length) return <div className="pn-adjustment-ledger">{kindTabs}{overview}<section className="pn-adjustment-ledger-empty">
+    <div className="pn-adjustment-ledger-empty-date" aria-hidden="true"><span>—</span><strong>空</strong></div>
+    <Empty title={copy.emptyTitle}>{copy.emptyBody}</Empty>
+  </section></div>;
   const renderRecord = (record: InventoryAdjustmentRecord) => {
     const titleId = `adjustment-record-${record.id}`;
     return <article className={`pn-adjustment-record pn-adjustment-record--${record.status}`} key={record.id} aria-labelledby={titleId}>
@@ -135,17 +192,12 @@ export function InventoryAdjustmentLedger({ busy, refreshKey, revoke }: { busy: 
     <div className="pn-adjustment-day-records">{group.records.map(renderRecord)}</div>
   </section>);
   return <div className="pn-adjustment-ledger" aria-busy={busy || undefined}>
-    <header className="pn-adjustment-ledger-overview">
-      <div><p className="pn-adjustment-ledger-kicker">库存记录时间线</p><h2>每一次变化，都有来处</h2><p>日常用掉和变质损坏都按发生时间留档；可撤销记录放在前面，方便及时找回。</p></div>
-      <dl>
-        <div><dt>仍可撤销</dt><dd>{active.length}</dd></div>
-        <div><dt>已撤销</dt><dd>{reversed.length}</dd></div>
-      </dl>
-    </header>
+    {kindTabs}
+    {overview}
     <div className={`pn-adjustment-ledger-lanes${reversed.length ? "" : " pn-adjustment-ledger-lanes--single"}`}>
       <section className="pn-adjustment-ledger-lane pn-adjustment-ledger-lane--active" aria-labelledby="active-adjustments-heading">
         <header><div><p>NOW / 现在</p><h2 id="active-adjustments-heading">仍可撤销</h2></div><span>{active.length} 条</span></header>
-        {active.length ? renderGroups(active, "active") : <p className="pn-adjustment-ledger-lane-empty">目前没有可撤销的处理。</p>}
+        {active.length ? renderGroups(active, "active") : <p className="pn-adjustment-ledger-lane-empty">{copy.activeEmpty}</p>}
       </section>
       {reversed.length > 0 && <section className="pn-adjustment-ledger-lane pn-adjustment-ledger-lane--history" aria-labelledby="reversed-adjustments-heading">
         <header><div><p>ARCHIVE / 归档</p><h2 id="reversed-adjustments-heading">已经撤销</h2></div><span>{reversed.length} 条</span></header>

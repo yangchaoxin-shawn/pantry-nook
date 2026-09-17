@@ -11,6 +11,7 @@ import {
   ApiError,
   localDate,
   type Ingredient,
+  type InventoryAdjustmentKind,
   type Dish,
   type MealPlan,
   type Battle,
@@ -33,6 +34,11 @@ import './navigation.css';
 
 const JournalPage = lazy(() => import('../features/journal/JournalPage'));
 
+function adjustmentKindFromUrl(): InventoryAdjustmentKind | null {
+  const value = new URLSearchParams(window.location.search).get("adjustment");
+  return value === "used" || value === "waste" ? value : null;
+}
+
 const NAV = [
   ["battles", "餐安排", "sun"],
   ["ingredients", "库存", "pantry"],
@@ -47,8 +53,10 @@ const confirmationNotice = (battle: Battle) => battle.dishes.some((dish) => !bat
   ? "确认前先为每道菜添加耗材。"
   : "确认前请填写每项耗材的预计用量。";
 export default function App() {
-  const [page, setPage] = useState<Page>("battles"),
+  const initialAdjustmentKind = adjustmentKindFromUrl();
+  const [page, setPage] = useState<Page>(() => initialAdjustmentKind ? "adjustments" : "battles"),
     [data, setData] = useState<AppData | null>(null);
+  const [adjustmentKind, setAdjustmentKind] = useState<InventoryAdjustmentKind>(() => initialAdjustmentKind ?? "used");
   const [journalVisited, setJournalVisited] = useState(false);
   const [loading, setLoading] = useState(true),
     [loadError, setLoadError] = useState(""),
@@ -81,6 +89,12 @@ export default function App() {
   useEffect(() => {
     document.documentElement.dataset.theme = dark ? "dark" : "light";
   }, [dark]);
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    if (page === "adjustments") url.searchParams.set("adjustment", adjustmentKind);
+    else url.searchParams.delete("adjustment");
+    window.history.replaceState(window.history.state, "", `${url.pathname}${url.search}${url.hash}`);
+  }, [page, adjustmentKind]);
   useEffect(() => {
     const controller = new AbortController();
     Promise.all([
@@ -378,7 +392,7 @@ export default function App() {
                 openIngredient={(item) => open({ kind: "ingredientDetail", item })}
                 openLocationEditor={(item) => open({ kind: 'ingredient', item, focusLocation: true })}
               />}
-              {page === "adjustments" && <InventoryAdjustmentsPage busy={busy} refreshKey={revision}
+              {page === "adjustments" && <InventoryAdjustmentsPage busy={busy} refreshKey={revision} kind={adjustmentKind} setKind={setAdjustmentKind}
                 revoke={(id) => open({ kind: "recovery", recoveryKind: "adjustment", id })} />}
               {page === "dishes" && <DishesPage dishes={data.dishes} search={search} setSearch={setSearch}
                 edit={(item) => open({ kind: "dish", item })}

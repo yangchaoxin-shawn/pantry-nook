@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { CATEGORIES, type Ingredient } from "../../shared/api/client";
+import { CATEGORIES, type Ingredient, type InventoryAdjustmentKind } from "../../shared/api/client";
 import { Empty } from "../../shared/ui/Primitives";
 import { InventoryAdjustmentLedger } from "./InventoryDetails";
 import { stockLabel } from "./inventory-format";
@@ -81,6 +81,6 @@ export function InventoryPage({ ingredients, locationItems, inventoryLocation, l
   </section>;
 }
 
-export function InventoryAdjustmentsPage({ busy, refreshKey, revoke }: { busy: boolean; refreshKey: number; revoke: (id: number) => void }) {
-  return <InventoryAdjustmentLedger busy={busy} refreshKey={refreshKey} revoke={revoke} />;
+export function InventoryAdjustmentsPage({ busy, refreshKey, kind, setKind, revoke }: { busy: boolean; refreshKey: number; kind: InventoryAdjustmentKind; setKind: (kind: InventoryAdjustmentKind) => void; revoke: (id: number) => void }) {
+  return <InventoryAdjustmentLedger busy={busy} refreshKey={refreshKey} kind={kind} setKind={setKind} revoke={revoke} />;
 }
