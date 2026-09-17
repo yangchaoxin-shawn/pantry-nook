@@ -23,7 +23,7 @@
 .dish-name-flow { gap:10px 30px; }
 .dish-name-flow .dish-entry { flex-basis:255px; }
 .dish-name-flow .dish-entry-long { flex-basis:370px; }
-.dish-entry h3 { font-size:25px; line-height:1.55; }
+.dish-entry h3 { line-height:1.55; }
 .dish-entry .dish-entry-person { width:64px; height:50px; margin:-6px 0 0; flex-shrink:0; }
 .dish-entry-actions button { font-size:14px; min-height:44px; }
 @media(max-width:900px) and (min-width:601px) {
@@ -41,7 +41,7 @@
   .review-inventory-actions>button { width:100%;padding-inline:10px; }
   .dish-name-flow .dish-entry { flex:1 1 max-content; }
   .dish-name-flow .dish-entry-long { flex-basis:100%; }
-  .dish-entry h3 { font-size:21px; white-space:nowrap; }
+  .dish-entry h3 { white-space:nowrap; }
   .dish-entry-long h3 { white-space:normal; }
   .dish-entry .dish-entry-person { width:36px;height:36px; }
   .dish-entry-actions { max-width:140px; }
