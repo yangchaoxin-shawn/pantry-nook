@@ -79,7 +79,7 @@ frontend/src/shared/api/schema.d.ts 由它生成，不手改。归档一致性�
 | design/ | 当前视觉输入、设计过程与历史原型 |
 | .claude/ | Claude 个人配置及旧 worktree，保留并忽略 |
 
-设计基准 WB-V5-2026-09-09 / 系统 2.0，页面结构以用户确认的 PRD 为准。
+设计基准 WB-V5-2026-09-09 / 设计系统 2.0；这是视觉与组件基线，不代表 Pantry Nook 产品版本已进入 `2.x`。产品版本是否进入 `2.x` 以 [Git 与版本约定](docs/git.md) 的破坏性变更规则为准，页面结构以用户确认的 PRD 为准。
 多版旧原型已归档到 `design/legacy-prototypes/`，旧交付文档保留为历史；它们不自动变成新的功能要求。
 [部署入口](DEPLOY.md) 说明本地类生产预检；公司服务器以 [部署执行文档](DEPLOY-SERVER.md) 为唯一口径，当前发布快照见 [首次发布记录](docs/deployment-2026-09-15.md)。
 
