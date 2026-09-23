@@ -122,5 +122,75 @@ class ReceiptParseTests(unittest.TestCase):
         self.assertIsNone(item["price_text"])
 
 
+class SplitDigitBlockTests(unittest.TestCase):
+    def test_three_part_glued_block(self):
+        from app.receipt_parse import split_digit_block
+        self.assertEqual(split_digit_block("0.030136.004.08"), ("0.030", "136.00", "4.08"))
+
+    def test_unit_quantity_glued_block(self):
+        from app.receipt_parse import split_digit_block
+        self.assertEqual(split_digit_block("15.005.00"), ("1", "5.00", "5.00"))
+        self.assertEqual(split_digit_block("11.901.90"), ("1", "1.90", "1.90"))
+
+    def test_barcode_prefixed_glued_block(self):
+        from app.receipt_parse import split_digit_block
+        self.assertEqual(split_digit_block("20005870006820.06811.980.81"), ("0.068", "11.98", "0.81"))
+        self.assertEqual(split_digit_block("690720131636412.982.98"), ("1", "2.98", "2.98"))
+
+    def test_bare_barcode_is_not_split(self):
+        from app.receipt_parse import split_digit_block
+        self.assertIsNone(split_digit_block("2002167000303"))
+        self.assertIsNone(split_digit_block("6907201316364"))
+
+
+class WeightedReceiptTests(unittest.TestCase):
+    """超市称重小票（名称行 / 条码行 / 数字行 三行一组）。"""
+
+    def receipt(self, *rows):
+        return parse_receipt_lines([line(text, 20, 100 + index * 30) for index, text in enumerate(rows)])
+
+    def test_name_barcode_amount_rows_merge(self):
+        result = self.receipt(
+            "1.五指毛桃切节/KG", "2002167000303", "0.030136.004.08",
+            "2.精选石橄榄100g/盒/盒", "2002798010009", "15.505.50",
+        )
+        self.assertEqual([(i["name"], i["quantity_text"], i["unit"], i["price_text"]) for i in result["items"]], [
+            ("五指毛桃切节", "0.030", "kg", "4.08"),
+            ("精选石橄榄100g", "1", "盒", "5.50"),
+        ])
+
+    def test_discount_and_promo_rows_are_noise(self):
+        result = self.receipt(
+            "[惠]黄心土豆/KG", "2002619003586", "0.3584.381.56",
+            "原价：4.98优惠:0.22", "促销活动：-0.21", "活动：-1.19",
+        )
+        self.assertEqual(len(result["items"]), 1)
+        item = result["items"][0]
+        self.assertEqual(item["name"], "黄心土豆")
+        self.assertEqual(item["quantity_text"], "0.358")
+        self.assertEqual(item["price_text"], "1.56")
+
+    def test_receipt_header_noise(self):
+        result = self.receipt(
+            "NO.2609060010011014909", "门店：1001新鲜年代超市",
+            "服务热线：19902233088", "收银员：180008机号：101",
+            "时间:2026-09-06 21:51:44",
+        )
+        self.assertEqual(result["items"], [])
+
+    def test_name_with_glued_barcode_keeps_name_only(self):
+        result = self.receipt("沙葱/KG03634003988", "0.39827.8011.06")
+        self.assertEqual(result["items"][0]["name"], "沙葱")
+        self.assertEqual(result["items"][0]["quantity_text"], "0.398")
+        self.assertEqual(result["items"][0]["price_text"], "11.06")
+
+    def test_leading_barcode_stripped_from_name(self):
+        result = self.receipt("20010400100025: 虫草花100g盒/盒", "11.901.90")
+        item = result["items"][0]
+        self.assertEqual(item["name"], "虫草花100g盒")
+        self.assertEqual(item["quantity_text"], "1")
+        self.assertEqual(item["price_text"], "1.90")
+
+
 if __name__ == "__main__":
     unittest.main()

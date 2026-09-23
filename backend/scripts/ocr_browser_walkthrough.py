@@ -1,4 +1,8 @@
-"""拍小票入库的浏览器端到端走查（隔离后端 3047 + Vite 5217 + 侧车 9610）。"""
+"""拍小票入库的浏览器端到端走查（隔离后端 3047 + Vite 5217 + 侧车 9610）。
+
+用法：python scripts/ocr_browser_walkthrough.py [小票图片路径]
+不带参数时使用合成小票样张。
+"""
 
 from __future__ import annotations
 
@@ -10,7 +14,7 @@ sys.stdout.reconfigure(encoding="utf-8")
 from playwright.sync_api import sync_playwright, expect
 
 BASE = "http://127.0.0.1:5217"
-RECEIPT = Path(__file__).resolve().parents[2] / ".review" / "ocr-smoke" / "receipt.png"
+RECEIPT = Path(sys.argv[1]) if len(sys.argv) > 1 else Path(__file__).resolve().parents[2] / ".review" / "ocr-smoke" / "receipt.png"
 
 failures: list[str] = []
 
@@ -62,7 +66,9 @@ with sync_playwright() as p:
     if row_count:
         names = [draft_rows.nth(i).locator(".ocr-draft-name").inner_text() for i in range(row_count)]
         print("    识别行：", " / ".join(names))
-        check("包含农夫山泉", any("农夫山泉" in name for name in names))
+        # 农夫山泉只出现在合成样张；自定义图片时跳过该断言。
+        if len(sys.argv) <= 1:
+            check("包含农夫山泉", any("农夫山泉" in name for name in names))
 
         # 4. 删除一行后继续
         draft_rows.first.get_by_role("button", name="删除").click()
