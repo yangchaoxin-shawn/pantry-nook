@@ -74,3 +74,20 @@
   .pn-inventory .pn-inventory-skeletons { grid-template-columns: 1fr; gap: 19px; }
   .pn-inventory .pn-inventory-state { padding: 20px 16px; }
 }
+
+/* 拍小票入库（OCR 识别草稿）；弹窗内容不在 .pn-inventory 作用域内。 */
+.ocr-dropzone {
+  display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 34px 18px 30px; text-align: center;
+  border: 1.5px dashed var(--hairline, #c9c9af); border-radius: 10px 16px 11px 14px;
+  background-color: var(--surface, #fcf5e3); background-image: var(--fiber, none); background-size: 640px;
+  color: var(--ink-muted, #687564);
+}
+.ocr-dropzone.dragover { outline: 2px solid var(--primary, #567161); outline-offset: 4px; color: var(--ink, #344e40); }
+.ocr-dropzone svg { color: var(--primary, #567161); }
+.ocr-dropzone p { margin: 0; }
+.ocr-draft-rows { list-style: none; margin: 12px 0 0; padding: 0; }
+.ocr-draft-row { display: flex; align-items: center; gap: 10px; padding: 9px 2px; border-bottom: 1px dashed color-mix(in srgb, var(--hairline, #c9c9af) 60%, transparent); }
+.ocr-draft-row .batch-row-number { flex-shrink: 0; }
+.ocr-draft-name { flex: 1; min-width: 0; overflow-wrap: anywhere; color: var(--ink, #344e40); }
+.ocr-draft-name small { display: inline-block; margin-left: 8px; padding: 1px 7px; border: 1px solid var(--hairline, #c9c9af); border-radius: 999px; color: var(--ink-muted, #687564); font-size: 12px; }
+.ocr-draft-meta { flex-shrink: 0; color: var(--ink-muted, #687564); font-family: var(--data-font, system-ui, sans-serif); font-size: 14px; }

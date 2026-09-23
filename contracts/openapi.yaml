@@ -3909,6 +3909,111 @@
         }
       }
     },
+    "/api/ocr/receipts": {
+      "post": {
+        "tags": [
+          "ocr"
+        ],
+        "summary": "Analyze Receipt",
+        "operationId": "analyze_receipt_api_ocr_receipts_post",
+        "responses": {
+          "200": {
+            "description": "请求成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OcrReceiptResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "请求参数或图片格式不正确",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "小票图片过大",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "图片无法识别出文字",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "服务器内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "识别服务返回异常",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "识别服务不可用",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary"
+                  }
+                },
+                "required": [
+                  "file"
+                ]
+              },
+              "encoding": {
+                "file": {
+                  "contentType": "image/png, image/jpeg, image/webp, image/heic, application/octet-stream"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/health": {
       "get": {
         "summary": "Health",
@@ -7523,6 +7628,137 @@
         "required": [
           "data"
         ]
+      },
+      "OcrReceiptItem": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 255,
+            "minLength": 1,
+            "description": "去除首尾空白后不能为空。"
+          },
+          "quantity_text": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 255
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "unit": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 50
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "price_text": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 255
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "raw_text": {
+            "type": "string",
+            "maxLength": 255,
+            "minLength": 1,
+            "description": "去除首尾空白后不能为空。"
+          },
+          "score": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          }
+        },
+        "required": [
+          "name",
+          "quantity_text",
+          "unit",
+          "price_text",
+          "raw_text",
+          "score"
+        ]
+      },
+      "OcrReceiptIgnored": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string",
+            "maxLength": 255,
+            "minLength": 1,
+            "description": "去除首尾空白后不能为空。"
+          },
+          "reason": {
+            "type": "string",
+            "enum": [
+              "noise",
+              "header",
+              "datetime",
+              "numeric-only",
+              "no-name"
+            ]
+          }
+        },
+        "required": [
+          "text",
+          "reason"
+        ]
+      },
+      "OcrReceiptResponse": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "object",
+            "properties": {
+              "items": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/OcrReceiptItem"
+                }
+              },
+              "ignored": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/OcrReceiptIgnored"
+                }
+              }
+            },
+            "required": [
+              "items",
+              "ignored"
+            ]
+          },
+          "meta": {
+            "type": "object",
+            "properties": {
+              "line_count": {
+                "type": "integer",
+                "minimum": 0
+              }
+            },
+            "required": [
+              "line_count"
+            ]
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ],
+        "description": "小票 OCR 草稿。items 为建议入库行，单价 price_text 仅参考、不入库；ignored 为丢弃的表头表尾行。草稿必须经人工核对后另行调用批量入库接口。"
       }
     }
   }

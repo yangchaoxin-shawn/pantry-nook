@@ -19,7 +19,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from .db import close_pool, get_pool
 from .api_contract import install_openapi
 from .errors import AppError
-from .routes import consumptions, daily_battles, dishes, ingredients, inventory_adjustments, meal_plans
+from .routes import consumptions, daily_battles, dishes, ingredients, inventory_adjustments, meal_plans, ocr
 from .version import APP_VERSION
 from .routes import journal
 from .journal_media import JournalBodyLimit
@@ -45,6 +45,7 @@ app.include_router(meal_plans.router, prefix="/api/meal-plans", tags=["meal-plan
 app.include_router(daily_battles.router, prefix="/api/daily-battles", tags=["daily-battles"])
 app.include_router(consumptions.router, prefix="/api/consumptions", tags=["consumptions"])
 app.include_router(journal.router, prefix="/api/journal", tags=["journal"])
+app.include_router(ocr.router, prefix="/api/ocr", tags=["ocr"])
 
 
 @app.get("/health")

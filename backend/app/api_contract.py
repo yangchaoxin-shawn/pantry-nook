@@ -218,6 +218,19 @@ def build_schemas() -> dict:
         schemas[f"{name}List"] = obj({"data": array(ref(name)), "meta": ref("PaginationMeta")})
     for name in ["DishMealPlan", "BattleConsumption", "IngredientConsumption"]:
         schemas[f"{name}List"] = obj({"data": array(ref(name))})
+    schemas["OcrReceiptItem"] = obj({
+        "name": REQUIRED_TEXT,
+        "quantity_text": nullable(TEXT),
+        "unit": nullable({"type": "string", "maxLength": 50}),
+        "price_text": nullable(TEXT),
+        "raw_text": REQUIRED_TEXT,
+        "score": {"type": "number", "minimum": 0, "maximum": 1},
+    })
+    schemas["OcrReceiptIgnored"] = obj({"text": REQUIRED_TEXT, "reason": {"type": "string", "enum": ["noise", "header", "datetime", "numeric-only", "no-name"]}})
+    schemas["OcrReceiptResponse"] = obj({
+        "data": obj({"items": array(ref("OcrReceiptItem")), "ignored": array(ref("OcrReceiptIgnored"))}),
+        "meta": obj({"line_count": {"type": "integer", "minimum": 0}}),
+    }, description="小票 OCR 草稿。items 为建议入库行，单价 price_text 仅参考、不入库；ignored 为丢弃的表头表尾行。草稿必须经人工核对后另行调用批量入库接口。")
     return schemas
 
 
@@ -270,6 +283,7 @@ def install_openapi(app: FastAPI) -> None:
         ("/api/daily-battles/{battle_id}/revoke-confirmation", "post", "DailyBattleResponse", "BattleRevoke", False, 200),
         ("/api/consumptions", "get", "ConsumptionList", None, False, 200),
         ("/api/consumptions/{consumption_id}", "get", "ConsumptionResponse", None, False, 200),
+        ("/api/ocr/receipts", "post", "OcrReceiptResponse", None, False, 200),
     ]
     list_queries = {
         "/api/ingredients": [*PAGINATION, SEARCH, query("category", CATEGORY), query("location", LOCATION)],
@@ -318,6 +332,25 @@ def install_openapi(app: FastAPI) -> None:
             if body:
                 operation["requestBody"] = {"required": required,
                                             "content": {"application/json": {"schema": ref(body)}}}
+        # 小票 OCR 是 multipart 图片上传，错误码与侧车转发相关，单独描述。
+        ocr_post = schema["paths"].get("/api/ocr/receipts", {}).get("post")
+        if ocr_post:
+            ocr_post["requestBody"] = {"required": True, "content": {"multipart/form-data": {
+                "schema": obj({"file": {"type": "string", "format": "binary"}}, ["file"]),
+                "encoding": {"file": {"contentType": "image/png, image/jpeg, image/webp, image/heic, application/octet-stream"}},
+            }}}
+            ocr_post["responses"] = {
+                "200": {"description": "请求成功", "content": {"application/json": {"schema": ref("OcrReceiptResponse")}}},
+                **{str(code): {"description": text, "content": {"application/json": {"schema": ref("Error")}}}
+                   for code, text in (
+                       (400, "请求参数或图片格式不正确"),
+                       (413, "小票图片过大"),
+                       (422, "图片无法识别出文字"),
+                       (500, "服务器内部错误"),
+                       (502, "识别服务返回异常"),
+                       (503, "识别服务不可用"),
+                   )},
+            }
         # 新模块直接使用 Pydantic 契约，不覆盖 UUID 路径、multipart 或二进制响应。
         for path, methods in schema['paths'].items():
             if not path.startswith('/api/journal/'):

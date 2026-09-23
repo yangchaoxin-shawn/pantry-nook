@@ -37,12 +37,15 @@ export function IngredientBatchEditor({
   busy,
   single = false,
   suggestedNames = [],
+  initialRows,
   existingIngredients,
   save,
 }: {
   busy: boolean;
   single?: boolean;
   suggestedNames?: string[];
+  /** 小票识别等来源带入的预填行；数量与单位允许为空，保存前统一校验。 */
+  initialRows?: { name: string; quantity: string; unit: string }[];
   existingIngredients: Ingredient[];
   save: (
     ingredients: IngredientCreate[],
@@ -51,7 +54,9 @@ export function IngredientBatchEditor({
     manualTotals: { ingredient_id: number; stock_text: string; stock_value: number; unit: string; expected_updated_at: string }[],
   ) => void;
 }) {
-  const [rows, setRows] = useState(() => suggestedNames.length
+  const [rows, setRows] = useState(() => initialRows?.length
+    ? initialRows.slice(0, 30).map((row, index) => ({ ...blankBatchIngredient(index + 1), name: row.name, quantity: row.quantity, unit: row.unit }))
+    : suggestedNames.length
     ? suggestedNames.map((name, index) => ({ ...blankBatchIngredient(index + 1), name }))
     : Array.from({ length: single ? 1 : 5 }, (_, index) => blankBatchIngredient(index + 1)),
   );

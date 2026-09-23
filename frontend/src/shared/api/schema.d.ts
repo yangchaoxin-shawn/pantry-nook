@@ -513,6 +513,23 @@ export interface paths {
         patch: operations["update_entry_api_journal_entries__entry_id__patch"];
         trace?: never;
     };
+    "/api/ocr/receipts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Analyze Receipt */
+        post: operations["analyze_receipt_api_ocr_receipts_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/health": {
         parameters: {
             query?: never;
@@ -1298,6 +1315,32 @@ export interface components {
         };
         IngredientConsumptionList: {
             data: components["schemas"]["IngredientConsumption"][];
+        };
+        OcrReceiptItem: {
+            /** @description 去除首尾空白后不能为空。 */
+            name: string;
+            quantity_text: string | null;
+            unit: string | null;
+            price_text: string | null;
+            /** @description 去除首尾空白后不能为空。 */
+            raw_text: string;
+            score: number;
+        };
+        OcrReceiptIgnored: {
+            /** @description 去除首尾空白后不能为空。 */
+            text: string;
+            /** @enum {string} */
+            reason: "noise" | "header" | "datetime" | "numeric-only" | "no-name";
+        };
+        /** @description 小票 OCR 草稿。items 为建议入库行，单价 price_text 仅参考、不入库；ignored 为丢弃的表头表尾行。草稿必须经人工核对后另行调用批量入库接口。 */
+        OcrReceiptResponse: {
+            data: {
+                items: components["schemas"]["OcrReceiptItem"][];
+                ignored: components["schemas"]["OcrReceiptIgnored"][];
+            };
+            meta: {
+                line_count: number;
+            };
         };
     };
     responses: never;
@@ -4107,6 +4150,87 @@ export interface operations {
             };
             /** @description 请求或资源状态错误 */
             507: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    analyze_receipt_api_ocr_receipts_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": {
+                    /** Format: binary */
+                    file: string;
+                };
+            };
+        };
+        responses: {
+            /** @description 请求成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OcrReceiptResponse"];
+                };
+            };
+            /** @description 请求参数或图片格式不正确 */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description 小票图片过大 */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description 图片无法识别出文字 */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description 服务器内部错误 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description 识别服务返回异常 */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description 识别服务不可用 */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };

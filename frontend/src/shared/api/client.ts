@@ -13,6 +13,8 @@ export type InventoryAdjustmentRecord = components["schemas"]["InventoryAdjustme
 export type InventoryAdjustmentKind = "used" | "waste";
 export type RecoveryPreview = components['schemas']['RecoveryPreview'];
 export type RecoveryRequest = components['schemas']['RecoveryRequest'];
+export type OcrReceiptItem = components["schemas"]["OcrReceiptItem"];
+export type OcrReceiptIgnored = components["schemas"]["OcrReceiptIgnored"];
 export type IngredientUnitResolution = { ingredient_id: number; unit: string };
 export type IngredientCategoryResolution = { ingredient_id: number; category: (typeof CATEGORIES)[number] };
 export type IngredientManualTotal = { ingredient_id: number; stock_text: string; stock_value: number; unit: string; expected_updated_at: string };
@@ -84,9 +86,33 @@ async function request<T>(
     );
   return body as Envelope<T>;
 }
+// 小票识别在本地 OCR 服务上运行，CPU 推理可能超过普通请求超时，单独放宽。
+async function requestMultipart<T>(path: string, file: File): Promise<Envelope<T>> {
+  let response: Response;
+  try {
+    const form = new FormData();
+    form.append("file", file);
+    response = await fetch(`${BASE}${path}`, {
+      method: "POST",
+      body: form,
+      signal: AbortSignal.timeout(120000),
+    });
+  } catch {
+    throw new Error("识别请求没有完成，请确认网络与识别服务后重试。");
+  }
+  const body = await response.json().catch(() => null);
+  if (!response.ok)
+    throw new ApiError(
+      body?.error?.message || `请求失败（${response.status}），请重试。`,
+      body?.error?.code || 'REQUEST_ERROR', body?.error?.details,
+    );
+  if (!body || typeof body !== "object" || !("data" in body))
+    throw new Error("识别结果格式不正确，请重试。");
+  return body as Envelope<T>;
+}
+
 // 读取所有分页，避免遗漏未确认计划或只能选择前 50 条食材。
-async function list<T>(path: string, signal?: AbortSignal): Promise<T[]> {
-  const items: T[] = [];
+async function list<T>(path: string, signal?: AbortSignal): Promise<T[]> {  const items: T[] = [];
   let offset = 0;
   while (true) {
     const page = await request<T[]>(
@@ -103,6 +129,10 @@ async function list<T>(path: string, signal?: AbortSignal): Promise<T[]> {
   }
 }
 export const api = {
+  analyzeReceipt: (file: File) => requestMultipart<{
+    items: OcrReceiptItem[];
+    ignored: OcrReceiptIgnored[];
+  }>("/api/ocr/receipts", file),
   recoveryPreview: (kind: 'adjustment' | 'battle', id: number, signal?: AbortSignal) => request<RecoveryPreview>(
     kind === 'adjustment' ? `/api/ingredients/adjustments/${id}/recovery-preview` : `/api/daily-battles/${id}/recovery-preview`, 'GET', undefined, signal),
   recover: (kind: 'adjustment' | 'battle', id: number, body: RecoveryRequest) => request<unknown>(

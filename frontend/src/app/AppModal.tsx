@@ -3,6 +3,7 @@ import { api, type Dish, type Ingredient, type MealPlan } from "../shared/api/cl
 import { CatalogEditor } from "../features/catalog/CatalogEditors";
 import { CasualUseEditor, IngredientDetail, WasteEditor } from "../features/inventory/InventoryDetails";
 import { IngredientBatchEditor, IngredientEditor } from "../features/inventory/InventoryEditors";
+import { OcrReceiptUpload } from "../features/inventory/OcrReceiptUpload";
 import { stockLabel } from "../features/inventory/inventory-format";
 import { FreshMenuEditor } from "../features/menu/FreshMenuEditor";
 import { MenuReviewFlow } from "../features/menu/MenuReviewFlow";
@@ -37,6 +38,7 @@ function title(modal: Modal) {
   if (modal.kind === "confirm") return "核对这一餐的实际用料";
   if (modal.kind === "ingredient") return "编辑食材";
   if (modal.kind === "ingredientSingle") return "记录食材";
+  if (modal.kind === "ocrReceipt") return "拍小票入库";
   if (modal.kind === "ingredientBatch") return "批量记录食材";
   if (modal.kind === "ingredientDetail") return `查看食材 · ${modal.item.name}`;
   if (modal.kind === "ingredientUse") return `用掉了 · ${modal.item.name}`;
@@ -83,7 +85,8 @@ export function AppModal(props: Props) {
       }}>已核对，继续编辑</button>
     </section>}
     {modal.kind === "ingredient" && <IngredientEditor item={modal.item} focusLocation={modal.focusLocation} busy={busy} blocked={!!editConflict} save={(payload) => void mutate(() => api.saveIngredient(modal.item.id, payload), "食材已保存")} />}
-    {(modal.kind === "ingredientBatch" || modal.kind === "ingredientSingle") && <IngredientBatchEditor busy={busy} single={modal.kind === "ingredientSingle"} suggestedNames={modal.kind === "ingredientBatch" ? modal.suggestedNames : undefined} existingIngredients={data.ingredients} save={(ingredients, resolutions, categoryResolutions, manualTotals) => void mutate(() => api.saveIngredientsBatch(ingredients, resolutions, categoryResolutions, manualTotals), `已记录 ${ingredients.length} 项食材`)} />}
+    {modal.kind === "ocrReceipt" && <OcrReceiptUpload onRecognized={(rows) => open({ kind: "ingredientBatch", prefillRows: rows.map(({ name, quantity, unit }) => ({ name, quantity, unit })) })} />}
+    {(modal.kind === "ingredientBatch" || modal.kind === "ingredientSingle") && <IngredientBatchEditor busy={busy} single={modal.kind === "ingredientSingle"} suggestedNames={modal.kind === "ingredientBatch" ? modal.suggestedNames : undefined} initialRows={modal.kind === "ingredientBatch" ? modal.prefillRows : undefined} existingIngredients={data.ingredients} save={(ingredients, resolutions, categoryResolutions, manualTotals) => void mutate(() => api.saveIngredientsBatch(ingredients, resolutions, categoryResolutions, manualTotals), `已记录 ${ingredients.length} 项食材`)} />}
     {modal.kind === "ingredientDetail" && <IngredientDetail item={modal.item} busy={busy} edit={() => open({ kind: "ingredient", item: modal.item })} use={() => open({ kind: "ingredientUse", item: modal.item })} waste={() => open({ kind: "ingredientWaste", item: modal.item })} />}
     {modal.kind === "ingredientUse" && <CasualUseEditor item={modal.item} busy={busy} blocked={!!editConflict} save={(payload) => void mutate(() => api.useIngredient(modal.item.id, payload), "已记录日常用掉，库存已更新")} />}
     {modal.kind === "ingredientWaste" && <WasteEditor item={modal.item} busy={busy} save={(payload) => void mutate(() => api.wasteIngredient(modal.item.id, payload), "库存已更新")} />}

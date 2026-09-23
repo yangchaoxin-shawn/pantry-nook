@@ -259,6 +259,9 @@ export default function App() {
     </button>
   );
   const inventoryActions = <>
+    <button className="btn-ghost" disabled={loading || !!loadError} onClick={() => open({ kind: 'ocrReceipt' })}>
+      <Icon name="camera" />拍小票入库
+    </button>
     <button className="btn-ghost" disabled={loading || !!loadError} onClick={() => open({ kind: 'ingredientSingle' })}>
       <Icon name="plus" />单个记录
     </button>

@@ -12,13 +12,16 @@
 
 from __future__ import annotations
 
+import base64
 from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
+from http.server import BaseHTTPRequestHandler, HTTPServer
 import json
 import math
 from pathlib import Path
 import re
 import sys
+import threading
 import urllib.error
 import urllib.request
 from uuid import uuid4
@@ -369,6 +372,48 @@ def success_operations() -> dict[tuple[str, str], int]:
 EXPECTED_OPERATIONS = success_operations()
 CALLED_OPERATIONS: set[tuple[str, str]] = set()
 
+# 1x1 PNG：真实侧车可解码但识别不出文字；存根侧车不关心图片内容。
+TINY_PNG = base64.b64decode(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
+)
+
+# 存根侧车返回的最小小票行：一条商品、一条合计，覆盖 items 与 ignored 两条路径。
+STUB_OCR_LINES = {
+    "lines": [
+        {"text": "农夫山泉", "score": 0.99, "box": [[20, 100], [120, 100], [120, 120], [20, 120]]},
+        {"text": "2.00", "score": 0.97, "box": [[420, 100], [500, 100], [500, 120], [420, 120]]},
+        {"text": "合计 2.00", "score": 0.99, "box": [[20, 500], [200, 500], [200, 520], [20, 520]]},
+    ]
+}
+
+
+class _StubOcrHandler(BaseHTTPRequestHandler):
+    def do_POST(self):
+        length = int(self.headers.get("Content-Length", "0"))
+        self.rfile.read(length)
+        body = json.dumps(STUB_OCR_LINES).encode("utf-8")
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+    def log_message(self, *_args):
+        pass
+
+
+def start_stub_ocr_sidecar():
+    """尝试在 9610 起存根 OCR 服务；端口被占用说明已有真实服务可用。"""
+    try:
+        server = HTTPServer(("127.0.0.1", 9610), _StubOcrHandler)
+    except OSError:
+        print("[OK] 9610 已被占用，按约定使用现有 OCR 侧车服务")
+        return None
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    print("[OK] 已启动存根 OCR 侧车（127.0.0.1:9610）")
+    return server
+
 
 def contract_call(
     method: str,
@@ -381,6 +426,18 @@ def contract_call(
         raise AssertionError(f"归档契约中没有操作 {key[0]} {key[1]}")
     expected_status = EXPECTED_OPERATIONS[key]
     status, headers, body = request_json(method, path, payload)
+    return check_contract_response(key, path, template, expected_status, status, headers, body)
+
+
+def check_contract_response(
+    key: tuple[str, str],
+    path: str,
+    template: str,
+    expected_status: int,
+    status: int,
+    headers: dict,
+    body,
+):
     if status != expected_status:
         raise AssertionError(
             f"{key[0]} {path} 应返回 {expected_status}，实际为 {status}：{body}"
@@ -388,7 +445,7 @@ def contract_call(
     content_type = headers.get("content-type", "")
     if not content_type.lower().startswith("application/json"):
         raise AssertionError(f"{key[0]} {path} 返回了非 JSON Content-Type：{content_type}")
-    response_schema = CONTRACT["paths"][template][method.lower()]["responses"][
+    response_schema = CONTRACT["paths"][template][method_of(key)]["responses"][
         str(status)
     ]["content"]["application/json"]["schema"]
     try:
@@ -398,6 +455,55 @@ def contract_call(
     CALLED_OPERATIONS.add(key)
     print(f"[OK] {key[0]:6} {template} -> {status}")
     return headers, body
+
+
+def method_of(key: tuple[str, str]) -> str:
+    return key[0].lower()
+
+
+def contract_call_multipart(
+    method: str,
+    path: str,
+    template: str,
+    *,
+    filename: str,
+    content_type: str,
+    file_bytes: bytes,
+    timeout: int = 120,
+):
+    """以 multipart/form-data 调用接口，其余校验与 contract_call 一致。"""
+    key = (method.upper(), template)
+    if key not in EXPECTED_OPERATIONS:
+        raise AssertionError(f"归档契约中没有操作 {key[0]} {key[1]}")
+    expected_status = EXPECTED_OPERATIONS[key]
+    boundary = uuid4().hex
+    body = (
+        f"--{boundary}\r\n"
+        f'Content-Disposition: form-data; name="file"; filename="{filename}"\r\n'
+        f"Content-Type: {content_type}\r\n\r\n"
+    ).encode("utf-8") + file_bytes + f"\r\n--{boundary}--\r\n".encode("utf-8")
+    request = urllib.request.Request(
+        BASE + path,
+        data=body,
+        headers={"Content-Type": f"multipart/form-data; boundary={boundary}"},
+        method=method.upper(),
+    )
+    try:
+        response = urllib.request.urlopen(request, timeout=timeout)
+    except urllib.error.HTTPError as error:
+        response = error
+    with response:
+        raw = response.read().decode("utf-8")
+        try:
+            parsed = json.loads(raw)
+        except json.JSONDecodeError as exc:
+            raise AssertionError(
+                f"{method.upper()} {path} 返回非 JSON：{raw[:200]!r}"
+            ) from exc
+        normalized_headers = {k.lower(): v for k, v in response.headers.items()}
+        return check_contract_response(
+            key, path, template, expected_status, response.status, normalized_headers, parsed
+        )
 
 
 def assert_empty_isolated_database() -> str:
@@ -436,9 +542,9 @@ def data(body: dict):
 
 
 def main() -> None:
-    if len(EXPECTED_OPERATIONS) != 35:
+    if len(EXPECTED_OPERATIONS) != 36:
         raise AssertionError(
-            f"归档成功 operation 数量已变化：预期 35，实际 {len(EXPECTED_OPERATIONS)}；"
+            f"归档成功 operation 数量已变化：预期 36，实际 {len(EXPECTED_OPERATIONS)}；"
             "请同步扩展本脚本场景"
         )
     database = assert_empty_isolated_database()
@@ -742,6 +848,25 @@ def main() -> None:
         f"/api/daily-battles/{battle_id}/cancel",
         "/api/daily-battles/{battle_id}/cancel",
     )
+
+    # 小票 OCR：在默认端口起存根侧车；9610 已被占用时视为已有真实识别服务，
+    # 此时仍会调用真实服务（1x1 图片可能识别为空草稿，同样符合契约）。
+    stub = start_stub_ocr_sidecar()
+    try:
+        _, body = contract_call_multipart(
+            "POST",
+            "/api/ocr/receipts",
+            "/api/ocr/receipts",
+            filename="receipt.png",
+            content_type="image/png",
+            file_bytes=TINY_PNG,
+        )
+        if stub is not None and not data(body)["items"]:
+            raise AssertionError("OCR 存根场景应至少解析出一条商品草稿")
+    finally:
+        if stub is not None:
+            stub.shutdown()
+            stub.server_close()
 
     missing = sorted(EXPECTED_OPERATIONS.keys() - CALLED_OPERATIONS)
     if missing:
