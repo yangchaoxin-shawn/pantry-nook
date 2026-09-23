@@ -1,17 +1,23 @@
 import { useRef, useState, type DragEvent } from "react";
-import { api } from "../../shared/api/client";
+import { api, CATEGORIES, type Ingredient } from "../../shared/api/client";
 import { Icon } from "../../shared/ui/Primitives";
 import { ocrItemsToDraftRows, type OcrDraftRow } from "./ocr-receipt-logic";
 
 /**
  * 拍小票入库的第一步：选图或拖入小票照片，识别后给出可勾选的商品草稿。
- * 这里只做“识别 → 删掉不想要的行”；补数量、选分类和保存仍走既有批量录入。
+ * 这里做“识别 → 改分类 → 删掉不想要的行”；数量、单位补齐和保存走既有批量录入。
  */
-export function OcrReceiptUpload({ onRecognized }: { onRecognized: (rows: OcrDraftRow[]) => void }) {
+export function OcrReceiptUpload({
+  knownIngredients,
+  onRecognized,
+}: {
+  knownIngredients: Ingredient[];
+  onRecognized: (rows: OcrDraftRow[]) => void;
+}) {
   const [phase, setPhase] = useState<"idle" | "recognizing">("idle");
   const [error, setError] = useState("");
   const [dragOver, setDragOver] = useState(false);
-  const [draft, setDraft] = useState<{ rows: OcrDraftRow[]; truncated: boolean } | null>(null);
+  const [draft, setDraft] = useState<{ rows: OcrDraftRow[]; ignored: { text: string; reason: string }[]; truncated: boolean } | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   async function recognize(file: File | null | undefined) {
@@ -24,12 +30,12 @@ export function OcrReceiptUpload({ onRecognized }: { onRecognized: (rows: OcrDra
     setPhase("recognizing");
     try {
       const result = await api.analyzeReceipt(file);
-      const next = ocrItemsToDraftRows(result.data.items);
+      const next = ocrItemsToDraftRows(result.data.items, knownIngredients);
       if (!next.rows.length) {
         setError("这张小票没有识别出商品。请尽量拍清商品名称区域，或改用手动录入。");
         setDraft(null);
       } else {
-        setDraft(next);
+        setDraft({ ...next, ignored: result.data.ignored });
       }
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "识别失败，请重试。");
@@ -80,15 +86,37 @@ export function OcrReceiptUpload({ onRecognized }: { onRecognized: (rows: OcrDra
   }
 
   const remaining = draft.rows.filter((row) => row.name.trim() !== "");
+  const autoCount = draft.rows.filter((row) => row.category).length;
   return (
     <div className="ocr-receipt-review">
-      <p className="form-notice">以下商品来自这张小票，都是草稿。数量和小票金额仅供参考，删掉不需要的行后继续；分类、单位和数量会在下一步补齐。</p>
+      <p className="form-notice">以下商品来自这张小票，都是草稿。分类按你家已有食材自动带出，可直接修改；删掉不需要的行后继续。</p>
       {draft.truncated && <p className="form-notice">小票商品超过 30 项，已保留前 30 项，其余请稍后手动补录。</p>}
       <ul className="ocr-draft-rows">
         {draft.rows.map((row, index) => (
           <li className="ocr-draft-row" key={row.id}>
             <span className="batch-row-number" aria-hidden="true">{index + 1}</span>
-            <span className="ocr-draft-name">{row.name}{row.needsQuantity && <small>待补数量</small>}{!row.unit && !row.needsQuantity && <small>待选单位</small>}</span>
+            <span className="ocr-draft-name">
+              {row.name}
+              {row.needsQuantity && <small>待补数量</small>}
+              {row.uncertain && <small className="ocr-uncertain">识别不确定</small>}
+            </span>
+            <select
+              className="ocr-draft-category"
+              aria-label={`第 ${index + 1} 项 ${row.name} 的分类`}
+              value={row.category ?? ""}
+              onChange={(event) => {
+                const value = event.target.value;
+                setDraft((current) => current && {
+                  ...current,
+                  rows: current.rows.map((entry) => entry.id === row.id
+                    ? { ...entry, category: (value || null) as OcrDraftRow["category"] }
+                    : entry),
+                });
+              }}
+            >
+              <option value="">待分类</option>
+              {CATEGORIES.map((category) => <option key={category} value={category}>{category}</option>)}
+            </select>
             <span className="ocr-draft-meta">{row.quantity ? `${row.quantity}${row.unit}` : ""}{row.priceText && ` · ¥${row.priceText}`}</span>
             <button
               type="button"
@@ -101,6 +129,10 @@ export function OcrReceiptUpload({ onRecognized }: { onRecognized: (rows: OcrDra
           </li>
         ))}
       </ul>
+      {draft.ignored.length > 0 && <details className="ocr-ignored">
+        <summary>已跳过 {draft.ignored.length} 行（表头、合计或无法识别的行）</summary>
+        <ul>{draft.ignored.map((entry, index) => <li key={index}>{entry.text}</li>)}</ul>
+      </details>}
       {error && <p className="form-error" role="alert">{error}</p>}
       <div className="actions">
         <button type="button" className="btn-ghost" disabled={phase === "recognizing"} onClick={() => { setDraft(null); setError(""); inputRef.current?.click(); }}>
@@ -115,6 +147,9 @@ export function OcrReceiptUpload({ onRecognized }: { onRecognized: (rows: OcrDra
           继续核对并保存
         </button>
       </div>
+      <p className="form-hint">{autoCount === draft.rows.length
+        ? "这一票的商品都自动分好类了，保存后同类食材以后会继续自动归类。"
+        : `已自动分类 ${autoCount}/${draft.rows.length} 项；改过的分类会随食材入库，下次自动带出。`}</p>
     </div>
   );
 }

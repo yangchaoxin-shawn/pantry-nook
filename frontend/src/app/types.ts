@@ -2,8 +2,8 @@ import type { Battle, Consumption, Dish, Ingredient, MealPlan } from "../shared/
 
 export type Page = "battles" | "ingredients" | "dishes" | "plans" | "consumptions" | "adjustments" | "journal";
 
-/** 小票识别带入批量录入的预填行；数量和单位允许为空，由用户补齐。 */
-export type OcrPrefillRow = { name: string; quantity: string; unit: string };
+/** 小票识别带入批量录入的预填行；数量、单位和分类允许为空，由用户补齐。 */
+export type OcrPrefillRow = { name: string; quantity: string; unit: string; category?: string };
 
 export type Modal =
   | { kind: "recovery"; recoveryKind: "adjustment" | "battle"; id: number }

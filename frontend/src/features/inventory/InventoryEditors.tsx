@@ -19,6 +19,8 @@ type BatchIngredientRow = {
   name: string;
   quantity: string;
   unit: string;
+  /** 行级分类；空串表示跟随整批分类。仅小票预填时出现行级分类。 */
+  category: string;
 };
 type InventoryConflict = {
   ingredient: Ingredient;
@@ -31,7 +33,13 @@ const blankBatchIngredient = (id: number, unit = ""): BatchIngredientRow => ({
   name: "",
   quantity: "",
   unit,
+  category: "",
 });
+
+/** 小票预填启用行级分类；空分类回退到整批分类。 */
+function rowCategory(row: BatchIngredientRow, batchCategory: IngredientCreate["category"]): IngredientCreate["category"] {
+  return (row.category || batchCategory) as IngredientCreate["category"];
+}
 
 export function IngredientBatchEditor({
   busy,
@@ -44,8 +52,8 @@ export function IngredientBatchEditor({
   busy: boolean;
   single?: boolean;
   suggestedNames?: string[];
-  /** 小票识别等来源带入的预填行；数量与单位允许为空，保存前统一校验。 */
-  initialRows?: { name: string; quantity: string; unit: string }[];
+  /** 小票识别等来源带入的预填行；数量、单位与分类允许为空，保存前统一校验。 */
+  initialRows?: { name: string; quantity: string; unit: string; category?: string }[];
   existingIngredients: Ingredient[];
   save: (
     ingredients: IngredientCreate[],
@@ -55,11 +63,12 @@ export function IngredientBatchEditor({
   ) => void;
 }) {
   const [rows, setRows] = useState(() => initialRows?.length
-    ? initialRows.slice(0, 30).map((row, index) => ({ ...blankBatchIngredient(index + 1), name: row.name, quantity: row.quantity, unit: row.unit }))
+    ? initialRows.slice(0, 30).map((row, index) => ({ ...blankBatchIngredient(index + 1), name: row.name, quantity: row.quantity, unit: row.unit, category: row.category ?? "" }))
     : suggestedNames.length
     ? suggestedNames.map((name, index) => ({ ...blankBatchIngredient(index + 1), name }))
     : Array.from({ length: single ? 1 : 5 }, (_, index) => blankBatchIngredient(index + 1)),
   );
+  const hasRowCategories = Boolean(initialRows?.length);
   const [batchCategory, setBatchCategory] = useState<IngredientCreate["category"]>("蔬菜");
   const [batchLocation, setBatchLocation] = useState<IngredientCreate["location"]>(null);
   const [batchDefaultUnit, setBatchDefaultUnit] = useState("");
@@ -92,7 +101,7 @@ export function IngredientBatchEditor({
     }
     const ingredients = filled.map((row) => ({
       name: row.name.trim(),
-      category: batchCategory,
+      category: rowCategory(row, batchCategory),
       stock_text: row.quantity.trim(),
       stock_value: Number(row.quantity),
       stock_unit: row.unit.trim(),
@@ -116,7 +125,7 @@ export function IngredientBatchEditor({
     }
     save(ingredients, [], [], []);
   }
-  const draftIngredients = startedBatchRows(rows).map((row) => ({ name: row.name.trim(), category: batchCategory, stock_text: row.quantity.trim(), stock_value: Number(row.quantity), stock_unit: row.unit.trim(), location: batchLocation }));
+  const draftIngredients = startedBatchRows(rows).map((row) => ({ name: row.name.trim(), category: rowCategory(row, batchCategory), stock_text: row.quantity.trim(), stock_value: Number(row.quantity), stock_unit: row.unit.trim(), location: batchLocation }));
   if (conflicts.length) {
     const manualTotalMissing = conflicts.some(({ ingredient, incomingUnit }) => {
       const oldUnit = ingredient.stock_unit ?? ingredient.stock_unit ?? "";
@@ -195,6 +204,14 @@ export function IngredientBatchEditor({
               value={row.name}
               onChange={(event) => change(row.id, "name", event.target.value)}
             />
+            {hasRowCategories && <select
+              aria-label={`第 ${index + 1} 项分类`}
+              value={row.category}
+              onChange={(event) => change(row.id, "category", event.target.value)}
+            >
+              <option value="">跟随本批</option>
+              {CATEGORIES.map((category) => <option key={category} value={category}>{category}</option>)}
+            </select>}
             <QuantityInput
               aria-label={`第 ${index + 1} 项数量`}
               disabled={busy}
