@@ -1,4 +1,4 @@
-import type { Dispatch, SetStateAction } from "react";
+import { useState, type Dispatch, type SetStateAction } from "react";
 import { api, type Dish, type Ingredient, type MealPlan } from "../shared/api/client";
 import { CatalogEditor } from "../features/catalog/CatalogEditors";
 import { CasualUseEditor, IngredientDetail, WasteEditor } from "../features/inventory/InventoryDetails";
@@ -52,13 +52,14 @@ function title(modal: Modal) {
 
 export function AppModal(props: Props) {
   const { modal, data, busy, actionError, editConflict, recoveryDrafts, setModal, setBusy, setEditConflict, setActionError, setRecoveryDrafts, setNotice, setData, setDate, reload, navigate, open, mutate } = props;
+  const [ocrBusy, setOcrBusy] = useState(false);
   const close = () => { setModal(null); setEditConflict(null); };
   if (modal.kind === 'confirm') return <MenuReviewFlow key={modal.item.id} item={modal.item} initialIngredients={data.ingredients} dishes={data.dishes} plans={data.plans}
     onClose={changed => { close(); if (changed) reload(); }}
     onDishAdded={dish => setData(current => current ? { ...current, dishes: current.dishes.some(item => item.id === dish.id) ? current.dishes : [...current.dishes, dish] } : current)}
     onRefresh={(battle, ingredients) => setData(current => current ? { ...current, ingredients: ingredients ?? current.ingredients, battles: current.battles.map(item => item.id === battle.id ? battle : item) } : current)}
     onConfirmed={() => { setModal(null); setNotice('已确定，库存已更新，菜单已归入历史'); reload(); }} />;
-  return <Dialog key={modal.kind} title={title(modal)} onClose={close} busy={busy}>
+  return <Dialog key={modal.kind} title={title(modal)} onClose={close} busy={busy || ocrBusy}>
     {modal.kind === "recovery" && <RecoveryDialog kind={modal.recoveryKind} id={modal.id}
       draft={recoveryDrafts[`${modal.recoveryKind}:${modal.id}`]}
       onDraft={(draft) => setRecoveryDrafts((current) => ({ ...current, [`${modal.recoveryKind}:${modal.id}`]: draft }))}
@@ -85,7 +86,7 @@ export function AppModal(props: Props) {
       }}>已核对，继续编辑</button>
     </section>}
     {modal.kind === "ingredient" && <IngredientEditor item={modal.item} focusLocation={modal.focusLocation} busy={busy} blocked={!!editConflict} save={(payload) => void mutate(() => api.saveIngredient(modal.item.id, payload), "食材已保存")} />}
-    {modal.kind === "ocrReceipt" && <OcrReceiptUpload knownIngredients={data.ingredients} onRecognized={(rows) => open({ kind: "ingredientBatch", prefillRows: rows.map(({ name, quantity, unit, category }) => ({ name, quantity, unit, category: category ?? undefined })) })} />}
+    {modal.kind === "ocrReceipt" && <OcrReceiptUpload knownIngredients={data.ingredients} onBusyChange={setOcrBusy} onRecognized={(rows) => open({ kind: "ingredientBatch", prefillRows: rows.map(({ name, quantity, unit, category }) => ({ name, quantity, unit, category: category ?? undefined })) })} />}
     {(modal.kind === "ingredientBatch" || modal.kind === "ingredientSingle") && <IngredientBatchEditor busy={busy} single={modal.kind === "ingredientSingle"} suggestedNames={modal.kind === "ingredientBatch" ? modal.suggestedNames : undefined} initialRows={modal.kind === "ingredientBatch" ? modal.prefillRows : undefined} existingIngredients={data.ingredients} save={(ingredients, resolutions, categoryResolutions, manualTotals) => void mutate(() => api.saveIngredientsBatch(ingredients, resolutions, categoryResolutions, manualTotals), `已记录 ${ingredients.length} 项食材`)} />}
     {modal.kind === "ingredientDetail" && <IngredientDetail item={modal.item} busy={busy} edit={() => open({ kind: "ingredient", item: modal.item })} use={() => open({ kind: "ingredientUse", item: modal.item })} waste={() => open({ kind: "ingredientWaste", item: modal.item })} />}
     {modal.kind === "ingredientUse" && <CasualUseEditor item={modal.item} busy={busy} blocked={!!editConflict} save={(payload) => void mutate(() => api.useIngredient(modal.item.id, payload), "已记录日常用掉，库存已更新")} />}

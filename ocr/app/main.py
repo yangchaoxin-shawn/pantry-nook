@@ -15,6 +15,11 @@ import numpy as np
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from PIL import Image, ImageOps, UnidentifiedImageError
 
+import pillow_heif
+
+# iPhone 原图常为 HEIC；注册解码器后与 JPEG/PNG 一致处理。
+pillow_heif.register_heif_opener()
+
 MAX_IMAGE_BYTES = int(os.getenv("OCR_MAX_IMAGE_BYTES", str(15 * 1024 * 1024)))
 # 手机原图普遍 3000px 以上；缩边控制 CPU 推理耗时，小票文字仍可辨认。
 MAX_SIDE_PIXELS = int(os.getenv("OCR_MAX_SIDE_PIXELS", "2200"))

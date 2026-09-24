@@ -21,9 +21,12 @@ type ChecklistFilter = "all" | "duplicate" | "category" | "quantity";
  */
 export function OcrReceiptUpload({
   knownIngredients,
+  onBusyChange,
   onRecognized,
 }: {
   knownIngredients: Ingredient[];
+  /** 识别进行中上报给弹窗层，用于禁用关闭，避免误关丢失几十秒的识别结果。 */
+  onBusyChange?: (busy: boolean) => void;
   onRecognized: (rows: OcrDraftRow[]) => void;
 }) {
   const [phase, setPhase] = useState<{ busy: boolean; current: number; total: number }>({ busy: false, current: 0, total: 0 });
@@ -35,10 +38,15 @@ export function OcrReceiptUpload({
   const [truncated, setTruncated] = useState(false);
   const [filter, setFilter] = useState<ChecklistFilter>("all");
   const [editingId, setEditingId] = useState<number | null>(null);
+  const [confirmClear, setConfirmClear] = useState(false);
   const [library, setLibrary] = useState<{ name: string; category: string }[]>(
     () => knownIngredients.map((item) => ({ name: item.name, category: item.category })),
   );
   const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    onBusyChange?.(phase.busy);
+  }, [phase.busy, onBusyChange]);
 
   useEffect(() => {
     let cancelled = false;
@@ -254,9 +262,11 @@ export function OcrReceiptUpload({
         <button type="button" className="btn-ghost" disabled={phase.busy} onClick={() => inputRef.current?.click()}>
           再拍一张累加
         </button>
-        <button type="button" className="btn-ghost" disabled={phase.busy} onClick={() => { setRows([]); setIgnored([]); setTruncated(false); setNotice(""); setError(""); setFilter("all"); }}>
+        {confirmClear ? <button type="button" className="btn-ghost" autoFocus onClick={() => { setRows([]); setIgnored([]); setTruncated(false); setNotice(""); setError(""); setFilter("all"); setConfirmClear(false); }}>
+          再点一次确认清空
+        </button> : <button type="button" className="btn-ghost" disabled={phase.busy} onClick={() => { setConfirmClear(true); window.setTimeout(() => setConfirmClear(false), 3000); }}>
           清空重拍
-        </button>
+        </button>}
         <button
           type="button"
           className={pendingCount ? "btn-ghost ocr-save-pending" : "btn-primary"}
