@@ -513,6 +513,29 @@ export interface paths {
         patch: operations["update_entry_api_journal_entries__entry_id__patch"];
         trace?: never;
     };
+    "/api/ocr/category-library": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Category Library
+         * @description 食材名称分类对照：全部在库与历史食材，同名取最近一次分类。
+         *
+         *     食材被消耗或报废后记录仍保留，用户在草稿里修正过的分类因此
+         *     持久生效，覆盖内置词表中同一名称的任何错误归类。
+         */
+        get: operations["category_library_api_ocr_category_library_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/ocr/receipts": {
         parameters: {
             query?: never;
@@ -1341,6 +1364,16 @@ export interface components {
             meta: {
                 line_count: number;
             };
+        };
+        OcrCategoryEntry: {
+            /** @description 去除首尾空白后不能为空。 */
+            name: string;
+            /** @enum {string} */
+            category: "碳水" | "蔬菜" | "蛋白质" | "水果" | "汤料" | "其他";
+        };
+        /** @description 小票草稿自动分类用的名称-分类对照：全部在库与历史食材，同名取最近一次分类；用户修正过的分类由此持久覆盖内置词表。 */
+        OcrCategoryLibrary: {
+            data: components["schemas"]["OcrCategoryEntry"][];
         };
     };
     responses: never;
@@ -4150,6 +4183,53 @@ export interface operations {
             };
             /** @description 请求或资源状态错误 */
             507: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    category_library_api_ocr_category_library_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 请求成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OcrCategoryLibrary"];
+                };
+            };
+            /** @description 请求参数或 JSON 格式不正确 */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description 资源不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description 服务器内部错误 */
+            500: {
                 headers: {
                     [name: string]: unknown;
                 };

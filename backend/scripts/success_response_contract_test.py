@@ -542,9 +542,9 @@ def data(body: dict):
 
 
 def main() -> None:
-    if len(EXPECTED_OPERATIONS) != 36:
+    if len(EXPECTED_OPERATIONS) != 37:
         raise AssertionError(
-            f"归档成功 operation 数量已变化：预期 36，实际 {len(EXPECTED_OPERATIONS)}；"
+            f"归档成功 operation 数量已变化：预期 37，实际 {len(EXPECTED_OPERATIONS)}；"
             "请同步扩展本脚本场景"
         )
     database = assert_empty_isolated_database()
@@ -849,8 +849,12 @@ def main() -> None:
         "/api/daily-battles/{battle_id}/cancel",
     )
 
-    # 小票 OCR：在默认端口起存根侧车；9610 已被占用时视为已有真实识别服务，
+    # 小票 OCR：分类对照库来自食材历史（含本轮已入库的测试食材）；
+    # 识别接口在默认端口起存根侧车，9610 已被占用时视为已有真实识别服务，
     # 此时仍会调用真实服务（1x1 图片可能识别为空草稿，同样符合契约）。
+    _, body = contract_call("GET", "/api/ocr/category-library", "/api/ocr/category-library")
+    if not data(body):
+        raise AssertionError("分类对照库应包含隔离库中已入库的食材名称分类")
     stub = start_stub_ocr_sidecar()
     try:
         _, body = contract_call_multipart(

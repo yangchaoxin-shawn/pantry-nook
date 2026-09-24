@@ -1,4 +1,4 @@
-import type { Ingredient, OcrReceiptItem } from "../../shared/api/client";
+import type { OcrReceiptItem } from "../../shared/api/client";
 import { classifyIngredientName, type IngredientCategory } from "./ingredient-classify";
 
 export type OcrDraftRow = {
@@ -34,9 +34,8 @@ export function normalizeOcrQuantity(text: string | null | undefined): string {
 
 export function ocrItemsToDraftRows(
   items: OcrReceiptItem[],
-  knownIngredients: Ingredient[] = [],
+  known: { name: string; category: string }[] = [],
 ): { rows: OcrDraftRow[]; truncated: boolean } {
-  const known = knownIngredients.map((item) => ({ name: item.name, category: item.category }));
   const usable = items.filter((item) => item.name.trim() !== "");
   return {
     rows: usable.slice(0, MAX_OCR_ROWS).map((item, index) => {

@@ -1,16 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { MAX_OCR_ROWS, normalizeOcrQuantity, ocrItemsToDraftRows, type OcrDraftRow } from "./ocr-receipt-logic";
-import type { Ingredient } from "../../shared/api/client";
 
 const item = (overrides: Partial<{ name: string; quantity_text: string | null; unit: string | null; price_text: string | null; score: number }>) => ({
   name: "土豆", quantity_text: null, unit: null, price_text: null, raw_text: "土豆", score: 0.98,
   ...overrides,
 });
 
-const known = (name: string, category: string) => ({
-  id: 1, name, category, stock_text: "1", stock_value: 1, stock_unit: "个",
-  location: null, note: null, created_at: "", updated_at: "",
-}) as Ingredient;
+const known = (name: string, category: string) => ({ name, category });
 
 describe("normalizeOcrQuantity", () => {
   it("保留正的十进制数量并去掉多余格式", () => {

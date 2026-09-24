@@ -3909,6 +3909,58 @@
         }
       }
     },
+    "/api/ocr/category-library": {
+      "get": {
+        "tags": [
+          "ocr"
+        ],
+        "summary": "Category Library",
+        "description": "食材名称分类对照：全部在库与历史食材，同名取最近一次分类。\n\n食材被消耗或报废后记录仍保留，用户在草稿里修正过的分类因此\n持久生效，覆盖内置词表中同一名称的任何错误归类。",
+        "operationId": "category_library_api_ocr_category_library_get",
+        "responses": {
+          "200": {
+            "description": "请求成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OcrCategoryLibrary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "请求参数或 JSON 格式不正确",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "资源不存在",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "服务器内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/ocr/receipts": {
       "post": {
         "tags": [
@@ -7759,6 +7811,47 @@
           "meta"
         ],
         "description": "小票 OCR 草稿。items 为建议入库行，单价 price_text 仅参考、不入库；ignored 为丢弃的表头表尾行。草稿必须经人工核对后另行调用批量入库接口。"
+      },
+      "OcrCategoryEntry": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 255,
+            "minLength": 1,
+            "description": "去除首尾空白后不能为空。"
+          },
+          "category": {
+            "type": "string",
+            "enum": [
+              "碳水",
+              "蔬菜",
+              "蛋白质",
+              "水果",
+              "汤料",
+              "其他"
+            ]
+          }
+        },
+        "required": [
+          "name",
+          "category"
+        ]
+      },
+      "OcrCategoryLibrary": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OcrCategoryEntry"
+            }
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "description": "小票草稿自动分类用的名称-分类对照：全部在库与历史食材，同名取最近一次分类；用户修正过的分类由此持久覆盖内置词表。"
       }
     }
   }

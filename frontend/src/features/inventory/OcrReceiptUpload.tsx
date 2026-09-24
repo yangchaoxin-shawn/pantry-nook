@@ -1,4 +1,4 @@
-import { useRef, useState, type DragEvent } from "react";
+import { useEffect, useRef, useState, type DragEvent } from "react";
 import { api, CATEGORIES, type Ingredient } from "../../shared/api/client";
 import { Icon } from "../../shared/ui/Primitives";
 import { ocrItemsToDraftRows, type OcrDraftRow } from "./ocr-receipt-logic";
@@ -6,6 +6,7 @@ import { ocrItemsToDraftRows, type OcrDraftRow } from "./ocr-receipt-logic";
 /**
  * 拍小票入库的第一步：选图或拖入小票照片，识别后给出可勾选的商品草稿。
  * 这里做“识别 → 改分类 → 删掉不想要的行”；数量、单位补齐和保存走既有批量录入。
+ * 分类对照来自食材全量历史：用户修正过的分类持久覆盖内置词表。
  */
 export function OcrReceiptUpload({
   knownIngredients,
@@ -18,7 +19,19 @@ export function OcrReceiptUpload({
   const [error, setError] = useState("");
   const [dragOver, setDragOver] = useState(false);
   const [draft, setDraft] = useState<{ rows: OcrDraftRow[]; ignored: { text: string; reason: string }[]; truncated: boolean } | null>(null);
+  const [library, setLibrary] = useState<{ name: string; category: string }[]>(
+    () => knownIngredients.map((item) => ({ name: item.name, category: item.category })),
+  );
   const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    // 对照库含已消耗/已报废的历史食材，读不到时退回当前在库列表。
+    api.categoryLibrary()
+      .then((result) => { if (!cancelled && result.data.length) setLibrary(result.data); })
+      .catch(() => { /* 读取失败沿用初始匹配源 */ });
+    return () => { cancelled = true; };
+  }, []);
 
   async function recognize(file: File | null | undefined) {
     if (!file || phase === "recognizing") return;
@@ -30,7 +43,7 @@ export function OcrReceiptUpload({
     setPhase("recognizing");
     try {
       const result = await api.analyzeReceipt(file);
-      const next = ocrItemsToDraftRows(result.data.items, knownIngredients);
+      const next = ocrItemsToDraftRows(result.data.items, library);
       if (!next.rows.length) {
         setError("这张小票没有识别出商品。请尽量拍清商品名称区域，或改用手动录入。");
         setDraft(null);

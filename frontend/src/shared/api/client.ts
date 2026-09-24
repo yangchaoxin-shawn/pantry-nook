@@ -15,6 +15,7 @@ export type RecoveryPreview = components['schemas']['RecoveryPreview'];
 export type RecoveryRequest = components['schemas']['RecoveryRequest'];
 export type OcrReceiptItem = components["schemas"]["OcrReceiptItem"];
 export type OcrReceiptIgnored = components["schemas"]["OcrReceiptIgnored"];
+export type OcrCategoryEntry = components["schemas"]["OcrCategoryEntry"];
 export type IngredientUnitResolution = { ingredient_id: number; unit: string };
 export type IngredientCategoryResolution = { ingredient_id: number; category: (typeof CATEGORIES)[number] };
 export type IngredientManualTotal = { ingredient_id: number; stock_text: string; stock_value: number; unit: string; expected_updated_at: string };
@@ -129,6 +130,7 @@ async function list<T>(path: string, signal?: AbortSignal): Promise<T[]> {  cons
   }
 }
 export const api = {
+  categoryLibrary: (signal?: AbortSignal) => request<OcrCategoryEntry[]>("/api/ocr/category-library", "GET", undefined, signal),
   analyzeReceipt: (file: File) => requestMultipart<{
     items: OcrReceiptItem[];
     ignored: OcrReceiptIgnored[];

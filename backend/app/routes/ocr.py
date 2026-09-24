@@ -2,6 +2,7 @@
 
 识别服务是独立部署的 ocr/ 侧车（PP-OCRv6），本路由只做转发、
 限额和草稿解析；不保存图片，也不产生任何库存写入。
+分类对照库从食材历史读取，让用户修正过的分类持久覆盖内置词表。
 """
 
 from __future__ import annotations
@@ -11,6 +12,7 @@ import os
 import httpx
 from fastapi import APIRouter, Request
 
+from ..db import get_pool
 from ..errors import AppError, validation_error
 from ..receipt_parse import parse_receipt_lines
 from ..responses import ok
@@ -51,6 +53,21 @@ async def _recognize(image: bytes, content_type: str | None) -> list[dict]:
     if not isinstance(lines, list):
         raise AppError(502, "OCR_SERVICE_ERROR", "识别服务返回格式异常，请稍后重试")
     return lines
+
+
+@router.get("/category-library")
+async def category_library():
+    """食材名称分类对照：全部在库与历史食材，同名取最近一次分类。
+
+    食材被消耗或报废后记录仍保留，用户在草稿里修正过的分类因此
+    持久生效，覆盖内置词表中同一名称的任何错误归类。
+    """
+    pool = await get_pool()
+    rows = await pool.fetch(
+        "SELECT DISTINCT ON (LOWER(btrim(name))) name, category "
+        "FROM ingredients ORDER BY LOWER(btrim(name)), updated_at DESC LIMIT 2000"
+    )
+    return ok([{"name": row["name"], "category": row["category"]} for row in rows])
 
 
 @router.post("/receipts")
