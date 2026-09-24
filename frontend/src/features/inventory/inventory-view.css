@@ -76,6 +76,15 @@
 }
 
 /* 拍小票入库（OCR 识别草稿）；弹窗内容不在 .pn-inventory 作用域内。 */
+.ocr-checklist { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+.ocr-chip { padding: 6px 13px; border: 1px solid var(--hairline, #c9c9af); border-radius: 6px 12px 7px 10px; background-color: var(--surface, #fcf5e3); color: var(--ink-soft, #526451); font: inherit; font-size: 14px; }
+.ocr-chip.active { background-color: var(--primary, #567161); border-color: var(--primary, #567161); color: var(--canvas, #f4ebd5); }
+.ocr-chip.muted { opacity: 0.5; }
+.ocr-draft-row.duplicate { background: color-mix(in srgb, #b0642a 7%, transparent); border-radius: 8px; }
+.ocr-draft-name small.ocr-duplicate { border-color: color-mix(in srgb, #b0642a 55%, transparent); color: #b0642a; }
+.ocr-draft-name.text-button { flex: 1; min-width: 0; overflow-wrap: anywhere; text-align: left; padding: 0; border: 0; background: transparent; font: inherit; color: var(--ink, #344e40); }
+.ocr-draft-name-input { flex: 1; min-width: 0; padding: 5px 8px; border: 1px solid var(--hairline, #c9c9af); border-radius: 6px 10px 7px 9px; background: var(--surface, #fcf5e3); font: inherit; font-size: 15px; color: var(--ink, #344e40); }
+.ocr-draft-empty { padding: 14px 2px; color: var(--ink-muted, #687564); font-size: 14px; list-style: none; }
 .ocr-dropzone {
   display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 34px 18px 30px; text-align: center;
   border: 1.5px dashed var(--hairline, #c9c9af); border-radius: 10px 16px 11px 14px;

@@ -1,12 +1,21 @@
 import { useEffect, useRef, useState, type DragEvent } from "react";
 import { api, CATEGORIES, type Ingredient } from "../../shared/api/client";
 import { Icon } from "../../shared/ui/Primitives";
-import { ocrItemsToDraftRows, type OcrDraftRow } from "./ocr-receipt-logic";
+import {
+  appendOcrDraft,
+  recognizeToDraft,
+  reviewChecklist,
+  type OcrDraftRow,
+  type OcrIgnoredEntry,
+  type OcrRecognition,
+} from "./ocr-receipt-logic";
+
+type ChecklistFilter = "all" | "duplicate" | "category" | "quantity";
 
 /**
- * 拍小票入库的第一步：选图或拖入小票照片，识别后给出可勾选的商品草稿。
- * 这里做“识别 → 改分类 → 删掉不想要的行”；数量、单位补齐和保存走既有批量录入。
- * 分类对照来自食材全量历史：用户修正过的分类持久覆盖内置词表。
+ * 拍小票入库：小票可分段多拍、累加成一个草稿；跨张切分由系统自动缝合，
+ * 重叠商品标记疑似重复。核对按"删错的 → 确认分类 → 补数值"分层引导，
+ * 全部处理完（或用户自行判断后）进入批量录入完成保存。
  */
 export function OcrReceiptUpload({
   knownIngredients,
@@ -17,8 +26,13 @@ export function OcrReceiptUpload({
 }) {
   const [phase, setPhase] = useState<"idle" | "recognizing">("idle");
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
   const [dragOver, setDragOver] = useState(false);
-  const [draft, setDraft] = useState<{ rows: OcrDraftRow[]; ignored: { text: string; reason: string }[]; truncated: boolean } | null>(null);
+  const [rows, setRows] = useState<OcrDraftRow[]>([]);
+  const [ignored, setIgnored] = useState<OcrIgnoredEntry[]>([]);
+  const [truncated, setTruncated] = useState(false);
+  const [filter, setFilter] = useState<ChecklistFilter>("all");
+  const [editingId, setEditingId] = useState<number | null>(null);
   const [library, setLibrary] = useState<{ name: string; category: string }[]>(
     () => knownIngredients.map((item) => ({ name: item.name, category: item.category })),
   );
@@ -33,6 +47,26 @@ export function OcrReceiptUpload({
     return () => { cancelled = true; };
   }, []);
 
+  function applyRecognition(recognition: OcrRecognition) {
+    if (!rows.length) {
+      if (!recognition.rows.length) {
+        setError("这张小票没有识别出商品。请尽量拍清商品名称区域，或改用手动录入。");
+        return;
+      }
+      setRows(recognition.rows);
+      setIgnored(recognition.ignored);
+      setTruncated(recognition.truncated);
+      return;
+    }
+    const result = appendOcrDraft(rows, ignored, recognition);
+    setRows(result.rows);
+    setIgnored(result.ignored);
+    setTruncated(result.truncated);
+    setNotice(result.mergedName
+      ? `已把这张开头的数量金额并入上一张末尾的「${result.mergedName}」。`
+      : "");
+  }
+
   async function recognize(file: File | null | undefined) {
     if (!file || phase === "recognizing") return;
     if (!file.type.startsWith("image/")) {
@@ -43,16 +77,9 @@ export function OcrReceiptUpload({
     setPhase("recognizing");
     try {
       const result = await api.analyzeReceipt(file);
-      const next = ocrItemsToDraftRows(result.data.items, library);
-      if (!next.rows.length) {
-        setError("这张小票没有识别出商品。请尽量拍清商品名称区域，或改用手动录入。");
-        setDraft(null);
-      } else {
-        setDraft({ ...next, ignored: result.data.ignored });
-      }
+      applyRecognition(recognizeToDraft(result.data.items, result.data.ignored, library));
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "识别失败，请重试。");
-      setDraft(null);
     } finally {
       setPhase("idle");
     }
@@ -64,7 +91,27 @@ export function OcrReceiptUpload({
     void recognize(event.dataTransfer.files?.[0]);
   }
 
-  if (!draft) {
+  function updateRow(id: number, patch: Partial<OcrDraftRow>) {
+    setRows((current) => current.map((row) => row.id === id ? { ...row, ...patch } : row));
+  }
+
+  const checklist = reviewChecklist(rows);
+  const visible = rows.filter((row) => {
+    if (filter === "duplicate") return row.duplicate;
+    if (filter === "category") return !row.category;
+    if (filter === "quantity") return row.needsQuantity;
+    return true;
+  });
+  const pendingCount = checklist.duplicates + checklist.pendingCategory + checklist.pendingQuantity;
+
+  const chips: { key: ChecklistFilter; label: string }[] = [
+    { key: "all", label: `全部 ${checklist.total}` },
+    { key: "duplicate", label: `疑似重复 ${checklist.duplicates}` },
+    { key: "category", label: `待分类 ${checklist.pendingCategory}` },
+    { key: "quantity", label: `待补数量 ${checklist.pendingQuantity}` },
+  ];
+
+  if (!rows.length) {
     return (
       <div className="ocr-receipt-upload">
         <div
@@ -90,7 +137,7 @@ export function OcrReceiptUpload({
               event.target.value = "";
             }}
           />
-          <p className="form-hint">识别结果只是草稿，保存前会请你逐项核对。</p>
+          <p className="form-hint">长小票可以分段多拍，识别结果会自动累加拼接；保存前会请你逐项核对。</p>
         </div>
         {phase === "recognizing" && <p className="form-hint" role="status">正在识别小票…</p>}
         {error && <p className="form-error" role="alert">{error}</p>}
@@ -98,34 +145,57 @@ export function OcrReceiptUpload({
     );
   }
 
-  const remaining = draft.rows.filter((row) => row.name.trim() !== "");
-  const autoCount = draft.rows.filter((row) => row.category).length;
   return (
     <div className="ocr-receipt-review">
-      <p className="form-notice">以下商品来自这张小票，都是草稿。分类按你家已有食材自动带出，可直接修改；删掉不需要的行后继续。</p>
-      {draft.truncated && <p className="form-notice">小票商品超过 30 项，已保留前 30 项，其余请稍后手动补录。</p>}
+      <div className="ocr-checklist" role="group" aria-label="核对待办">
+        {chips.map(({ key, label }) => {
+          const muted = key !== "all" && label.endsWith(" 0");
+          return <button
+            type="button"
+            key={key}
+            className={filter === key ? "ocr-chip active" : muted ? "ocr-chip muted" : "ocr-chip"}
+            aria-pressed={filter === key}
+            onClick={() => setFilter(key)}
+          >{label}</button>;
+        })}
+      </div>
+      {notice && <p className="form-hint" role="status">{notice}</p>}
+      {truncated && <p className="form-notice">累计商品已到 30 项上限，本次先保存这些，其余请稍后再拍一张单独入库。</p>}
       <ul className="ocr-draft-rows">
-        {draft.rows.map((row, index) => (
-          <li className="ocr-draft-row" key={row.id}>
-            <span className="batch-row-number" aria-hidden="true">{index + 1}</span>
-            <span className="ocr-draft-name">
-              {row.name}
-              {row.needsQuantity && <small>待补数量</small>}
-              {row.uncertain && <small className="ocr-uncertain">识别不确定</small>}
-            </span>
+        {visible.map((row) => (
+          <li className={row.duplicate ? "ocr-draft-row duplicate" : "ocr-draft-row"} key={row.id}>
+            <span className="batch-row-number" aria-hidden="true">{rows.indexOf(row) + 1}</span>
+            {editingId === row.id ? (
+              <input
+                className="ocr-draft-name-input"
+                aria-label={`修改第 ${rows.indexOf(row) + 1} 项名称`}
+                autoFocus
+                defaultValue={row.name}
+                maxLength={255}
+                onBlur={(event) => { updateRow(row.id, { name: event.target.value.trim() || row.name }); setEditingId(null); }}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") (event.target as HTMLInputElement).blur();
+                  if (event.key === "Escape") setEditingId(null);
+                }}
+              />
+            ) : (
+              <button
+                type="button"
+                className="ocr-draft-name text-button"
+                title="点击修改名称"
+                onClick={() => setEditingId(row.id)}
+              >
+                {row.name}
+                {row.needsQuantity && <small>待补数量</small>}
+                {row.uncertain && <small className="ocr-uncertain">识别不确定</small>}
+                {row.duplicate && <small className="ocr-duplicate">疑似重复</small>}
+              </button>
+            )}
             <select
               className="ocr-draft-category"
-              aria-label={`第 ${index + 1} 项 ${row.name} 的分类`}
+              aria-label={`第 ${rows.indexOf(row) + 1} 项 ${row.name} 的分类`}
               value={row.category ?? ""}
-              onChange={(event) => {
-                const value = event.target.value;
-                setDraft((current) => current && {
-                  ...current,
-                  rows: current.rows.map((entry) => entry.id === row.id
-                    ? { ...entry, category: (value || null) as OcrDraftRow["category"] }
-                    : entry),
-                });
-              }}
+              onChange={(event) => updateRow(row.id, { category: (event.target.value || null) as OcrDraftRow["category"] })}
             >
               <option value="">待分类</option>
               {CATEGORIES.map((category) => <option key={category} value={category}>{category}</option>)}
@@ -134,35 +204,60 @@ export function OcrReceiptUpload({
             <button
               type="button"
               className="text-button batch-row-remove"
-              aria-label={`删除第 ${index + 1} 项 ${row.name}`}
-              onClick={() => setDraft((current) => current && { ...current, rows: current.rows.filter((entry) => entry.id !== row.id) })}
+              aria-label={`删除第 ${rows.indexOf(row) + 1} 项 ${row.name}`}
+              onClick={() => setRows((current) => current.filter((entry) => entry.id !== row.id))}
             >
               删除
             </button>
           </li>
         ))}
+        {!visible.length && <li className="ocr-draft-empty">这一类没有待处理的行。</li>}
       </ul>
-      {draft.ignored.length > 0 && <details className="ocr-ignored">
-        <summary>已跳过 {draft.ignored.length} 行（表头、合计或无法识别的行）</summary>
-        <ul>{draft.ignored.map((entry, index) => <li key={index}>{entry.text}</li>)}</ul>
+      {ignored.length > 0 && <details className="ocr-ignored">
+        <summary>已跳过 {ignored.length} 行（表头、合计或无法识别的行）</summary>
+        <ul>{ignored.map((entry, index) => <li key={index}>{entry.text}</li>)}</ul>
       </details>}
       {error && <p className="form-error" role="alert">{error}</p>}
       <div className="actions">
-        <button type="button" className="btn-ghost" disabled={phase === "recognizing"} onClick={() => { setDraft(null); setError(""); inputRef.current?.click(); }}>
-          重拍一张
+        <button type="button" className="btn-ghost" disabled={phase === "recognizing"} onClick={() => inputRef.current?.click()}>
+          再拍一张累加
+        </button>
+        <button type="button" className="btn-ghost" disabled={phase === "recognizing"} onClick={() => { setRows([]); setIgnored([]); setTruncated(false); setNotice(""); setError(""); setFilter("all"); }}>
+          清空重拍
         </button>
         <button
           type="button"
-          className="btn-primary"
-          disabled={!remaining.length || phase === "recognizing"}
-          onClick={() => onRecognized(draft.rows)}
+          className={pendingCount ? "btn-ghost ocr-save-pending" : "btn-primary"}
+          disabled={!rows.length || phase === "recognizing" || checklist.duplicates > 0}
+          title={checklist.duplicates ? "同一批不能有同名食材，请先删除疑似重复的行" : undefined}
+          onClick={() => onRecognized(rows)}
         >
-          继续核对并保存
+          {phase === "recognizing"
+            ? "正在识别…"
+            : checklist.duplicates
+            ? `${checklist.duplicates} 项疑似重复，删除后再保存`
+            : pendingCount
+            ? `还有 ${pendingCount} 项待核对，继续保存`
+            : "继续核对并保存"}
         </button>
       </div>
-      <p className="form-hint">{autoCount === draft.rows.length
-        ? "这一票的商品都自动分好类了，保存后同类食材以后会继续自动归类。"
-        : `已自动分类 ${autoCount}/${draft.rows.length} 项；改过的分类会随食材入库，下次自动带出。`}</p>
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        aria-label="再拍一张小票"
+        hidden
+        onChange={(event) => {
+          void recognize(event.target.files?.[0]);
+          event.target.value = "";
+        }}
+      />
+      <p className="form-hint">
+        {checklist.allClear
+          ? "待办都清零了。分类改动会随食材入库，下次自动带出。"
+          : "建议顺序：先删疑似重复，再确认分类，最后补数量；也可以直接保存，后面还有一步总核对。"}
+      </p>
     </div>
   );
 }

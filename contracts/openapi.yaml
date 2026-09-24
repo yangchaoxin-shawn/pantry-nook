@@ -7733,6 +7733,9 @@
             "type": "number",
             "minimum": 0,
             "maximum": 1
+          },
+          "open_ended": {
+            "type": "boolean"
           }
         },
         "required": [
@@ -7742,7 +7745,8 @@
           "price_text",
           "raw_text",
           "score"
-        ]
+        ],
+        "description": "open_ended 表示该行只有名称、数量可能拍在下一张分段图的开头，供前端跨张缝合。"
       },
       "OcrReceiptIgnored": {
         "type": "object",
@@ -7762,12 +7766,35 @@
               "numeric-only",
               "no-name"
             ]
+          },
+          "quantity_text": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 255
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "amount_text": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 255
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": [
           "text",
           "reason"
-        ]
+        ],
+        "description": "numeric-only 行在名称属于上一张分段图时附带 quantity_text 与 amount_text，供前端跨张缝合。"
       },
       "OcrReceiptResponse": {
         "type": "object",

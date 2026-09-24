@@ -1339,6 +1339,7 @@ export interface components {
         IngredientConsumptionList: {
             data: components["schemas"]["IngredientConsumption"][];
         };
+        /** @description open_ended 表示该行只有名称、数量可能拍在下一张分段图的开头，供前端跨张缝合。 */
         OcrReceiptItem: {
             /** @description 去除首尾空白后不能为空。 */
             name: string;
@@ -1348,12 +1349,16 @@ export interface components {
             /** @description 去除首尾空白后不能为空。 */
             raw_text: string;
             score: number;
+            open_ended?: boolean;
         };
+        /** @description numeric-only 行在名称属于上一张分段图时附带 quantity_text 与 amount_text，供前端跨张缝合。 */
         OcrReceiptIgnored: {
             /** @description 去除首尾空白后不能为空。 */
             text: string;
             /** @enum {string} */
             reason: "noise" | "header" | "datetime" | "numeric-only" | "no-name";
+            quantity_text?: string | null;
+            amount_text?: string | null;
         };
         /** @description 小票 OCR 草稿。items 为建议入库行，单价 price_text 仅参考、不入库；ignored 为丢弃的表头表尾行。草稿必须经人工核对后另行调用批量入库接口。 */
         OcrReceiptResponse: {

@@ -113,7 +113,8 @@ uv run python scripts/seed_demo_data.py http://127.0.0.1:3010
 - 旧实况浏览器脚本随功能移除；历史报告只对应历史提交，不作为当前门禁。真机相册选择器需用户验证。
 - `boundary_audit_test.py`：改名冲突、分页越界、合并溢出/超精度、同名重新入库后的两类撤销、菜单缺失版本、搭配引用与删除并发。使用独立服务执行 `python scripts/boundary_audit_test.py <端口>`。
 - `tests/test_receipt_parse.py` 与 `tests/test_ocr_route.py`：小票行解析和 OCR 路由错误语义，不连数据库或侧车。
-- `scripts/ocr_browser_walkthrough.py`：拍小票入库浏览器走查；需先启动隔离后端（3047）、指向它的 Vite（5217）与 OCR 侧车（9610，见 `ocr/README.md`），执行 `python scripts/ocr_browser_walkthrough.py`。覆盖入口、真实识别、草稿删行、预填批量录入、补齐保存与控制台检查；识别耗时取决于 CPU（单张约 15–40 秒）。- `edit_conflict_test.py`：在全新独立库验证含零数量整批拒绝、人工合并必须正数、库存/菜品/搭配编辑缺失版本、过期版本、最新快照、核对后重试和并发仅保存一次。`python scripts/edit_conflict_test.py <端口>`；先运行此脚本，再在同库运行 regression，不能倒序。
+- `scripts/ocr_browser_walkthrough.py`：拍小票入库浏览器走查；需先启动隔离后端（3047）、指向它的 Vite（5217）与 OCR 侧车（9610，见 `ocr/README.md`），执行 `python scripts/ocr_browser_walkthrough.py`。覆盖入口、真实识别、草稿删行、预填批量录入、补齐保存与控制台检查；识别耗时取决于 CPU（单张约 15–40 秒）。
+- `scripts/ocr_append_walkthrough.py`：多拍累加走查（两张真实长票分段图）：累加、疑似重复标记与过滤、名称内联编辑、重复清零拦截、合并保存；环境要求同上。- `edit_conflict_test.py`：在全新独立库验证含零数量整批拒绝、人工合并必须正数、库存/菜品/搭配编辑缺失版本、过期版本、最新快照、核对后重试和并发仅保存一次。`python scripts/edit_conflict_test.py <端口>`；先运行此脚本，再在同库运行 regression，不能倒序。
 - `recovery_merge_test.py`：48 项检查，覆盖报废与整餐合并撤销、单位换算、人工数量、过期预览、双人重复撤销、部分失败整体回滚、历史审计、耗材重新关联及清空预计量。`python scripts/recovery_merge_test.py <独立端口>`，固定使用 2036-01-02 晚餐。
 
 多个脚本使用固定的菜单日期，即使之前菜单已取消，也会与另一脚本发生日期/餐次冲突。出现此情况应为该脚本新建独立测试库，或使用未运行过该日期场景的独立库；不要删除测试记录绕过唯一规则。2026-09-12 审查：regression/smoke/fractional 使用 3032，menu_workflow/concurrent 使用 3033。

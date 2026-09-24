@@ -299,6 +299,10 @@ def parse_receipt_lines(lines: list[dict]) -> dict:
 
     分行式小票（名称行 / 条码行 / 数字行）靠 pending 状态把数字行
     归属到上一个没有数量的名称行；条码行与噪声行不消耗 pending。
+
+    长票分段拍摄时的跨张缝合：末尾悬空的纯名称行标记 open_ended；
+    开头没有名称可归属、但能拆出数量金额的数字行不再直接丢弃，
+    附带 quantity_text / amount_text 交给前端与上一张缝合。
     """
     items: list[dict] = []
     ignored: list[dict] = []
@@ -323,6 +327,16 @@ def parse_receipt_lines(lines: list[dict]) -> dict:
                 items.append(pending)
                 pending = None
                 continue
+            if split and pending is None:
+                # 孤儿数量金额：名称在上一张图里，交给前端缝合。
+                _quantity, _unit_price, amount = split
+                ignored.append({
+                    "text": text,
+                    "reason": "numeric-only",
+                    "quantity_text": split[0],
+                    "amount_text": amount,
+                })
+                continue
         reason = _noise_reason(text)
         if reason:
             # 原价/优惠行常夹在名称行与数字行之间，不能清掉 pending。
@@ -344,4 +358,9 @@ def parse_receipt_lines(lines: list[dict]) -> dict:
             flush()
             items.append(item)
     flush()
+    # 末尾仍未等到数字行的名称行：数量可能拍在下一张图的开头。
+    if items:
+        last = items[-1]
+        if last["quantity_text"] is None and last["price_text"] is None:
+            last["open_ended"] = True
     return {"items": items, "ignored": ignored}

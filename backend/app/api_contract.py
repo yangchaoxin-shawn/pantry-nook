@@ -225,8 +225,16 @@ def build_schemas() -> dict:
         "price_text": nullable(TEXT),
         "raw_text": REQUIRED_TEXT,
         "score": {"type": "number", "minimum": 0, "maximum": 1},
-    })
-    schemas["OcrReceiptIgnored"] = obj({"text": REQUIRED_TEXT, "reason": {"type": "string", "enum": ["noise", "header", "datetime", "numeric-only", "no-name"]}})
+        "open_ended": {"type": "boolean"},
+    }, ["name", "quantity_text", "unit", "price_text", "raw_text", "score"],
+        description="open_ended 表示该行只有名称、数量可能拍在下一张分段图的开头，供前端跨张缝合。")
+    schemas["OcrReceiptIgnored"] = obj({
+        "text": REQUIRED_TEXT,
+        "reason": {"type": "string", "enum": ["noise", "header", "datetime", "numeric-only", "no-name"]},
+        "quantity_text": nullable(TEXT),
+        "amount_text": nullable(TEXT),
+    }, ["text", "reason"],
+        description="numeric-only 行在名称属于上一张分段图时附带 quantity_text 与 amount_text，供前端跨张缝合。")
     schemas["OcrReceiptResponse"] = obj({
         "data": obj({"items": array(ref("OcrReceiptItem")), "ignored": array(ref("OcrReceiptIgnored"))}),
         "meta": obj({"line_count": {"type": "integer", "minimum": 0}}),

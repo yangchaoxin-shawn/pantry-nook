@@ -31,6 +31,32 @@ class ReceiptParseTests(unittest.TestCase):
         result = parse_receipt_lines(lines)
         self.assertEqual([item["name"] for item in result["items"]], ["农夫山泉", "可乐"])
 
+
+class SplitShotTests(unittest.TestCase):
+    """长票分段拍摄：名称在上一张末尾、数量金额在下一张开头的缝合信号。"""
+
+    def test_trailing_name_only_marks_open_ended(self):
+        result = parse_receipt_lines([line("葡萄", 20, 100)])
+        self.assertEqual(len(result["items"]), 1)
+        self.assertTrue(result["items"][0].get("open_ended"))
+
+    def test_orphan_amount_row_survives_with_quantities(self):
+        result = parse_receipt_lines([line("0.8525.965.08", 20, 100)])
+        self.assertEqual(result["items"], [])
+        orphan = result["ignored"][0]
+        self.assertEqual(orphan["reason"], "numeric-only")
+        self.assertEqual(orphan["quantity_text"], "0.852")
+        self.assertEqual(orphan["amount_text"], "5.08")
+
+    def test_barcode_row_stays_plain(self):
+        result = parse_receipt_lines([line("2002167000303", 20, 100)])
+        orphan = result["ignored"][0]
+        self.assertNotIn("quantity_text", orphan)
+
+    def test_resolved_row_is_not_open_ended(self):
+        result = parse_receipt_lines([line("苹果", 20, 100), line("1.5283.585.46", 20, 130)])
+        self.assertFalse(result["items"][0].get("open_ended", False))
+
     def test_merged_single_segment_line(self):
         result = parse_receipt_lines([line("农夫山泉550ml 2.00", 20, 100)])
         item = result["items"][0]
