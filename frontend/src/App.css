@@ -978,6 +978,10 @@ legend {
   align-items: center;
   gap: 8px;
 }
+/* 小票第二轮的勾选/位置列布局统一放在 inventory-view.css 末尾（更靠近使用处）。 */
+.batch-row-check { width: 16px; height: 16px; margin: 0; accent-color: var(--primary, #567161); cursor: pointer; }
+.bulk-actions { display: flex; align-items: center; gap: 12px; }
+.batch-ingredient-row.selected { background: color-mix(in srgb, var(--primary, #567161) 8%, transparent); border-radius: 8px; }
 .batch-ingredient-row input,
 .batch-ingredient-row select {
   height: 42px;
@@ -1517,6 +1521,7 @@ p {
     grid-template-columns: 22px minmax(0, 1fr) minmax(0, 1fr);
     gap: 8px;
   }
+  .batch-ingredient-row.picker { grid-template-columns: 18px 16px minmax(0, 1fr) minmax(0, 1fr); }
   .batch-category-picker {
     display: block;
   }

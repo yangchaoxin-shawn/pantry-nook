@@ -117,3 +117,15 @@
   .ocr-draft-row .ocr-draft-category { width: auto; min-width: 84px; }
   .ocr-draft-row .ocr-draft-meta { margin-left: auto; }
 }
+
+/* 第二轮（小票预填）的批量行：勾选与位置列加入；定宽列保证数量/单位/位置不被挤压
+   （数量控件自带两个 44px 步进按钮），名称弹性。放在本文件末尾避免被基础网格规则覆盖。 */
+.batch-ingredient-rows .batch-ingredient-row.picker {
+  grid-template-columns: 22px 18px minmax(0, 1fr) 150px 56px 96px 44px;
+}
+.batch-ingredient-rows .batch-ingredient-row.picker .batch-row-remove { padding: 6px 0; font-size: 12px; }
+@media (max-width: 768px) {
+  .batch-ingredient-rows .batch-ingredient-row.picker { grid-template-columns: 18px 16px minmax(0, 1fr) minmax(0, 1fr); }
+  .batch-ingredient-rows .batch-ingredient-row.picker > :nth-child(4) { grid-column: 2 / -1; }
+  .batch-ingredient-rows .batch-ingredient-row.picker > :nth-child(n + 5) { grid-column: auto / span 1; }
+}

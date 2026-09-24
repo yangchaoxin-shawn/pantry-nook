@@ -21,6 +21,10 @@ type BatchIngredientRow = {
   unit: string;
   /** 行级分类；空串表示跟随整批分类。仅小票预填时出现行级分类。 */
   category: string;
+  /** 行级存放位置；空串表示暂不填写。仅小票预填时出现行级位置。 */
+  location: string;
+  /** 勾选标记：配合顶部位置下拉给勾选行批量设置位置；不进提交数据。 */
+  selected: boolean;
 };
 type InventoryConflict = {
   ingredient: Ingredient;
@@ -34,6 +38,8 @@ const blankBatchIngredient = (id: number, unit = ""): BatchIngredientRow => ({
   quantity: "",
   unit,
   category: "",
+  location: "",
+  selected: false,
 });
 
 /** 小票预填启用行级分类；空分类回退到整批分类。 */
@@ -72,11 +78,18 @@ export function IngredientBatchEditor({
   const [batchCategory, setBatchCategory] = useState<IngredientCreate["category"]>("蔬菜");
   const [batchLocation, setBatchLocation] = useState<IngredientCreate["location"]>(null);
   const [batchDefaultUnit, setBatchDefaultUnit] = useState("");
+  const [bulkLocation, setBulkLocation] = useState("");
   const [error, setError] = useState("");
   const [conflicts, setConflicts] = useState<InventoryConflict[]>([]);
   const [units, setUnits] = useState<Record<number, string>>({});
   const [categories, setCategories] = useState<Record<number, IngredientCreate["category"]>>({});
   const [manualTotals, setManualTotals] = useState<Record<number, string>>({});
+  const selectedCount = rows.filter((row) => row.selected).length;
+  /** 把勾选行的存放位置统一设为下拉选中的位置；其余行不动。 */
+  const applyBulkLocation = () => {
+    if (!bulkLocation) return;
+    setRows((current) => current.map((row) => row.selected ? { ...row, location: bulkLocation, selected: false } : row));
+  };
   const change = <K extends keyof BatchIngredientRow>(
     id: number,
     key: K,
@@ -99,13 +112,15 @@ export function IngredientBatchEditor({
       setError(quantityError);
       return;
     }
+    const rowLocation = (row: BatchIngredientRow): IngredientCreate["location"] =>
+      (hasRowCategories ? (row.location || null) : batchLocation) as IngredientCreate["location"];
     const ingredients = filled.map((row) => ({
       name: row.name.trim(),
       category: rowCategory(row, batchCategory),
       stock_text: row.quantity.trim(),
       stock_value: Number(row.quantity),
       stock_unit: row.unit.trim(),
-      location: batchLocation,
+      location: rowLocation(row),
     }));
     const matches = ingredients.flatMap((item) => {
       const existing = existingIngredients.find((candidate) => candidate.name.trim().toLocaleLowerCase() === item.name.toLocaleLowerCase());
@@ -125,7 +140,7 @@ export function IngredientBatchEditor({
     }
     save(ingredients, [], [], []);
   }
-  const draftIngredients = startedBatchRows(rows).map((row) => ({ name: row.name.trim(), category: rowCategory(row, batchCategory), stock_text: row.quantity.trim(), stock_value: Number(row.quantity), stock_unit: row.unit.trim(), location: batchLocation }));
+  const draftIngredients = startedBatchRows(rows).map((row) => ({ name: row.name.trim(), category: rowCategory(row, batchCategory), stock_text: row.quantity.trim(), stock_value: Number(row.quantity), stock_unit: row.unit.trim(), location: (hasRowCategories ? (row.location || null) : batchLocation) as IngredientCreate["location"] }));
   if (conflicts.length) {
     const manualTotalMissing = conflicts.some(({ ingredient, incomingUnit }) => {
       const oldUnit = ingredient.stock_unit ?? ingredient.stock_unit ?? "";
@@ -167,13 +182,13 @@ export function IngredientBatchEditor({
             {CATEGORIES.map((category) => <option key={category}>{category}</option>)}
           </select>
         </Field>}
-        <Field label={single ? "这一项食材存放在" : "这一批食材存放在"}>
+        {!hasRowCategories && <Field label={single ? "这一项食材存放在" : "这一批食材存放在"}>
           <select value={batchLocation ?? ""} onChange={(event) => setBatchLocation((event.target.value || null) as IngredientCreate["location"])}>
             <option value="">暂不填写</option>
             {LOCATIONS.map((location) => <option key={location} value={location}>{location}</option>)}
           </select>
-        </Field>
-        {!single && <Field label="本批默认单位（选填）">
+        </Field>}
+        {!single && !hasRowCategories && <Field label="本批默认单位（选填）">
           <select
             value={batchDefaultUnit}
             onChange={(event) => {
@@ -186,21 +201,46 @@ export function IngredientBatchEditor({
             {recommendedUnits(batchCategory).map((unit) => <option key={unit} value={unit}>{unit}</option>)}
           </select>
         </Field>}
-        {hasRowCategories
-          ? <p className="form-hint">这一轮切换数量说法：识别的 0.3kg 可以改成 1 根；要整批换单位就用下面的默认单位。</p>
-          : <p className="form-hint">{single ? `这一项食材会归到“${batchCategory}”${batchLocation ? `，存放在“${batchLocation}”` : ""}。` : `下面填写的食材都会归到“${batchCategory}”${batchLocation ? `，存放在“${batchLocation}”` : ""}。`}</p>}
+        {hasRowCategories && <>
+          <Field label="勾选食材统一存放到">
+            <select value={bulkLocation} onChange={(event) => setBulkLocation(event.target.value)}>
+              <option value="">选择存放位置</option>
+              {LOCATIONS.map((location) => <option key={location} value={location}>{location}</option>)}
+            </select>
+          </Field>
+          <div className="bulk-actions">
+            <button type="button" className="btn-ghost" disabled={!bulkLocation || !selectedCount}
+              onClick={applyBulkLocation}>
+              应用到勾选 {selectedCount} 项
+            </button>
+            <button type="button" className="text-button" onClick={() => setRows((current) => {
+              const allSelected = current.length > 0 && current.every((row) => row.selected);
+              return current.map((row) => ({ ...row, selected: !allSelected }));
+            })}>
+              {selectedCount === rows.length && rows.length > 0 ? "取消全选" : "全选"}
+            </button>
+          </div>
+          <p className="form-hint">勾选要一起存放的食材（土豆、萝卜都进冷藏就一起勾），选好位置点应用；单行的位置也可以直接在行里改。</p>
+        </>}
+        {!hasRowCategories && <p className="form-hint">{single ? `这一项食材会归到“${batchCategory}”${batchLocation ? `，存放在“${batchLocation}”` : ""}。` : `下面填写的食材都会归到“${batchCategory}”${batchLocation ? `，存放在“${batchLocation}”` : ""}。`}</p>}
       </div>
       <p className="form-hint">{hasRowCategories
-        ? "数量每次增减 1，也可直接输入 0.5 等小数；单位填“根”“盒”这类你平时叫法就行。"
+        ? "这一轮切换数量说法：识别的 0.3kg 可以改成 1 根；数量每次增减 1，也可直接输入 0.5 等小数。"
         : (single
-          ? `${batchCategory}常用单位：${recommendedUnits(batchCategory).join("、")}；也可以填写其他单位。`
-          : `${batchCategory}常用单位：${recommendedUnits(batchCategory).join("、")}；每项可以单独修改，空白行会自动忽略。`)}</p>
-      {!hasRowCategories && <p className="form-hint">数量每次增减 1，也可直接输入 0.5 等小数。</p>}
+          ? `${batchCategory}常用单位：${recommendedUnits(batchCategory).join("、")}；也可以填写其他单位。数量每次增减 1，也可直接输入 0.5 等小数。`
+          : `${batchCategory}常用单位：${recommendedUnits(batchCategory).join("、")}；每项可以单独修改，空白行会自动忽略。数量每次增减 1，也可直接输入 0.5 等小数。`)}</p>
       {error && <p className="form-error" role="alert">{error}</p>}
       <div className="batch-ingredient-rows">
         {rows.map((row, index) => (
-          <div className="batch-ingredient-row" key={row.id}>
+          <div className={`batch-ingredient-row${hasRowCategories ? " picker" : ""}${row.selected ? " selected" : ""}`} key={row.id}>
             <span className="batch-row-number" aria-hidden="true">{index + 1}</span>
+            {hasRowCategories && <input
+              type="checkbox"
+              className="batch-row-check"
+              aria-label={`勾选第 ${index + 1} 项 ${row.name || "食材"} 以统一设置存放位置`}
+              checked={row.selected}
+              onChange={(event) => change(row.id, "selected", event.target.checked)}
+            />}
             <input
               aria-label={`第 ${index + 1} 项食材名称`}
               placeholder="食材名"
@@ -223,6 +263,14 @@ export function IngredientBatchEditor({
               value={row.unit}
               onChange={(event) => change(row.id, "unit", event.target.value)}
             />
+            {hasRowCategories && <select
+              aria-label={`第 ${index + 1} 项存放位置`}
+              value={row.location}
+              onChange={(event) => change(row.id, "location", event.target.value)}
+            >
+              <option value="">暂不填写</option>
+              {LOCATIONS.map((location) => <option key={location} value={location}>{location}</option>)}
+            </select>}
             <button
               type="button"
               className="text-button batch-row-remove"
