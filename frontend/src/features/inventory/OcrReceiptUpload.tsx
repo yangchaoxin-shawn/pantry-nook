@@ -3,11 +3,11 @@ import { api, CATEGORIES, type Ingredient } from "../../shared/api/client";
 import { Icon } from "../../shared/ui/Primitives";
 import {
   appendOcrDraft,
+  MAX_OCR_ROWS,
   recognizeToDraft,
   reviewChecklist,
   type OcrDraftRow,
   type OcrIgnoredEntry,
-  type OcrRecognition,
 } from "./ocr-receipt-logic";
 
 type ChecklistFilter = "all" | "duplicate" | "category" | "quantity";
@@ -24,7 +24,7 @@ export function OcrReceiptUpload({
   knownIngredients: Ingredient[];
   onRecognized: (rows: OcrDraftRow[]) => void;
 }) {
-  const [phase, setPhase] = useState<"idle" | "recognizing">("idle");
+  const [phase, setPhase] = useState<{ busy: boolean; current: number; total: number }>({ busy: false, current: 0, total: 0 });
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [dragOver, setDragOver] = useState(false);
@@ -47,48 +47,72 @@ export function OcrReceiptUpload({
     return () => { cancelled = true; };
   }, []);
 
-  function applyRecognition(recognition: OcrRecognition) {
-    if (!rows.length) {
-      if (!recognition.rows.length) {
-        setError("这张小票没有识别出商品。请尽量拍清商品名称区域，或改用手动录入。");
-        return;
+  /**
+   * 多张小票一次选择后逐张识别累加：CPU 识别一张需要十几到几十秒，
+   * 顺序进行避免争抢；单张失败不中断整批，最后汇总提示。
+   * 累计到批量上限 30 项后停止识别剩余图片。
+   */
+  async function recognizeFiles(fileList: FileList | File[] | null | undefined) {
+    const files = Array.from(fileList ?? []).filter((file) => file.type.startsWith("image/"));
+    if (!files.length || phase.busy) {
+      if (files.length !== (fileList ? Array.from(fileList).length : 0)) {
+        setError("只支持图片文件，其他文件已忽略。");
       }
-      setRows(recognition.rows);
-      setIgnored(recognition.ignored);
-      setTruncated(recognition.truncated);
-      return;
-    }
-    const result = appendOcrDraft(rows, ignored, recognition);
-    setRows(result.rows);
-    setIgnored(result.ignored);
-    setTruncated(result.truncated);
-    setNotice(result.mergedName
-      ? `已把这张开头的数量金额并入上一张末尾的「${result.mergedName}」。`
-      : "");
-  }
-
-  async function recognize(file: File | null | undefined) {
-    if (!file || phase === "recognizing") return;
-    if (!file.type.startsWith("image/")) {
-      setError("请选择小票照片（图片文件）。");
       return;
     }
     setError("");
-    setPhase("recognizing");
+    setNotice("");
+    setPhase({ busy: true, current: 1, total: files.length });
+    let currentRows = rows;
+    let currentIgnored = ignored;
+    let currentTruncated = truncated;
+    const failed: string[] = [];
     try {
-      const result = await api.analyzeReceipt(file);
-      applyRecognition(recognizeToDraft(result.data.items, result.data.ignored, library));
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "识别失败，请重试。");
+      for (let index = 0; index < files.length; index += 1) {
+        setPhase({ busy: true, current: index + 1, total: files.length });
+        const remaining = MAX_OCR_ROWS - currentRows.length;
+        if (remaining <= 0) {
+          const rest = files.length - index;
+          setNotice(`已累计 ${MAX_OCR_ROWS} 项到上限，本次先保存这些，剩余 ${rest} 张未识别。`);
+          break;
+        }
+        try {
+          const result = await api.analyzeReceipt(files[index]);
+          const recognition = recognizeToDraft(result.data.items, result.data.ignored, library);
+          if (!currentRows.length) {
+            if (!recognition.rows.length) {
+              failed.push(`第 ${index + 1} 张没有识别出商品`);
+              continue;
+            }
+            currentRows = recognition.rows;
+            currentIgnored = recognition.ignored;
+            currentTruncated = recognition.truncated;
+          } else {
+            const appended = appendOcrDraft(currentRows, currentIgnored, recognition);
+            currentRows = appended.rows;
+            currentIgnored = appended.ignored;
+            currentTruncated = appended.truncated;
+            if (appended.mergedName) {
+              setNotice(`已把这张开头的数量金额并入上一张末尾的「${appended.mergedName}」。`);
+            }
+          }
+          setRows(currentRows);
+          setIgnored(currentIgnored);
+          setTruncated(currentTruncated);
+        } catch (cause) {
+          failed.push(`第 ${index + 1} 张：${cause instanceof Error ? cause.message : "识别失败"}`);
+        }
+      }
+      if (failed.length) setError(failed.join("；"));
     } finally {
-      setPhase("idle");
+      setPhase({ busy: false, current: 0, total: 0 });
     }
   }
 
   function onDrop(event: DragEvent<HTMLDivElement>) {
     event.preventDefault();
     setDragOver(false);
-    void recognize(event.dataTransfer.files?.[0]);
+    void recognizeFiles(event.dataTransfer.files);
   }
 
   function updateRow(id: number, patch: Partial<OcrDraftRow>) {
@@ -122,24 +146,24 @@ export function OcrReceiptUpload({
         >
           <Icon name="camera" size={26} />
           <p>把小票照片拖到这里，或</p>
-          <button type="button" className="btn-primary" disabled={phase === "recognizing"} onClick={() => inputRef.current?.click()}>
+          <button type="button" className="btn-primary" disabled={phase.busy} onClick={() => inputRef.current?.click()}>
             拍照 / 选择图片
           </button>
           <input
             ref={inputRef}
             type="file"
             accept="image/*"
-            capture="environment"
+            multiple
             aria-label="选择小票照片"
             hidden
             onChange={(event) => {
-              void recognize(event.target.files?.[0]);
+              void recognizeFiles(event.target.files);
               event.target.value = "";
             }}
           />
-          <p className="form-hint">长小票可以分段多拍，识别结果会自动累加拼接；保存前会请你逐项核对。</p>
+          <p className="form-hint">可一次多选已拍好的小票，长票分段拍也行，识别结果自动累加拼接。</p>
         </div>
-        {phase === "recognizing" && <p className="form-hint" role="status">正在识别小票…</p>}
+        {phase.busy && <p className="form-hint" role="status">正在识别 {phase.current}/{phase.total} 张小票…</p>}
         {error && <p className="form-error" role="alert">{error}</p>}
       </div>
     );
@@ -219,21 +243,21 @@ export function OcrReceiptUpload({
       </details>}
       {error && <p className="form-error" role="alert">{error}</p>}
       <div className="actions">
-        <button type="button" className="btn-ghost" disabled={phase === "recognizing"} onClick={() => inputRef.current?.click()}>
+        <button type="button" className="btn-ghost" disabled={phase.busy} onClick={() => inputRef.current?.click()}>
           再拍一张累加
         </button>
-        <button type="button" className="btn-ghost" disabled={phase === "recognizing"} onClick={() => { setRows([]); setIgnored([]); setTruncated(false); setNotice(""); setError(""); setFilter("all"); }}>
+        <button type="button" className="btn-ghost" disabled={phase.busy} onClick={() => { setRows([]); setIgnored([]); setTruncated(false); setNotice(""); setError(""); setFilter("all"); }}>
           清空重拍
         </button>
         <button
           type="button"
           className={pendingCount ? "btn-ghost ocr-save-pending" : "btn-primary"}
-          disabled={!rows.length || phase === "recognizing" || checklist.duplicates > 0}
+          disabled={!rows.length || phase.busy || checklist.duplicates > 0}
           title={checklist.duplicates ? "同一批不能有同名食材，请先删除疑似重复的行" : undefined}
           onClick={() => onRecognized(rows)}
         >
-          {phase === "recognizing"
-            ? "正在识别…"
+          {phase.busy
+            ? `正在识别 ${phase.current}/${phase.total} 张…`
             : checklist.duplicates
             ? `${checklist.duplicates} 项疑似重复，删除后再保存`
             : pendingCount
@@ -245,11 +269,11 @@ export function OcrReceiptUpload({
         ref={inputRef}
         type="file"
         accept="image/*"
-        capture="environment"
+        multiple
         aria-label="再拍一张小票"
         hidden
         onChange={(event) => {
-          void recognize(event.target.files?.[0]);
+          void recognizeFiles(event.target.files);
           event.target.value = "";
         }}
       />
