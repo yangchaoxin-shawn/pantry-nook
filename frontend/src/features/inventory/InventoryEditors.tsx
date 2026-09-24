@@ -159,14 +159,14 @@ export function IngredientBatchEditor({
   return (
     <form className="batch-ingredient-editor" onSubmit={submit}>
       <div className="batch-category-picker">
-        <Field label={single ? "这一项食材属于" : "这一批食材属于"}>
+        {!hasRowCategories && <Field label={single ? "这一项食材属于" : "这一批食材属于"}>
           <select value={batchCategory} onChange={(event) => {
             setBatchCategory(event.target.value as IngredientCreate["category"]);
             setBatchDefaultUnit("");
           }}>
             {CATEGORIES.map((category) => <option key={category}>{category}</option>)}
           </select>
-        </Field>
+        </Field>}
         <Field label={single ? "这一项食材存放在" : "这一批食材存放在"}>
           <select value={batchLocation ?? ""} onChange={(event) => setBatchLocation((event.target.value || null) as IngredientCreate["location"])}>
             <option value="">暂不填写</option>
@@ -186,12 +186,16 @@ export function IngredientBatchEditor({
             {recommendedUnits(batchCategory).map((unit) => <option key={unit} value={unit}>{unit}</option>)}
           </select>
         </Field>}
-        <p className="form-hint">{single ? `这一项食材会归到“${batchCategory}”${batchLocation ? `，存放在“${batchLocation}”` : ""}。` : `下面填写的食材都会归到“${batchCategory}”${batchLocation ? `，存放在“${batchLocation}”` : ""}。`}</p>
+        {hasRowCategories
+          ? <p className="form-hint">这一轮切换数量说法：识别的 0.3kg 可以改成 1 根；要整批换单位就用下面的默认单位。</p>
+          : <p className="form-hint">{single ? `这一项食材会归到“${batchCategory}”${batchLocation ? `，存放在“${batchLocation}”` : ""}。` : `下面填写的食材都会归到“${batchCategory}”${batchLocation ? `，存放在“${batchLocation}”` : ""}。`}</p>}
       </div>
-      <p className="form-hint">{single
-        ? `${batchCategory}常用单位：${recommendedUnits(batchCategory).join("、")}；也可以填写其他单位。`
-        : `${batchCategory}常用单位：${recommendedUnits(batchCategory).join("、")}；每项可以单独修改，空白行会自动忽略。`}</p>
-      <p className="form-hint">数量每次增减 1，也可直接输入 0.5 等小数。</p>
+      <p className="form-hint">{hasRowCategories
+        ? "数量每次增减 1，也可直接输入 0.5 等小数；单位填“根”“盒”这类你平时叫法就行。"
+        : (single
+          ? `${batchCategory}常用单位：${recommendedUnits(batchCategory).join("、")}；也可以填写其他单位。`
+          : `${batchCategory}常用单位：${recommendedUnits(batchCategory).join("、")}；每项可以单独修改，空白行会自动忽略。`)}</p>
+      {!hasRowCategories && <p className="form-hint">数量每次增减 1，也可直接输入 0.5 等小数。</p>}
       {error && <p className="form-error" role="alert">{error}</p>}
       <div className="batch-ingredient-rows">
         {rows.map((row, index) => (
@@ -204,14 +208,6 @@ export function IngredientBatchEditor({
               value={row.name}
               onChange={(event) => change(row.id, "name", event.target.value)}
             />
-            {hasRowCategories && <select
-              aria-label={`第 ${index + 1} 项分类`}
-              value={row.category}
-              onChange={(event) => change(row.id, "category", event.target.value)}
-            >
-              <option value="">跟随本批</option>
-              {CATEGORIES.map((category) => <option key={category} value={category}>{category}</option>)}
-            </select>}
             <QuantityInput
               aria-label={`第 ${index + 1} 项数量`}
               disabled={busy}

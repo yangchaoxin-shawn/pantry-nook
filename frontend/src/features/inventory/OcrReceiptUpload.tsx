@@ -200,6 +200,7 @@ export function OcrReceiptUpload({
         })}
       </div>
       {notice && <p className="form-hint" role="status">{notice}</p>}
+      <p className="form-hint">这一轮确认识别结果：改好名称和分类，删掉不要的行；数量怎么叫（如 0.3kg 改 1 根）在下一轮切换。</p>
       {truncated && <p className="form-notice">累计商品已到 30 项上限，本次先保存这些，其余请稍后再拍一张单独入库。</p>}
       <ul className="ocr-draft-rows">
         {visible.map((row) => (
@@ -240,7 +241,7 @@ export function OcrReceiptUpload({
               <option value="">待分类</option>
               {CATEGORIES.map((category) => <option key={category} value={category}>{category}</option>)}
             </select>
-            <span className="ocr-draft-meta">{row.quantity ? `${row.quantity}${row.unit}` : ""}{row.priceText && ` · ¥${row.priceText}`}</span>
+            <span className="ocr-draft-meta">{row.quantity ? `${row.quantity}${row.unit}` : ""}</span>
             <button
               type="button"
               className="text-button batch-row-remove"
@@ -297,8 +298,8 @@ export function OcrReceiptUpload({
       />
       <p className="form-hint">
         {checklist.allClear
-          ? "待办都清零了。分类改动会随食材入库，下次自动带出。"
-          : "建议顺序：先删疑似重复，再确认分类，最后补数量；也可以直接保存，后面还有一步总核对。"}
+          ? "这一轮的待办清零了，下一步把数量切换成你习惯的说法。"
+          : "这一轮只管三件事：删掉不要的行、确认名称、确认分类。数量下一轮再调。"}
       </p>
     </div>
   );
