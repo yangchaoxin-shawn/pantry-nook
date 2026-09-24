@@ -3,6 +3,8 @@ import { api, CATEGORIES, type Ingredient } from "../../shared/api/client";
 import { Icon } from "../../shared/ui/Primitives";
 import {
   appendOcrDraft,
+  editOcrRow,
+  markDuplicates,
   MAX_OCR_ROWS,
   recognizeToDraft,
   reviewChecklist,
@@ -116,7 +118,13 @@ export function OcrReceiptUpload({
   }
 
   function updateRow(id: number, patch: Partial<OcrDraftRow>) {
-    setRows((current) => current.map((row) => row.id === id ? { ...row, ...patch } : row));
+    // 统一走 editOcrRow：改名联动重算重复与分类，手动改分类后不再被覆盖。
+    setRows((current) => editOcrRow(current, id, patch, library));
+  }
+
+  function removeRow(id: number) {
+    // duplicate 是行间关系：删行后重算，解除另一行上的幽灵标记。
+    setRows((current) => markDuplicates(current.filter((row) => row.id !== id)));
   }
 
   const checklist = reviewChecklist(rows);
@@ -229,7 +237,7 @@ export function OcrReceiptUpload({
               type="button"
               className="text-button batch-row-remove"
               aria-label={`删除第 ${rows.indexOf(row) + 1} 项 ${row.name}`}
-              onClick={() => setRows((current) => current.filter((entry) => entry.id !== row.id))}
+              onClick={() => removeRow(row.id)}
             >
               删除
             </button>

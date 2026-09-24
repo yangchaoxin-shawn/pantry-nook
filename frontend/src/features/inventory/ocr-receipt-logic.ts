@@ -12,6 +12,8 @@ export type OcrDraftRow = {
   needsQuantity: boolean;
   /** 自动分类结果；null 表示待分类，由用户手选。 */
   category: IngredientCategory | null;
+  /** 用户在草稿里手动选过分类后，改名不再自动重算分类。 */
+  categoryTouched: boolean;
   /** OCR 置信度偏低，重点核对。 */
   uncertain: boolean;
   /** 与已有行同名同金额，疑似分段拍摄的重叠商品，由用户核对删除。 */
@@ -60,11 +62,62 @@ function toDraftRows(
       priceText: item.price_text?.trim() || null,
       needsQuantity: quantity === "",
       category: classifyIngredientName(item.name, known),
+      categoryTouched: false,
       uncertain: (item.score ?? 1) < UNCERTAIN_SCORE,
       duplicate: false,
       openEnded: Boolean(item.open_ended),
     };
   });
+}
+
+/**
+ * 全量重推行间的疑似重复关系：duplicate 是行与行之间的关系，
+ * 不是行的固有属性——删除、改名、追加任何变动后都要重算一遍，
+ * 否则会残留指向已删行的幽灵标记。
+ * 同名组内有"疑似同一条"的同伴（金额相等或任一缺金额）才标记。
+ */
+export function markDuplicates(rows: OcrDraftRow[]): OcrDraftRow[] {
+  const byName = new Map<string, OcrDraftRow[]>();
+  for (const row of rows) {
+    const key = normalizeIngredientName(row.name).toLowerCase();
+    if (!key) continue;
+    byName.set(key, [...(byName.get(key) ?? []), row]);
+  }
+  return rows.map((row) => {
+    const key = normalizeIngredientName(row.name).toLowerCase();
+    const candidates = key ? byName.get(key) ?? [] : [];
+    const duplicate = candidates.some((other) => other.id !== row.id
+      && (!row.priceText || !other.priceText || row.priceText === other.priceText));
+    return duplicate === row.duplicate ? row : { ...row, duplicate };
+  });
+}
+
+/**
+ * 草稿行编辑的统一入口：改名后重推重复关系，名称是用户没手动改过
+ * 分类时还自动重算分类；手动补数量后行不再等待跨张缝合。
+ */
+export function editOcrRow(
+  rows: OcrDraftRow[],
+  id: number,
+  patch: Partial<Pick<OcrDraftRow, "name" | "quantity" | "unit" | "category" | "priceText">>,
+  known: { name: string; category: string }[],
+): OcrDraftRow[] {
+  const next = rows.map((row) => {
+    if (row.id !== id) return row;
+    const merged: OcrDraftRow = { ...row, ...patch };
+    if (patch.name !== undefined && patch.name !== row.name && !row.categoryTouched) {
+      merged.category = classifyIngredientName(merged.name, known);
+    }
+    if (patch.category !== undefined) {
+      merged.categoryTouched = true;
+    }
+    if (patch.quantity !== undefined && merged.quantity !== "") {
+      merged.needsQuantity = false;
+      merged.openEnded = false;
+    }
+    return merged;
+  });
+  return markDuplicates(next);
 }
 
 /**
@@ -133,31 +186,16 @@ export function appendOcrDraft(
   }
 
   const nextId = rows.reduce((max, row) => Math.max(max, row.id), 0) + 1;
-  const nameOf = (row: OcrDraftRow) => normalizeIngredientName(row.name).toLowerCase();
-  const existingByName = new Map<string, OcrDraftRow[]>();
-  for (const row of rows) {
-    const key = nameOf(row);
-    existingByName.set(key, [...(existingByName.get(key) ?? []), row]);
-  }
-  const isDuplicate = (row: OcrDraftRow) => {
-    const candidates = existingByName.get(nameOf(row));
-    if (!candidates?.length) return false;
-    // 金额相同或任一行缺金额都算疑似重复；同一行打印两次金额必然一致。
-    return candidates.some((other) => !row.priceText || !other.priceText || row.priceText === other.priceText);
-  };
   let nextRowId = nextId;
   let remaining = MAX_OCR_ROWS - rows.length;
   for (const row of incoming.rows) {
     if (remaining <= 0) {
-      return { rows, ignored, truncated: true, mergedName };
+      return { rows: markDuplicates(rows), ignored, truncated: true, mergedName };
     }
-    const duplicate = isDuplicate(row);
-    const entry: OcrDraftRow = { ...row, id: nextRowId++, duplicate };
-    existingByName.set(nameOf(entry), [...(existingByName.get(nameOf(entry)) ?? []), entry]);
-    rows.push(entry);
+    rows.push({ ...row, id: nextRowId++ });
     remaining -= 1;
   }
-  return { rows, ignored, truncated: incoming.truncated, mergedName };
+  return { rows: markDuplicates(rows), ignored, truncated: incoming.truncated, mergedName };
 }
 
 /** 核对待办计数：分层核对引导条的数据源。 */

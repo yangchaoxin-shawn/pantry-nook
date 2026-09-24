@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   MAX_OCR_ROWS,
   appendOcrDraft,
+  editOcrRow,
+  markDuplicates,
   normalizeOcrQuantity,
   recognizeToDraft,
   reviewChecklist,
@@ -77,12 +79,15 @@ describe("appendOcrDraft", () => {
     expect(result.rows[0].needsQuantity).toBe(true);
   });
 
-  it("跨张重复行标记疑似重复而不自动删除", () => {
+  it("跨张重复行成对标记疑似重复而不自动删除", () => {
     const first = recognizeToDraft([item({ name: "沙葱", quantity_text: "0.398", price_text: "11.06" })], [], []);
     const second = recognizeToDraft([item({ name: "沙葱", quantity_text: "0.398", price_text: "11.06" })], [], []);
     const result = appendOcrDraft(first.rows, first.ignored, second);
-    expect(result.rows[0].duplicate).toBe(false);
+    // 对称标记：两行互为疑似重复，删掉任意一行后另一行的标记自动解除。
+    expect(result.rows[0].duplicate).toBe(true);
     expect(result.rows[1].duplicate).toBe(true);
+    const afterRemove = markDuplicates(result.rows.filter((row) => row.id === result.rows[1].id));
+    expect(afterRemove[0].duplicate).toBe(false);
   });
 
   it("同名但金额不同的行不算重复", () => {
@@ -117,11 +122,76 @@ describe("appendOcrDraft", () => {
   });
 });
 
+describe("markDuplicates 与 editOcrRow", () => {
+  const row = (overrides: Partial<OcrDraftRow> & { id: number; name: string }): OcrDraftRow => ({
+    quantity: "1", unit: "个", priceText: null, needsQuantity: false, category: null,
+    categoryTouched: false, uncertain: false, duplicate: false, openEnded: false,
+    ...overrides,
+  });
+
+  it("删除重复的一方后，另一方徽标自动解除", () => {
+    const rows = [
+      row({ id: 1, name: "沙葱", priceText: "11.06" }),
+      row({ id: 2, name: "沙葱", priceText: "11.06", duplicate: true }),
+    ];
+    const after = markDuplicates(rows.filter((r) => r.id === 2));
+    expect(after[0].duplicate).toBe(false);
+  });
+
+  it("金额缺失的同名行互判重复，删除后解除", () => {
+    const rows = [
+      row({ id: 1, name: "蒜头" }),
+      row({ id: 2, name: "蒜头", priceText: "0.81", duplicate: true }),
+    ];
+    expect(markDuplicates(rows).every((r) => r.duplicate)).toBe(true);
+    expect(markDuplicates(rows.filter((r) => r.id === 2))[0].duplicate).toBe(false);
+  });
+
+  it("金额互不相同的同名行不算重复", () => {
+    const rows = [
+      row({ id: 1, name: "酸奶", priceText: "2.98" }),
+      row({ id: 2, name: "酸奶", priceText: "3.20" }),
+    ];
+    expect(markDuplicates(rows).some((r) => r.duplicate)).toBe(false);
+  });
+
+  it("改名后重判重复：撞上已有行则新标，错开则解除", () => {
+    const rows = [
+      row({ id: 1, name: "虫草花100g盒", priceText: "1.90" }),
+      row({ id: 2, name: "宝单花100g盒", priceText: "1.90" }),
+    ];
+    const renamed = editOcrRow(rows, 2, { name: "虫草花100g盒" }, []);
+    expect(renamed[1].duplicate).toBe(true);
+    const renamedAway = editOcrRow(renamed, 2, { name: "莴笋" }, []);
+    expect(renamedAway[1].duplicate).toBe(false);
+  });
+
+  it("改名后未手动改过分类时自动重算分类", () => {
+    const rows = [row({ id: 1, name: "宝单花100g盒" })];
+    const renamed = editOcrRow(rows, 1, { name: "虫草花100g盒" }, []);
+    expect(renamed[0].category).toBe("汤料");
+  });
+
+  it("用户手动选过分类后改名不再覆盖", () => {
+    const rows = [row({ id: 1, name: "宝单花100g盒", categoryTouched: true, category: "其他" })];
+    const renamed = editOcrRow(rows, 1, { name: "虫草花100g盒" }, []);
+    expect(renamed[0].category).toBe("其他");
+    const touched = editOcrRow([row({ id: 1, name: "土豆", category: "蔬菜" })], 1, { category: "其他" }, []);
+    expect(touched[0]).toMatchObject({ category: "其他", categoryTouched: true });
+  });
+
+  it("手动补数量后清除待补与待缝合标记", () => {
+    const rows = [row({ id: 1, name: "葡萄", quantity: "", needsQuantity: true, openEnded: true })];
+    const filled = editOcrRow(rows, 1, { quantity: "0.852" }, []);
+    expect(filled[0]).toMatchObject({ needsQuantity: false, openEnded: false });
+  });
+});
+
 describe("reviewChecklist", () => {
   it("分层统计待办并在清零时报告可保存", () => {
     const rows: OcrDraftRow[] = [
-      { id: 1, name: "土豆", quantity: "2", unit: "斤", priceText: null, needsQuantity: false, category: "蔬菜", uncertain: false, duplicate: false, openEnded: false },
-      { id: 2, name: "糖果", quantity: "", unit: "", priceText: null, needsQuantity: true, category: null, uncertain: false, duplicate: true, openEnded: false },
+      { id: 1, name: "土豆", quantity: "2", unit: "斤", priceText: null, needsQuantity: false, category: "蔬菜", categoryTouched: false, uncertain: false, duplicate: false, openEnded: false },
+      { id: 2, name: "糖果", quantity: "", unit: "", priceText: null, needsQuantity: true, category: null, categoryTouched: false, uncertain: false, duplicate: true, openEnded: false },
     ];
     const checklist = reviewChecklist(rows);
     expect(checklist).toEqual({ total: 2, duplicates: 1, pendingCategory: 1, pendingQuantity: 1, allClear: false });
