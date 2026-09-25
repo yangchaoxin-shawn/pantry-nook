@@ -96,6 +96,42 @@ def open_receipt(page):
     return dialog
 
 
+# 第二轮行布局：各控件互不重叠；单位框带下拉标记，可见文字宽度写入长文本后按最大滚动距离实测。
+ROUND_TWO_LAYOUT = """
+() => {
+  const rows = [...document.querySelectorAll('.batch-ingredient-editor .batch-ingredient-row')];
+  const overlaps = [];
+  rows.forEach((row, index) => {
+    const boxes = [...row.children].map((el) => el.getBoundingClientRect()).filter((r) => r.width > 0);
+    for (let i = 0; i < boxes.length; i++) for (let j = i + 1; j < boxes.length; j++) {
+      const a = boxes[i], b = boxes[j];
+      if (Math.min(a.right, b.right) - Math.max(a.left, b.left) > 1 && Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top) > 1) {
+        overlaps.push(`row ${index + 1}: child ${i + 1} x ${j + 1}`);
+      }
+    }
+  });
+  const name = rows[0].querySelector("input[placeholder='食材名']");
+  const unit = rows[0].querySelector("input[placeholder='单位']");
+  const cs = getComputedStyle(unit);
+  const long = '毫升'.repeat(12);
+  const span = document.createElement('span');
+  Object.assign(span.style, { position: 'absolute', visibility: 'hidden', whiteSpace: 'pre', fontFamily: cs.fontFamily,
+    fontSize: cs.fontSize, fontWeight: cs.fontWeight, fontStyle: cs.fontStyle, letterSpacing: cs.letterSpacing });
+  span.textContent = long;
+  document.body.appendChild(span);
+  const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
+  const saved = unit.value;
+  setter.call(unit, long);
+  unit.scrollLeft = 1e6;
+  const unitVisible = Math.round(span.getBoundingClientRect().width - unit.scrollLeft);
+  setter.call(unit, saved);
+  unit.scrollLeft = 0;
+  span.remove();
+  return { overlaps, nameWidth: name.clientWidth, unitVisible };
+}
+"""
+
+
 def round_two_rows(page) -> dict[str, tuple[str, bool]]:
     rows = page.locator(".batch-ingredient-editor .batch-ingredient-row")
     result = {}
@@ -135,6 +171,22 @@ with sync_playwright() as p:
     hint = page.locator(".batch-ingredient-editor").inner_text()
     check("顶部汇总预填来源", "2 项按你的习惯" in hint and "6 项按常见存放推测" in hint, hint[:160])
     page.screenshot(path=str(Path(tempfile.gettempdir()) / "ocr-location-round2.png"))
+
+    # 行布局：桌面、常见手机与 320px 小屏下都不重叠，名称和单位看得见（单位至少放下两个字）。
+    for width, height in ((1280, 900), (390, 844), (320, 700)):
+        page.set_viewport_size({"width": width, "height": height})
+        page.wait_for_timeout(200)
+        layout = page.evaluate(ROUND_TWO_LAYOUT)
+        check(f"第二轮 {width}px 行内控件不重叠", not layout["overlaps"], "; ".join(layout["overlaps"][:3]))
+        check(f"第二轮 {width}px 名称与单位看得见", layout["nameWidth"] >= 120 and layout["unitVisible"] >= 32, str(layout))
+    page.set_viewport_size({"width": 1280, "height": 900})
+    page.wait_for_timeout(200)
+    # 单位建议按每行自己的分类排序：礼盒归"其他"，建议列表以 ml 开头。
+    gift_unit = page.locator(".batch-ingredient-editor .batch-ingredient-row").filter(
+        has=page.locator("input[value='进口神秘礼盒']")).locator("input[placeholder='单位']")
+    gift_list = gift_unit.get_attribute("list") or ""
+    first_option = page.locator(f"datalist[id='{gift_list}'] option").first.get_attribute("value") if gift_list else None
+    check("单位建议按行分类排序", gift_list.endswith("其他") and first_option == "ml", f"{gift_list} / {first_option}")
 
     # 把莴笋改到室温：视为你定的位置，推测标记消失、汇总同步。
     lettuce = page.locator(".batch-ingredient-editor .batch-ingredient-row").filter(

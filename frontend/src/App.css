@@ -1521,7 +1521,6 @@ p {
     grid-template-columns: 22px minmax(0, 1fr) minmax(0, 1fr);
     gap: 8px;
   }
-  .batch-ingredient-row.picker { grid-template-columns: 18px 16px minmax(0, 1fr) minmax(0, 1fr); }
   .batch-category-picker {
     display: block;
   }

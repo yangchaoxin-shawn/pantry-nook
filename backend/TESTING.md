@@ -116,7 +116,7 @@ uv run python scripts/seed_demo_data.py http://127.0.0.1:3010
 - 小票入库的三个浏览器走查都要求 `--base`（本次专用的 Vite）与 `--api`（本次专用的隔离后端），写入前核对两者返回同一个合法的隔离测试库标记、库为空、端口不在受保护清单，浏览器写请求逐次复核；每个脚本各用一个新建的隔离库，不能在同一个库上重跑，也不要复用用户正在验收的服务和识别侧车。PowerShell 下用 `$env:OCR_SERVICE_URL='http://127.0.0.1:<识别端口>'` 启动隔离后端，`$env:PANTRY_API_PROXY_TARGET='http://127.0.0.1:<后端端口>'` 启动 Vite。
 - `scripts/ocr_browser_walkthrough.py`：真实识别 → 第一轮删行与补选分类 → 第二轮补齐保存。需要单独起一个 PP-OCRv6 侧车（见 `ocr/README.md`）；不指定 `--receipt` 时生成合成小票样张（需要 Windows 中文字体）。识别耗时取决于 CPU（单张约 15–40 秒）。
 - `scripts/ocr_append_walkthrough.py --receipts 上段 下段`：多拍累加走查（同一张长票的两段照片），覆盖累加、疑似重复标记与过滤、名称内联编辑、重复与待分类清零后才能进入第二轮、合并保存；同样需要单独的识别侧车。
-- `scripts/ocr_location_walkthrough.py`：位置习惯走查，用 `scripts/ocr_stub_sidecar.py --port <端口>` 作识别存根，不依赖真实侧车。覆盖第一轮待分类拦截、第二轮位置按来源预填（习惯/推测）、手动修改后保存，以及下一次按修改后的习惯预填。
+- `scripts/ocr_location_walkthrough.py`：位置习惯走查，用 `scripts/ocr_stub_sidecar.py --port <端口>` 作识别存根，不依赖真实侧车。覆盖第一轮待分类拦截、第二轮位置按来源预填（习惯/推测）、手动修改后保存，以及下一次按修改后的习惯预填；并检查第二轮在 1280/390/320px 宽度下行内控件不重叠、名称与单位看得见（单位框带下拉标记，按实测可见宽度判断），单位建议按每行分类排序。
 - `edit_conflict_test.py`：在全新独立库验证含零数量整批拒绝、人工合并必须正数、库存/菜品/搭配编辑缺失版本、过期版本、最新快照、核对后重试和并发仅保存一次。`python scripts/edit_conflict_test.py <端口>`；先运行此脚本，再在同库运行 regression，不能倒序。
 - `recovery_merge_test.py`：48 项检查，覆盖报废与整餐合并撤销、单位换算、人工数量、过期预览、双人重复撤销、部分失败整体回滚、历史审计、耗材重新关联及清空预计量。`python scripts/recovery_merge_test.py <独立端口>`，固定使用 2036-01-02 晚餐。
 

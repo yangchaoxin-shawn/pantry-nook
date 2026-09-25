@@ -282,7 +282,7 @@ export function IngredientBatchEditor({
             />
             <input
               aria-label={`第 ${index + 1} 项单位`}
-              list={`batch-ingredient-units-${batchCategory}`}
+              list={`batch-ingredient-units-${rowCategory(row, batchCategory)}`}
               maxLength={50}
               placeholder="单位"
               value={row.unit}
@@ -311,9 +311,11 @@ export function IngredientBatchEditor({
         ))}
       </div>
       {receiptEmptied && <p className="form-hint">这一批已全部删除，没有要保存的食材；关闭弹窗即可结束这次入库。</p>}
-      <datalist id={`batch-ingredient-units-${batchCategory}`}>
-        {orderedUnits(batchCategory).map((unit) => <option key={unit} value={unit} />)}
-      </datalist>
+      {[...new Set(rows.map((row) => rowCategory(row, batchCategory)).concat(batchCategory))].map((category) => (
+        <datalist key={category} id={`batch-ingredient-units-${category}`}>
+          {orderedUnits(category).map((unit) => <option key={unit} value={unit} />)}
+        </datalist>
+      ))}
       {/* 小票第二轮没有分类控件：这里新增的行会没有分类，要补录小票外的食材请用"批量记录"。 */}
       {!single && !hasRowCategories && <button
         type="button"
