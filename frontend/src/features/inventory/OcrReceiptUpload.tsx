@@ -8,16 +8,18 @@ import {
   MAX_OCR_ROWS,
   recognizeToDraft,
   reviewChecklist,
+  toPrefillRows,
   type OcrDraftRow,
   type OcrIgnoredEntry,
+  type OcrPrefillRow,
 } from "./ocr-receipt-logic";
 
-type ChecklistFilter = "all" | "duplicate" | "category" | "quantity";
+type ChecklistFilter = "all" | "duplicate" | "category";
 
 /**
- * 拍小票入库：小票可分段多拍、累加成一个草稿；跨张切分由系统自动缝合，
- * 重叠商品标记疑似重复。核对按"删错的 → 确认分类 → 补数值"分层引导，
- * 全部处理完（或用户自行判断后）进入批量录入完成保存。
+ * 拍小票入库第一轮：小票可分段多拍、累加成一个草稿；跨张切分由系统自动缝合，
+ * 重叠商品标记疑似重复。这一轮只确认识别结果（删行、名称、分类），疑似重复
+ * 与待分类清零后进入第二轮；存放位置按习惯预填，数量说法在第二轮切换。
  */
 export function OcrReceiptUpload({
   knownIngredients,
@@ -27,7 +29,7 @@ export function OcrReceiptUpload({
   knownIngredients: Ingredient[];
   /** 识别进行中上报给弹窗层，用于禁用关闭，避免误关丢失几十秒的识别结果。 */
   onBusyChange?: (busy: boolean) => void;
-  onRecognized: (rows: OcrDraftRow[]) => void;
+  onRecognized: (rows: OcrPrefillRow[]) => void;
 }) {
   const [phase, setPhase] = useState<{ busy: boolean; current: number; total: number }>({ busy: false, current: 0, total: 0 });
   const [error, setError] = useState("");
@@ -39,8 +41,8 @@ export function OcrReceiptUpload({
   const [filter, setFilter] = useState<ChecklistFilter>("all");
   const [editingId, setEditingId] = useState<number | null>(null);
   const [confirmClear, setConfirmClear] = useState(false);
-  const [library, setLibrary] = useState<{ name: string; category: string }[]>(
-    () => knownIngredients.map((item) => ({ name: item.name, category: item.category })),
+  const [library, setLibrary] = useState<{ name: string; category: string; location?: string | null }[]>(
+    () => knownIngredients.map((item) => ({ name: item.name, category: item.category, location: item.location })),
   );
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -50,8 +52,8 @@ export function OcrReceiptUpload({
 
   useEffect(() => {
     let cancelled = false;
-    // 对照库含已消耗/已报废的历史食材，读不到时退回当前在库列表。
-    api.categoryLibrary()
+    // 习惯库含已消耗/已报废的历史食材及其位置，读不到时退回当前在库列表。
+    api.ingredientHabits()
       .then((result) => { if (!cancelled && result.data.length) setLibrary(result.data); })
       .catch(() => { /* 读取失败沿用初始匹配源 */ });
     return () => { cancelled = true; };
@@ -139,16 +141,13 @@ export function OcrReceiptUpload({
   const visible = rows.filter((row) => {
     if (filter === "duplicate") return row.duplicate;
     if (filter === "category") return !row.category;
-    if (filter === "quantity") return row.needsQuantity;
     return true;
   });
-  const pendingCount = checklist.duplicates + checklist.pendingCategory + checklist.pendingQuantity;
 
   const chips: { key: ChecklistFilter; label: string }[] = [
     { key: "all", label: `全部 ${checklist.total}` },
     { key: "duplicate", label: `疑似重复 ${checklist.duplicates}` },
     { key: "category", label: `待分类 ${checklist.pendingCategory}` },
-    { key: "quantity", label: `待补数量 ${checklist.pendingQuantity}` },
   ];
 
   if (!rows.length) {
@@ -227,7 +226,7 @@ export function OcrReceiptUpload({
                 onClick={() => setEditingId(row.id)}
               >
                 {row.name}
-                {row.needsQuantity && <small>待补数量</small>}
+                {row.needsQuantity && <small>下一步补数量</small>}
                 {row.uncertain && <small className="ocr-uncertain">识别不确定</small>}
                 {row.duplicate && <small className="ocr-duplicate">疑似重复</small>}
               </button>
@@ -270,18 +269,20 @@ export function OcrReceiptUpload({
         </button>}
         <button
           type="button"
-          className={pendingCount ? "btn-ghost ocr-save-pending" : "btn-primary"}
-          disabled={!rows.length || phase.busy || checklist.duplicates > 0}
-          title={checklist.duplicates ? "同一批不能有同名食材，请先删除疑似重复的行" : undefined}
-          onClick={() => onRecognized(rows)}
+          className={checklist.readyToContinue ? "btn-primary" : "btn-ghost ocr-save-pending"}
+          disabled={phase.busy || !checklist.readyToContinue}
+          title={checklist.duplicates
+            ? "同一批不能有同名食材，请先删除疑似重复的行"
+            : checklist.pendingCategory ? "下一步不再有分类选项，请先给每项选好分类" : undefined}
+          onClick={() => onRecognized(toPrefillRows(rows, library))}
         >
           {phase.busy
             ? `正在识别 ${phase.current}/${phase.total} 张…`
             : checklist.duplicates
-            ? `${checklist.duplicates} 项疑似重复，删除后再保存`
-            : pendingCount
-            ? `还有 ${pendingCount} 项待核对，继续保存`
-            : "继续核对并保存"}
+            ? `${checklist.duplicates} 项疑似重复，删除后再继续`
+            : checklist.pendingCategory
+            ? `${checklist.pendingCategory} 项待分类，选好后再继续`
+            : "下一步：核对数量与位置"}
         </button>
       </div>
       <input
@@ -297,9 +298,9 @@ export function OcrReceiptUpload({
         }}
       />
       <p className="form-hint">
-        {checklist.allClear
-          ? "这一轮的待办清零了，下一步把数量切换成你习惯的说法。"
-          : "这一轮只管三件事：删掉不要的行、确认名称、确认分类。数量下一轮再调。"}
+        {checklist.readyToContinue
+          ? "这一轮确认好了。下一步数量可以换成你习惯的说法，存放位置已自动预填，核对即可。"
+          : "这一轮只管三件事：删掉不要的行、确认名称、确认分类。数量和存放位置下一步再调。"}
       </p>
     </div>
   );

@@ -513,7 +513,7 @@ export interface paths {
         patch: operations["update_entry_api_journal_entries__entry_id__patch"];
         trace?: never;
     };
-    "/api/ocr/category-library": {
+    "/api/ocr/ingredient-habits": {
         parameters: {
             query?: never;
             header?: never;
@@ -521,13 +521,14 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Category Library
-         * @description 食材名称分类对照：全部在库与历史食材，同名取最近一次分类。
+         * Ingredient Habits
+         * @description 食材习惯库：每个名称一条分类与存放位置，来自全部在库与历史食材。
          *
-         *     食材被消耗或报废后记录仍保留，用户在草稿里修正过的分类因此
-         *     持久生效，覆盖内置词表中同一名称的任何错误归类。
+         *     同名时在库的那条优先（它就是入库合并的目标，沿用它的分类和位置
+         *     不会引发冲突或悄悄换地方），否则取最近更新的一条。食材被消耗或
+         *     报废后记录仍保留，用户修正过的分类和位置因此持久生效。
          */
-        get: operations["category_library_api_ocr_category_library_get"];
+        get: operations["ingredient_habits_api_ocr_ingredient_habits_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1370,15 +1371,16 @@ export interface components {
                 line_count: number;
             };
         };
-        OcrCategoryEntry: {
+        OcrHabitEntry: {
             /** @description 去除首尾空白后不能为空。 */
             name: string;
             /** @enum {string} */
             category: "碳水" | "蔬菜" | "蛋白质" | "水果" | "汤料" | "其他";
+            location: ("冰箱冷藏" | "冰箱冷冻" | "室温" | "其他") | null;
         };
-        /** @description 小票草稿自动分类用的名称-分类对照：全部在库与历史食材，同名取最近一次分类；用户修正过的分类由此持久覆盖内置词表。 */
-        OcrCategoryLibrary: {
-            data: components["schemas"]["OcrCategoryEntry"][];
+        /** @description 小票草稿自动分类与存放位置用的食材习惯库：全部在库与历史食材每个名称一条，同名在库优先、否则取最近更新；用户修正过的分类与位置由此持久覆盖前端内置词表与默认位置。 */
+        OcrHabitLibrary: {
+            data: components["schemas"]["OcrHabitEntry"][];
         };
     };
     responses: never;
@@ -4197,7 +4199,7 @@ export interface operations {
             };
         };
     };
-    category_library_api_ocr_category_library_get: {
+    ingredient_habits_api_ocr_ingredient_habits_get: {
         parameters: {
             query?: never;
             header?: never;
@@ -4212,7 +4214,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["OcrCategoryLibrary"];
+                    "application/json": components["schemas"]["OcrHabitLibrary"];
                 };
             };
             /** @description 请求参数或 JSON 格式不正确 */

@@ -23,6 +23,8 @@ type BatchIngredientRow = {
   category: string;
   /** 行级存放位置；空串表示暂不填写。仅小票预填时出现行级位置。 */
   location: string;
+  /** 预填位置的来源：habit 按你的习惯、guess 内置推测；你改过后清空，视为自己定的。 */
+  locationSource: "" | "habit" | "guess";
   /** 勾选标记：配合顶部位置下拉给勾选行批量设置位置；不进提交数据。 */
   selected: boolean;
 };
@@ -39,6 +41,7 @@ const blankBatchIngredient = (id: number, unit = ""): BatchIngredientRow => ({
   unit,
   category: "",
   location: "",
+  locationSource: "",
   selected: false,
 });
 
@@ -58,8 +61,8 @@ export function IngredientBatchEditor({
   busy: boolean;
   single?: boolean;
   suggestedNames?: string[];
-  /** 小票识别等来源带入的预填行；数量、单位与分类允许为空，保存前统一校验。 */
-  initialRows?: { name: string; quantity: string; unit: string; category?: string }[];
+  /** 小票识别带入的预填行：分类已在第一轮定好，位置按习惯预填；数量与单位允许为空，保存前统一校验。 */
+  initialRows?: { name: string; quantity: string; unit: string; category?: string; location?: string; locationSource?: "" | "habit" | "guess" }[];
   existingIngredients: Ingredient[];
   save: (
     ingredients: IngredientCreate[],
@@ -69,7 +72,11 @@ export function IngredientBatchEditor({
   ) => void;
 }) {
   const [rows, setRows] = useState(() => initialRows?.length
-    ? initialRows.slice(0, 30).map((row, index) => ({ ...blankBatchIngredient(index + 1), name: row.name, quantity: row.quantity, unit: row.unit, category: row.category ?? "" }))
+    ? initialRows.slice(0, 30).map((row, index) => ({
+      ...blankBatchIngredient(index + 1),
+      name: row.name, quantity: row.quantity, unit: row.unit, category: row.category ?? "",
+      location: row.location ?? "", locationSource: row.location ? row.locationSource ?? "" : "",
+    }))
     : suggestedNames.length
     ? suggestedNames.map((name, index) => ({ ...blankBatchIngredient(index + 1), name }))
     : Array.from({ length: single ? 1 : 5 }, (_, index) => blankBatchIngredient(index + 1)),
@@ -85,11 +92,21 @@ export function IngredientBatchEditor({
   const [categories, setCategories] = useState<Record<number, IngredientCreate["category"]>>({});
   const [manualTotals, setManualTotals] = useState<Record<number, string>>({});
   const selectedCount = rows.filter((row) => row.selected).length;
-  /** 把勾选行的存放位置统一设为下拉选中的位置；其余行不动。 */
+  const habitCount = rows.filter((row) => row.locationSource === "habit").length;
+  const guessCount = rows.filter((row) => row.locationSource === "guess").length;
+  const receiptEmptied = hasRowCategories && rows.length === 0;
+  /** 把勾选行的存放位置统一设为下拉选中的位置；其余行不动。你定的位置不再标来源。 */
   const applyBulkLocation = () => {
     if (!bulkLocation) return;
-    setRows((current) => current.map((row) => row.selected ? { ...row, location: bulkLocation, selected: false } : row));
+    setRows((current) => current.map((row) => row.selected ? { ...row, location: bulkLocation, locationSource: "", selected: false } : row));
   };
+  const changeLocation = (id: number, location: string) =>
+    setRows((current) => current.map((row) => row.id === id ? { ...row, location, locationSource: "" } : row));
+  /** 第二轮改名后，原先按旧名称预填的位置不再算你的习惯，降为推测提示核对。 */
+  const renameRow = (id: number, name: string) =>
+    setRows((current) => current.map((row) => row.id === id
+      ? { ...row, name, locationSource: row.locationSource === "habit" ? "guess" : row.locationSource }
+      : row));
   const change = <K extends keyof BatchIngredientRow>(
     id: number,
     key: K,
@@ -110,6 +127,12 @@ export function IngredientBatchEditor({
     const quantityError = filled.map(row => quantityInputError(row.quantity, { required: true })).find(Boolean);
     if (quantityError) {
       setError(quantityError);
+      return;
+    }
+    // 小票第二轮的分类来自第一轮，不能悄悄落到隐藏的整批分类。
+    const uncategorized = hasRowCategories ? filled.find((row) => !row.category) : undefined;
+    if (uncategorized) {
+      setError(`第 ${rows.indexOf(uncategorized) + 1} 项没有分类，请关闭后重新识别，在第一轮给它选好分类。`);
       return;
     }
     const rowLocation = (row: BatchIngredientRow): IngredientCreate["location"] =>
@@ -201,7 +224,7 @@ export function IngredientBatchEditor({
             {recommendedUnits(batchCategory).map((unit) => <option key={unit} value={unit}>{unit}</option>)}
           </select>
         </Field>}
-        {hasRowCategories && <>
+        {hasRowCategories && !receiptEmptied && <>
           <Field label="勾选食材统一存放到">
             <select value={bulkLocation} onChange={(event) => setBulkLocation(event.target.value)}>
               <option value="">选择存放位置</option>
@@ -220,15 +243,17 @@ export function IngredientBatchEditor({
               {selectedCount === rows.length && rows.length > 0 ? "取消全选" : "全选"}
             </button>
           </div>
-          <p className="form-hint">勾选要一起存放的食材（土豆、萝卜都进冷藏就一起勾），选好位置点应用；单行的位置也可以直接在行里改。</p>
+          <p className="form-hint">{habitCount || guessCount
+            ? `存放位置已预填：${[habitCount ? `${habitCount} 项按你的习惯` : "", guessCount ? `${guessCount} 项按常见存放推测（浅色显示，请核对）` : ""].filter(Boolean).join("，")}。要改就直接选，或勾选几项后统一设置。`
+            : "勾选要一起存放的食材（白菜、萝卜都进冷藏就一起勾），选好位置点应用；单行的位置也可以直接在行里改。"}</p>
         </>}
         {!hasRowCategories && <p className="form-hint">{single ? `这一项食材会归到“${batchCategory}”${batchLocation ? `，存放在“${batchLocation}”` : ""}。` : `下面填写的食材都会归到“${batchCategory}”${batchLocation ? `，存放在“${batchLocation}”` : ""}。`}</p>}
       </div>
-      <p className="form-hint">{hasRowCategories
+      {!receiptEmptied && <p className="form-hint">{hasRowCategories
         ? "这一轮切换数量说法：识别的 0.3kg 可以改成 1 根；数量每次增减 1，也可直接输入 0.5 等小数。"
         : (single
           ? `${batchCategory}常用单位：${recommendedUnits(batchCategory).join("、")}；也可以填写其他单位。数量每次增减 1，也可直接输入 0.5 等小数。`
-          : `${batchCategory}常用单位：${recommendedUnits(batchCategory).join("、")}；每项可以单独修改，空白行会自动忽略。数量每次增减 1，也可直接输入 0.5 等小数。`)}</p>
+          : `${batchCategory}常用单位：${recommendedUnits(batchCategory).join("、")}；每项可以单独修改，空白行会自动忽略。数量每次增减 1，也可直接输入 0.5 等小数。`)}</p>}
       {error && <p className="form-error" role="alert">{error}</p>}
       <div className="batch-ingredient-rows">
         {rows.map((row, index) => (
@@ -246,7 +271,7 @@ export function IngredientBatchEditor({
               placeholder="食材名"
               maxLength={255}
               value={row.name}
-              onChange={(event) => change(row.id, "name", event.target.value)}
+              onChange={(event) => hasRowCategories ? renameRow(row.id, event.target.value) : change(row.id, "name", event.target.value)}
             />
             <QuantityInput
               aria-label={`第 ${index + 1} 项数量`}
@@ -264,9 +289,11 @@ export function IngredientBatchEditor({
               onChange={(event) => change(row.id, "unit", event.target.value)}
             />
             {hasRowCategories && <select
-              aria-label={`第 ${index + 1} 项存放位置`}
+              aria-label={`第 ${index + 1} 项存放位置${row.locationSource === "guess" ? "（推测，请核对）" : row.locationSource === "habit" ? "（按你的习惯）" : ""}`}
+              className={row.locationSource === "guess" ? "location-guess" : undefined}
+              title={row.locationSource === "guess" ? "按常见存放方式推测，请核对" : row.locationSource === "habit" ? "按你之前的存放习惯填写" : undefined}
               value={row.location}
-              onChange={(event) => change(row.id, "location", event.target.value)}
+              onChange={(event) => changeLocation(row.id, event.target.value)}
             >
               <option value="">暂不填写</option>
               {LOCATIONS.map((location) => <option key={location} value={location}>{location}</option>)}
@@ -274,19 +301,21 @@ export function IngredientBatchEditor({
             <button
               type="button"
               className="text-button batch-row-remove"
-              aria-label={`清空第 ${index + 1} 项`}
+              aria-label={hasRowCategories ? `删除第 ${index + 1} 项` : `清空第 ${index + 1} 项`}
               disabled={busy}
-              onClick={() => setRows((current) => current.length === 1 ? [blankBatchIngredient(row.id + 1, batchDefaultUnit)] : current.filter((entry) => entry.id !== row.id))}
+              onClick={() => setRows((current) => current.length === 1 && !hasRowCategories ? [blankBatchIngredient(row.id + 1, batchDefaultUnit)] : current.filter((entry) => entry.id !== row.id))}
             >
-              清空
+              {hasRowCategories ? "删除" : "清空"}
             </button>
           </div>
         ))}
       </div>
+      {receiptEmptied && <p className="form-hint">这一批已全部删除，没有要保存的食材；关闭弹窗即可结束这次入库。</p>}
       <datalist id={`batch-ingredient-units-${batchCategory}`}>
         {orderedUnits(batchCategory).map((unit) => <option key={unit} value={unit} />)}
       </datalist>
-      {!single && <button
+      {/* 小票第二轮没有分类控件：这里新增的行会没有分类，要补录小票外的食材请用"批量记录"。 */}
+      {!single && !hasRowCategories && <button
         type="button"
         className="btn-ghost batch-add-row"
         disabled={busy || rows.length >= 30}
@@ -294,7 +323,7 @@ export function IngredientBatchEditor({
       >
         再加一行
       </button>}
-      <button className="btn-primary submit" disabled={busy}>
+      <button className="btn-primary submit" disabled={busy || receiptEmptied}>
         {busy ? "保存中…" : single ? "保存食材" : "保存这批食材"}
       </button>
     </form>

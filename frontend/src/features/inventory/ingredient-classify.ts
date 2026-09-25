@@ -77,8 +77,43 @@ export function normalizeIngredientName(rawName: string): string {
 }
 
 /**
- * 从在库食材与内置词表推断分类；匹配不到返回 null（待分类）。
- * known 为当前在库食材的（归一化后）名称与分类；同名优先于词表。
+ * 在食材习惯库里找同一种食材，分类与存放位置的推断共用这一套匹配：
+ * 1. 原名完全相同（去首尾空格、不分大小写）——入库合并的就是这一条，
+ *    沿用它的分类和位置，保存时不会冲突，也不会悄悄改掉在库食材的位置；
+ * 2. 归一化后同名（剥掉 100g、/KG 等规格）；
+ * 3. 习惯名是票名的一部分（土豆 ⊂ 黄心土豆），取最长即最具体的一条；
+ * 4. 票名是习惯名的一部分（牛奶 ⊂ 纯牛奶），取最短即最接近的一条。
+ * 包含匹配时较短一方至少两字，单字名称只参与完全相同的匹配。
+ */
+export function findHabitMatch<T extends { name: string }>(rawName: string, known: T[]): T | null {
+  const raw = rawName.trim().toLowerCase();
+  const lowered = normalizeIngredientName(rawName).toLowerCase();
+  if (!lowered) return null;
+  const exactRaw = known.find((item) => item.name.trim().toLowerCase() === raw);
+  if (exactRaw) return exactRaw;
+  let normalizedEqual: T | null = null;
+  let knownInside: { item: T; length: number } | null = null;
+  let inputInside: { item: T; length: number } | null = null;
+  for (const item of known) {
+    const knownName = normalizeIngredientName(item.name).toLowerCase();
+    if (!knownName) continue;
+    if (knownName === lowered) {
+      normalizedEqual ??= item;
+      continue;
+    }
+    if (Math.min(knownName.length, lowered.length) < 2) continue;
+    if (lowered.includes(knownName)) {
+      if (!knownInside || knownName.length > knownInside.length) knownInside = { item, length: knownName.length };
+    } else if (knownName.includes(lowered)) {
+      if (!inputInside || knownName.length < inputInside.length) inputInside = { item, length: knownName.length };
+    }
+  }
+  return normalizedEqual ?? knownInside?.item ?? inputInside?.item ?? null;
+}
+
+/**
+ * 从食材习惯库与内置词表推断分类；匹配不到返回 null（待分类）。
+ * known 为食材习惯库（在库与历史食材的名称与分类）；同名优先于词表。
  */
 export function classifyIngredientName(
   rawName: string,
@@ -86,17 +121,11 @@ export function classifyIngredientName(
 ): IngredientCategory | null {
   const normalized = normalizeIngredientName(rawName);
   if (!normalized) return null;
-  const lowered = normalized.toLowerCase();
-  for (const item of known) {
-    const knownName = normalizeIngredientName(item.name).toLowerCase();
-    if (!knownName) continue;
-    // 同名，或较短一方至少两字且被另一方包含（"土豆" ↔ "黄心土豆"）。
-    if (knownName === lowered || (Math.min(knownName.length, lowered.length) >= 2 && (knownName.includes(lowered) || lowered.includes(knownName)))) {
-      return (CATEGORIES as readonly string[]).includes(item.category)
-        ? (item.category as IngredientCategory)
-        : null;
-    }
+  const match = findHabitMatch(rawName, known);
+  if (match && (CATEGORIES as readonly string[]).includes(match.category)) {
+    return match.category as IngredientCategory;
   }
+  const lowered = normalized.toLowerCase();
   for (const { keyword, category } of KEYWORD_ENTRIES) {
     if (lowered.includes(keyword)) return category;
   }

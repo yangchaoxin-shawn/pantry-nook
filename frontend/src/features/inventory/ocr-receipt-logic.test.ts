@@ -7,6 +7,7 @@ import {
   normalizeOcrQuantity,
   recognizeToDraft,
   reviewChecklist,
+  toPrefillRows,
   type OcrDraftRow,
   type OcrIgnoredEntry,
 } from "./ocr-receipt-logic";
@@ -188,13 +189,46 @@ describe("markDuplicates 与 editOcrRow", () => {
 });
 
 describe("reviewChecklist", () => {
-  it("分层统计待办并在清零时报告可保存", () => {
+  const base = { quantity: "2", unit: "斤", priceText: null, needsQuantity: false, categoryTouched: false, uncertain: false, duplicate: false, openEnded: false };
+
+  it("第一轮只统计疑似重复与待分类，两者清零才能进入第二轮", () => {
     const rows: OcrDraftRow[] = [
-      { id: 1, name: "土豆", quantity: "2", unit: "斤", priceText: null, needsQuantity: false, category: "蔬菜", categoryTouched: false, uncertain: false, duplicate: false, openEnded: false },
-      { id: 2, name: "糖果", quantity: "", unit: "", priceText: null, needsQuantity: true, category: null, categoryTouched: false, uncertain: false, duplicate: true, openEnded: false },
+      { ...base, id: 1, name: "土豆", category: "蔬菜" },
+      { ...base, id: 2, name: "糖果", category: null, duplicate: true },
     ];
-    const checklist = reviewChecklist(rows);
-    expect(checklist).toEqual({ total: 2, duplicates: 1, pendingCategory: 1, pendingQuantity: 1, allClear: false });
-    expect(reviewChecklist([rows[0]]).allClear).toBe(true);
+    expect(reviewChecklist(rows)).toEqual({ total: 2, duplicates: 1, pendingCategory: 1, readyToContinue: false });
+    expect(reviewChecklist([rows[0]]).readyToContinue).toBe(true);
+  });
+
+  it("缺数量不阻止进入第二轮（数量在第二轮处理）", () => {
+    const rows: OcrDraftRow[] = [{ ...base, id: 1, name: "葡萄", category: "水果", quantity: "", needsQuantity: true }];
+    expect(reviewChecklist(rows).readyToContinue).toBe(true);
+  });
+
+  it("空草稿不能进入第二轮", () => {
+    expect(reviewChecklist([]).readyToContinue).toBe(false);
+  });
+});
+
+describe("toPrefillRows", () => {
+  const base = { quantity: "", unit: "", priceText: null, needsQuantity: true, categoryTouched: false, uncertain: false, duplicate: false, openEnded: false };
+
+  it("按第一轮定好的名称和分类预填位置，并标出来源", () => {
+    const rows: OcrDraftRow[] = [
+      { ...base, id: 1, name: "沙葱", category: "蔬菜", quantity: "0.398", unit: "kg", needsQuantity: false },
+      { ...base, id: 2, name: "黄心土豆", category: "蔬菜" },
+      { ...base, id: 3, name: "莴笋", category: "蔬菜" },
+    ];
+    const prefill = toPrefillRows(rows, [{ name: "沙葱", category: "蔬菜", location: "冰箱冷冻" }]);
+    expect(prefill).toEqual([
+      { name: "沙葱", quantity: "0.398", unit: "kg", category: "蔬菜", location: "冰箱冷冻", locationSource: "habit" },
+      { name: "黄心土豆", quantity: "", unit: "", category: "蔬菜", location: "室温", locationSource: "guess" },
+      { name: "莴笋", quantity: "", unit: "", category: "蔬菜", location: "冰箱冷藏", locationSource: "guess" },
+    ]);
+  });
+
+  it("第一轮改过的分类影响位置推断", () => {
+    const rows: OcrDraftRow[] = [{ ...base, id: 1, name: "神秘商品", category: "碳水", categoryTouched: true }];
+    expect(toPrefillRows(rows, [])[0]).toMatchObject({ category: "碳水", location: "室温", locationSource: "guess" });
   });
 });

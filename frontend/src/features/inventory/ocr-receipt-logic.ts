@@ -1,5 +1,6 @@
 import type { OcrReceiptIgnored, OcrReceiptItem } from "../../shared/api/client";
 import { classifyIngredientName, normalizeIngredientName, type IngredientCategory } from "./ingredient-classify";
+import { suggestLocation, type IngredientLocation, type LocationSource } from "./ingredient-location";
 
 export type OcrDraftRow = {
   id: number;
@@ -199,21 +200,55 @@ export function appendOcrDraft(
 }
 
 /** 核对待办计数：分层核对引导条的数据源。 */
+/**
+ * 第一轮核对清单：这一轮只确认识别结果，疑似重复和待分类都清零才能
+ * 进入第二轮——第二轮不再有分类控件，待分类的行进入后会没有归属。
+ * 数量属于第二轮，不在这里计入待办。
+ */
 export function reviewChecklist(rows: OcrDraftRow[]): {
   total: number;
   duplicates: number;
   pendingCategory: number;
-  pendingQuantity: number;
-  allClear: boolean;
+  readyToContinue: boolean;
 } {
   const duplicates = rows.filter((row) => row.duplicate).length;
   const pendingCategory = rows.filter((row) => !row.category).length;
-  const pendingQuantity = rows.filter((row) => row.needsQuantity).length;
   return {
     total: rows.length,
     duplicates,
     pendingCategory,
-    pendingQuantity,
-    allClear: duplicates === 0 && pendingCategory === 0 && pendingQuantity === 0,
+    readyToContinue: rows.length > 0 && duplicates === 0 && pendingCategory === 0,
   };
+}
+
+/** 进入第二轮时带过去的一行：分类已在第一轮定好，位置按习惯预填。 */
+export type OcrPrefillRow = {
+  name: string;
+  quantity: string;
+  unit: string;
+  category: IngredientCategory;
+  location: IngredientLocation | "";
+  /** 预填位置的来源；空串表示没有依据、未预填。 */
+  locationSource: LocationSource | "";
+};
+
+/**
+ * 第一轮确认后生成第二轮的预填行：按最终名称和分类推断存放位置
+ * （第一轮改过的名称和分类都会影响推断结果）。调用前须 readyToContinue。
+ */
+export function toPrefillRows(
+  rows: OcrDraftRow[],
+  habits: { name: string; category: string; location?: string | null }[],
+): OcrPrefillRow[] {
+  return rows.filter((row) => row.category).map((row) => {
+    const suggestion = suggestLocation(row.name, row.category, habits);
+    return {
+      name: row.name,
+      quantity: row.quantity,
+      unit: row.unit,
+      category: row.category as IngredientCategory,
+      location: suggestion?.location ?? "",
+      locationSource: suggestion?.source ?? "",
+    };
+  });
 }

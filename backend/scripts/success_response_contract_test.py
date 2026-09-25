@@ -849,12 +849,15 @@ def main() -> None:
         "/api/daily-battles/{battle_id}/cancel",
     )
 
-    # 小票 OCR：分类对照库来自食材历史（含本轮已入库的测试食材）；
+    # 小票 OCR：食材习惯库来自食材历史（含本轮已入库的测试食材及其位置）；
     # 识别接口在默认端口起存根侧车，9610 已被占用时视为已有真实识别服务，
     # 此时仍会调用真实服务（1x1 图片可能识别为空草稿，同样符合契约）。
-    _, body = contract_call("GET", "/api/ocr/category-library", "/api/ocr/category-library")
-    if not data(body):
-        raise AssertionError("分类对照库应包含隔离库中已入库的食材名称分类")
+    _, body = contract_call("GET", "/api/ocr/ingredient-habits", "/api/ocr/ingredient-habits")
+    habits = {entry["name"]: entry for entry in data(body)}
+    potato = habits.get(f"契约土豆-{stamp}")
+    # 土豆入库时放冷藏、随后改到冷冻：习惯库必须带出最新位置。
+    if potato is None or potato["location"] != "冰箱冷冻":
+        raise AssertionError(f"食材习惯库应带出食材最新的存放位置，实际：{potato}")
     stub = start_stub_ocr_sidecar()
     try:
         _, body = contract_call_multipart(

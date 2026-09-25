@@ -2,7 +2,8 @@
 
 识别服务是独立部署的 ocr/ 侧车（PP-OCRv6），本路由只做转发、
 限额和草稿解析；不保存图片，也不产生任何库存写入。
-分类对照库从食材历史读取，让用户修正过的分类持久覆盖内置词表。
+食材习惯库从食材历史读取分类与存放位置，让用户修正过的结果
+持久覆盖前端内置的词表与默认位置。
 """
 
 from __future__ import annotations
@@ -55,19 +56,20 @@ async def _recognize(image: bytes, content_type: str | None) -> list[dict]:
     return lines
 
 
-@router.get("/category-library")
-async def category_library():
-    """食材名称分类对照：全部在库与历史食材，同名取最近一次分类。
+@router.get("/ingredient-habits")
+async def ingredient_habits():
+    """食材习惯库：每个名称一条分类与存放位置，来自全部在库与历史食材。
 
-    食材被消耗或报废后记录仍保留，用户在草稿里修正过的分类因此
-    持久生效，覆盖内置词表中同一名称的任何错误归类。
+    同名时在库的那条优先（它就是入库合并的目标，沿用它的分类和位置
+    不会引发冲突或悄悄换地方），否则取最近更新的一条。食材被消耗或
+    报废后记录仍保留，用户修正过的分类和位置因此持久生效。
     """
     pool = await get_pool()
     rows = await pool.fetch(
-        "SELECT DISTINCT ON (LOWER(btrim(name))) name, category "
-        "FROM ingredients ORDER BY LOWER(btrim(name)), updated_at DESC LIMIT 2000"
+        "SELECT DISTINCT ON (LOWER(btrim(name))) name, category, location "
+        "FROM ingredients ORDER BY LOWER(btrim(name)), (status = 'active') DESC, updated_at DESC LIMIT 2000"
     )
-    return ok([{"name": row["name"], "category": row["category"]} for row in rows])
+    return ok([{"name": row["name"], "category": row["category"], "location": row["location"]} for row in rows])
 
 
 @router.post("/receipts")

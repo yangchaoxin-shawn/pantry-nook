@@ -239,9 +239,9 @@ def build_schemas() -> dict:
         "data": obj({"items": array(ref("OcrReceiptItem")), "ignored": array(ref("OcrReceiptIgnored"))}),
         "meta": obj({"line_count": {"type": "integer", "minimum": 0}}),
     }, description="小票 OCR 草稿。items 为建议入库行，单价 price_text 仅参考、不入库；ignored 为丢弃的表头表尾行。草稿必须经人工核对后另行调用批量入库接口。")
-    schemas["OcrCategoryEntry"] = obj({"name": REQUIRED_TEXT, "category": CATEGORY})
-    schemas["OcrCategoryLibrary"] = obj({"data": array(ref("OcrCategoryEntry"))},
-        description="小票草稿自动分类用的名称-分类对照：全部在库与历史食材，同名取最近一次分类；用户修正过的分类由此持久覆盖内置词表。")
+    schemas["OcrHabitEntry"] = obj({"name": REQUIRED_TEXT, "category": CATEGORY, "location": nullable(LOCATION)})
+    schemas["OcrHabitLibrary"] = obj({"data": array(ref("OcrHabitEntry"))},
+        description="小票草稿自动分类与存放位置用的食材习惯库：全部在库与历史食材每个名称一条，同名在库优先、否则取最近更新；用户修正过的分类与位置由此持久覆盖前端内置词表与默认位置。")
     return schemas
 
 
@@ -295,7 +295,7 @@ def install_openapi(app: FastAPI) -> None:
         ("/api/consumptions", "get", "ConsumptionList", None, False, 200),
         ("/api/consumptions/{consumption_id}", "get", "ConsumptionResponse", None, False, 200),
         ("/api/ocr/receipts", "post", "OcrReceiptResponse", None, False, 200),
-        ("/api/ocr/category-library", "get", "OcrCategoryLibrary", None, False, 200),
+        ("/api/ocr/ingredient-habits", "get", "OcrHabitLibrary", None, False, 200),
     ]
     list_queries = {
         "/api/ingredients": [*PAGINATION, SEARCH, query("category", CATEGORY), query("location", LOCATION)],

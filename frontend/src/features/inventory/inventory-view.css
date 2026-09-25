@@ -124,6 +124,8 @@
   grid-template-columns: 22px 18px minmax(0, 1fr) 150px 56px 96px 44px;
 }
 .batch-ingredient-rows .batch-ingredient-row.picker .batch-row-remove { padding: 6px 0; font-size: 12px; }
+/* 按常见存放推测的位置浅色显示，提示重点核对；按你的习惯或你自己定的位置正常显示。 */
+.batch-ingredient-rows .batch-ingredient-row.picker select.location-guess { color: var(--ink-muted, #687564); border-style: dashed; }
 @media (max-width: 768px) {
   .batch-ingredient-rows .batch-ingredient-row.picker { grid-template-columns: 18px 16px minmax(0, 1fr) minmax(0, 1fr); }
   .batch-ingredient-rows .batch-ingredient-row.picker > :nth-child(4) { grid-column: 2 / -1; }
