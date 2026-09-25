@@ -19,6 +19,8 @@ uv run python scripts/isolated_server.py --port 3010
 uv run python scripts/isolated_server.py --port 3010 --reuse-test-database pantry_nook_test_<实际UUID>
 ```
 
+启动前会先检查端口：端口上已在运行同一个复用的测试库时，提示无需重复启动并正常退出；端口被其他服务或别的测试库占用时报错退出，不会新建测试库。
+
 只有此测试启动器会为 `/health` 增加 `X-Pantry-Nook-Test-Database` 响应头；普通应用没有测试专用 API 或数据字段。写入测试必须检测到此标记，否则拒绝执行。可将专门的前端验证服务代理到 3010，通过真实 API 验证浏览器写入流程。
 
 ## 检查入口（按需选择，不是每轮全跑）
