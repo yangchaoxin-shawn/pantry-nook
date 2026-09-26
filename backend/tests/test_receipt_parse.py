@@ -249,6 +249,19 @@ class GluedReceiptTests(unittest.TestCase):
         self.assertEqual(item["price_text"], "4.38")
         self.assertEqual([entry["text"] for entry in result["ignored"]], ["原价:4.90"])
 
+    def test_glued_digit_row_with_discount_fragment_attaches(self):
+        # 粘连数字行还拖着优惠残段（真实小票常见）：剥掉残段后照样归属上一行。
+        result = self.receipt(
+            "6.[惠]去皮红洋葱/KG原价：4.98",
+            "20006050030840.3084.38优惠:0.171.34",
+        )
+        self.assertEqual(len(result["items"]), 1)
+        item = result["items"][0]
+        self.assertEqual(item["name"], "去皮红洋葱")
+        self.assertEqual(item["quantity_text"], "0.308")
+        self.assertEqual(item["price_text"], "4.38")
+        self.assertEqual(result["ignored"], [])
+
     def test_discount_only_rows_stay_dropped(self):
         result = self.receipt("优惠明细", "促销活动:-0.21", "原价:4.90")
         self.assertEqual(result["items"], [])
@@ -276,6 +289,13 @@ class GluedReceiptTests(unittest.TestCase):
                      "店庆活动优惠:3.00", "周年活动优惠:5.00", "限时促销活动:3.00", "双十一活动:9.90"):
             result = self.receipt(text)
             self.assertEqual(result["items"], [], text)
+
+    def test_product_with_discount_fragment_but_no_other_numbers_falls_to_ignored(self):
+        # 刻意取舍：两字商品+优惠残段、行内再无数字/计价单位时，宁进跳过列表
+        # 也不冒写出假商品的风险；放宽守卫前须三思并更新本断言。
+        result = self.receipt("蒜头优惠:0.22")
+        self.assertEqual(result["items"], [])
+        self.assertEqual([e["text"] for e in result["ignored"]], ["蒜头优惠:0.22"])
 
     def test_original_price_without_colon_still_stripped(self):
         result = self.receipt("去皮红洋葱/KG原价4.98", "20006050030840.3084.38")
