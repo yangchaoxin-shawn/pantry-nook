@@ -205,16 +205,19 @@ export function OcrReceiptUpload({
           {CATEGORIES.map((category) => <option key={category} value={category}>{category}</option>)}
         </select>
         <span className="ocr-draft-meta">{row.quantity ? `${row.quantity}${row.unit}` : ""}</span>
-        {groupRows && groupRows.length > 1 && (
-          <button
-            type="button"
-            className="text-button ocr-keep"
-            aria-label={`保留这条：第 ${index} 项 ${row.name}，删除组内其余同名行`}
-            onClick={() => keepOnlyRow(groupRows, row.id)}
-          >
-            保留这条
-          </button>
-        )}
+        {/* 保留列常驻占位：单行组留空，保证各列在所有行上对齐。 */}
+        <span className="ocr-keep-slot">
+          {groupRows && groupRows.length > 1 && (
+            <button
+              type="button"
+              className="text-button ocr-keep"
+              aria-label={`保留这条：第 ${index} 项 ${row.name}，删除组内其余同名行`}
+              onClick={() => keepOnlyRow(groupRows, row.id)}
+            >
+              保留这条
+            </button>
+          )}
+        </span>
         <button
           type="button"
           className="text-button batch-row-remove"
@@ -303,14 +306,13 @@ export function OcrReceiptUpload({
             const { row, index } = rowsWithIndex[0];
             return [renderRow(row, index)];
           }
-          return [(
-            <li className="ocr-draft-group" key={`group-${group.key}`}>
-              <div className="ocr-draft-group-head">同名 {group.rows.length} 条——保留一条，删掉其余</div>
-              <ul className="ocr-draft-rows ocr-draft-group-rows">
-                {rowsWithIndex.map(({ row, index }) => renderRow(row, index, group.rows))}
-              </ul>
-            </li>
-          )];
+          // 组头平铺为整行标签，组内行与普通行同一网格层级，列天然对齐。
+          return [
+            <li className="ocr-draft-group-head" key={`group-${group.key}`}>
+              同名 {group.rows.length} 条——保留一条，删掉其余
+            </li>,
+            ...rowsWithIndex.map(({ row, index }) => renderRow(row, index, group.rows)),
+          ];
         })}
         {!visible.length && <li className="ocr-draft-empty">这一类没有待处理的行。</li>}
       </ul>

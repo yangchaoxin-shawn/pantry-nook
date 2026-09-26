@@ -99,33 +99,34 @@
 .ocr-dropzone svg { color: var(--primary, #567161); }
 .ocr-dropzone p { margin: 0; }
 .ocr-draft-rows { list-style: none; margin: 12px 0 0; padding: 0; }
-.ocr-draft-row { display: flex; align-items: center; gap: 10px; min-height: 51px; padding: 9px 2px; border-bottom: 1px dashed color-mix(in srgb, var(--hairline, #c9c9af) 60%, transparent); }
-.ocr-draft-row .batch-row-number { flex-shrink: 0; }
+/* 第一轮固定列网格：行号 | 名称 | 分类 | 数量 | 保留 | 删除，各列钉死不随内容漂移。 */
+.ocr-draft-row { display: grid; grid-template-columns: 20px minmax(0, 1fr) 88px 90px 64px 44px; gap: 10px; align-items: center; min-height: 51px; padding: 9px 2px; border-bottom: 1px dashed color-mix(in srgb, var(--hairline, #c9c9af) 60%, transparent); }
+.ocr-draft-row .batch-row-number { text-align: right; }
 /* 名称限宽省略：长名不再把分类/数量挤没；完整名称见悬浮提示。 */
-.ocr-draft-name { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; overflow: hidden; color: var(--ink, #344e40); font-size: 17px; text-align: left; }
+.ocr-draft-name { display: flex; align-items: center; gap: 8px; min-width: 0; overflow: hidden; color: var(--ink, #344e40); font-size: 17px; text-align: left; }
 .ocr-draft-name-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ocr-draft-name small { flex-shrink: 0; margin-left: 8px; padding: 1px 7px; border: 1px solid var(--hairline, #c9c9af); border-radius: 999px; color: var(--ink-muted, #687564); font-size: 12px; }
 .ocr-draft-name small.ocr-uncertain { border-color: color-mix(in srgb, #b0642a 55%, transparent); color: #b0642a; }
 .ocr-draft-name small.ocr-duplicate { border-color: color-mix(in srgb, #b0642a 55%, transparent); color: #b0642a; }
-.ocr-draft-name-input { flex: 1; min-width: 0; }
-.ocr-draft-category { width: 88px; flex-shrink: 0; height: 42px; padding: 8px 10px; border: 1px solid var(--hairline, #c9c9af); border-radius: 6px 10px 7px 9px; background-color: var(--surface, #fcf5e3); color: var(--ink-soft, #526451); font: inherit; font-size: 14px; }
+.ocr-draft-name-input { min-width: 0; }
+.ocr-draft-category { width: 88px; height: 42px; padding: 8px 10px; border: 1px solid var(--hairline, #c9c9af); border-radius: 6px 10px 7px 9px; background-color: var(--surface, #fcf5e3); color: var(--ink-soft, #526451); font: inherit; font-size: 14px; }
 .ocr-ignored { margin: 10px 0 0; color: var(--ink-muted, #687564); font-size: 13px; }
 .ocr-ignored summary { cursor: pointer; }
 .ocr-ignored ul { margin: 6px 0 0; padding-left: 18px; }
-.ocr-draft-meta { flex-shrink: 0; color: var(--ink-soft, #526451); font-family: var(--data-font, system-ui, sans-serif); font-size: 17px; font-variant-numeric: tabular-nums; }
-.ocr-keep { flex-shrink: 0; font-size: 13px; }
-/* 同名疑似重复聚合成组：组头说明怎么处理，组内一键保留其一。 */
-.ocr-draft-group { margin: 6px 0; padding: 4px 10px 0; border: 1px dashed color-mix(in srgb, #b0642a 45%, transparent); border-radius: 10px; }
-.ocr-draft-group-head { margin: 4px 0 2px; color: #b0642a; font-size: 13px; }
-.ocr-draft-group-rows { margin: 0; }
-.ocr-draft-group-rows .ocr-draft-row:last-child { border-bottom: none; }
-/* 手机窄屏：名称整行，分类、数量与删除落到第二行。 */
+.ocr-draft-meta { color: var(--ink-soft, #526451); font-family: var(--data-font, system-ui, sans-serif); font-size: 17px; font-variant-numeric: tabular-nums; text-align: right; }
+.ocr-keep-slot { display: flex; }
+.ocr-keep { font-size: 13px; }
+/* 同名疑似重复聚合成组：组头为整行标签，组内行与普通行同层同列。 */
+li.ocr-draft-group-head { grid-column: 1 / -1; margin: 8px 0 -4px; padding-top: 6px; border-top: 1px dashed color-mix(in srgb, #b0642a 45%, transparent); color: #b0642a; font-size: 13px; }
+/* 手机窄屏三行式：行号+名称、分类+数量、保留+删除。 */
 @media (max-width: 760px) {
-  .ocr-draft-row { flex-wrap: wrap; row-gap: 4px; }
-  .ocr-draft-row .ocr-draft-name, .ocr-draft-row .ocr-draft-name-input { flex-basis: calc(100% - 34px); }
-  .ocr-draft-row .ocr-draft-category { width: 96px; min-width: 0; flex-shrink: 0; }
-  .ocr-draft-row .ocr-draft-meta { margin-left: auto; }
-  .ocr-draft-group { padding: 2px 8px 0; }
+  .ocr-draft-row { grid-template-columns: 20px minmax(0, 1fr) minmax(0, 1fr) 44px; row-gap: 6px; padding-bottom: 10px; }
+  .ocr-draft-row .batch-row-number { grid-column: 1; grid-row: 1; }
+  .ocr-draft-row .ocr-draft-name, .ocr-draft-row .ocr-draft-name-input { grid-column: 2 / 4; grid-row: 1; }
+  .ocr-draft-row .ocr-draft-category { grid-column: 2; grid-row: 2; width: 96px; }
+  .ocr-draft-row .ocr-draft-meta { grid-column: 3; grid-row: 2; justify-self: end; }
+  .ocr-draft-row .ocr-keep-slot { grid-column: 2; grid-row: 3; }
+  .ocr-draft-row .batch-row-remove { grid-column: 4; grid-row: 3; justify-self: end; }
 }
 
 /* 第二轮（小票预填）的批量行：勾选与位置列加入；定宽列保证数量/单位/位置不被挤压
