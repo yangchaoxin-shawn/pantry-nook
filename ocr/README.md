@@ -30,3 +30,8 @@ backend 侧相关变量：`OCR_SERVICE_URL`（默认 `http://127.0.0.1:9610`）�
 - `POST /ocr`：multipart 字段 `file` 传图片，返回 `{"lines":[{"text","score","box"}]}`；图片无法解码返回 422，过大返回 413。
 
 字段解析（品名/数量/单位）不在本服务做，统一在 backend 的 `app/receipt_parse.py`，便于测试和调整。
+
+## 已知问题与兜底
+
+- **Windows CPU 下侧车进程偶发进入坏状态**：进程存活，但每张图都失败，日志出现 `Unknown C++ exception from OpenCV code`（paddlepaddle/paddlex 内部触发，实测重启进程即恢复，根因未定位）。处理：重启本服务；backend 会把这类失败翻译成 502 `OCR_SERVICE_ERROR` 并提示重启侧车。
+- backend 侧兜底见 `app/routes/ocr.py`：侧车不可达或超时 503、图片无法解码 422（透传侧车）、其余异常 502；均不写库存。

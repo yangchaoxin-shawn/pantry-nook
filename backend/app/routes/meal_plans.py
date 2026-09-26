@@ -14,7 +14,7 @@ from ..db import get_pool, lock_catalog_workflow
 from ..menu_workflow import assert_version
 from ..errors import conflict, not_found, validation_error
 from ..responses import created, ok
-from ..validation import ensure_object_body, optional_text, pagination, parse_id
+from ..validation import optional_text, pagination, parse_id, read_json_object
 
 router = APIRouter()
 
@@ -155,7 +155,7 @@ async def get_plan(plan_id: int):
 
 @router.post("")
 async def create_plan(request: Request):
-    body = ensure_object_body(await request.json())
+    body = await read_json_object(request)
     input_ = plan_input(body)
     pool = await get_pool()
     signature = plan_signature(input_["dish_ids"])
@@ -184,7 +184,7 @@ async def create_plan(request: Request):
 @router.patch("/{plan_id}")
 async def update_plan(plan_id: int, request: Request):
     pid = parse_id(plan_id)
-    body = ensure_object_body(await request.json())
+    body = await read_json_object(request)
     input_ = plan_input(body, partial=True)
     pool = await get_pool()
     try:

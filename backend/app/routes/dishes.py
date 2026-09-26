@@ -12,7 +12,7 @@ from ..db import get_pool, lock_catalog_workflow
 from ..menu_workflow import assert_version
 from ..errors import conflict, not_found, validation_error
 from ..responses import created, ok
-from ..validation import ensure_object_body, pagination, parse_id, required_text
+from ..validation import pagination, parse_id, read_json_object, required_text
 
 router = APIRouter()
 
@@ -73,7 +73,7 @@ async def get_dish(dish_id: int):
 
 @router.post("")
 async def create_dish(request: Request):
-    body = ensure_object_body(await request.json())
+    body = await read_json_object(request)
     input_ = dish_input(body)
     pool = await get_pool()
     try:
@@ -86,7 +86,7 @@ async def create_dish(request: Request):
 @router.patch("/{dish_id}")
 async def update_dish(dish_id: int, request: Request):
     pid = parse_id(dish_id)
-    body = ensure_object_body(await request.json())
+    body = await read_json_object(request)
     input_ = dish_input(body, partial=True)
     pool = await get_pool()
     try:

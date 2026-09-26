@@ -4,7 +4,8 @@
     uv run python scripts/isolated_server.py --port 3047
     uv run python scripts/success_response_contract_test.py 3047
 
-脚本只使用 Python 标准库，并在任何写入前检查隔离服务响应头和空库状态。
+脚本除习惯库排序兜底（直连隔离库，用后端环境自带的 asyncpg 与 python-dotenv）外只使用 Python 标准库，
+并在任何写入前检查隔离服务响应头和空库状态。
 每个成功请求都按 ``contracts/openapi.yaml`` 中对应的响应 schema 校验，
 最后要求原 MVP 模块全部成功 operation 均已实际调用。
 手记的 multipart、文件和 Range 由 scripts/journal-api-test.py 单独验证。
@@ -858,6 +859,105 @@ def main() -> None:
     # 土豆入库时放冷藏、随后改到冷冻：习惯库必须带出最新位置。
     if potato is None or potato["location"] != "冰箱冷冻":
         raise AssertionError(f"食材习惯库应带出食材最新的存放位置，实际：{potato}")
+
+    # 习惯库排序兜底：同名多条时必须返回在库那条（入库合并目标），
+    # 而不是 updated_at 更新的历史记录。纯 API 造不出"历史行比在库行更新"，
+    # 这里报废全部后重新入库同名，再直连隔离库把历史行 updated_at 顶到最新。
+    ordering_name = f"契约排序-{stamp}"
+    _, body = contract_call(
+        "POST",
+        "/api/ingredients/batch",
+        "/api/ingredients/batch",
+        {
+            "items": [
+                {
+                    "name": ordering_name,
+                    "category": "蔬菜",
+                    "stock_text": "1",
+                    "stock_value": 1,
+                    "stock_unit": "个",
+                    "location": "冰箱冷藏",
+                }
+            ]
+        },
+    )
+    history_id = data(body)[0]["id"]
+    _, body = contract_call("GET", f"/api/ingredients/{history_id}", "/api/ingredients/{ingredient_id}")
+    history_row = data(body)
+    contract_call(
+        "POST",
+        f"/api/ingredients/{history_id}/waste",
+        "/api/ingredients/{ingredient_id}/waste",
+        {
+            "stock_text": "1",
+            "stock_value": 1,
+            "stock_unit": history_row["stock_unit"],
+            "reason": "damaged",
+            "note": "习惯库排序兜底检查",
+            "expected_updated_at": history_row["updated_at"],
+        },
+    )
+    _, body = contract_call(
+        "POST",
+        "/api/ingredients/batch",
+        "/api/ingredients/batch",
+        {
+            "items": [
+                {
+                    "name": ordering_name,
+                    "category": "碳水",
+                    "stock_text": "2",
+                    "stock_value": 2,
+                    "stock_unit": "kg",
+                    "location": "冰箱冷冻",
+                }
+            ]
+        },
+    )
+    active_id = data(body)[0]["id"]
+    if active_id == history_id:
+        raise AssertionError("重新入库同名历史食材不应复用已耗尽的旧行")
+
+    def _touch_history_updated_at(db_name: str, future: bool) -> None:
+        import asyncio
+        import os
+
+        import asyncpg
+        from dotenv import load_dotenv
+
+        load_dotenv(Path(__file__).resolve().parents[1] / ".env")
+
+        async def run():
+            conn = await asyncpg.connect(
+                host=os.getenv("DB_HOST", "localhost"),
+                port=int(os.getenv("DB_PORT", "5432")),
+                user=os.getenv("DB_USER", "postgres"),
+                password=os.getenv("DB_PASSWORD", ""),
+                database=db_name,
+            )
+            try:
+                offset = "now() + interval '1 hour'" if future else "now()"
+                await conn.execute(f"UPDATE ingredients SET updated_at = {offset} WHERE id = $1", history_id)
+                return await conn.fetchrow(
+                    "SELECT count(*) AS total, count(*) FILTER (WHERE status = 'active') AS active "
+                    "FROM ingredients WHERE LOWER(btrim(name)) = LOWER($1)",
+                    ordering_name,
+                )
+            finally:
+                await conn.close()
+
+        counts = asyncio.run(run())
+        if counts["total"] != 2 or counts["active"] != 1:
+            raise AssertionError(f"同名食材应有两条记录且只有一条在库，实际：{dict(counts)}")
+
+    _touch_history_updated_at(database, future=True)
+
+    _, body = contract_call("GET", "/api/ocr/ingredient-habits", "/api/ocr/ingredient-habits")
+    ordering = {entry["name"]: entry for entry in data(body)}.get(ordering_name)
+    if ordering is None or ordering["category"] != "碳水" or ordering["location"] != "冰箱冷冻":
+        raise AssertionError(f"习惯库应返回在库那条（碳水/冷冻），而不是更新的历史记录，实际：{ordering}")
+    # 断言完把历史行时间改回，避免复用隔离库时残留未来时间干扰人工核查。
+    _touch_history_updated_at(database, future=False)
     stub = start_stub_ocr_sidecar()
     try:
         _, body = contract_call_multipart(

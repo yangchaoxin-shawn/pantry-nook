@@ -5,9 +5,12 @@
 
 from __future__ import annotations
 
+import json
 from datetime import date
 from decimal import Decimal, InvalidOperation
 from typing import Any
+
+from fastapi import Request
 
 from .errors import validation_error as _validation_error
 
@@ -17,6 +20,21 @@ def ensure_object_body(value: Any) -> dict:
     if value is None or not isinstance(value, dict) or isinstance(value, list):
         raise _validation_error("请求体必须是对象")
     return value
+
+
+async def read_json_object(request: Request, allow_empty: bool = False) -> dict:
+    """读取 JSON 对象请求体；坏编码或坏格式按 400 参数错误返回，而不是 500。"""
+    raw = await request.body()
+    if not raw:
+        if allow_empty:
+            return {}
+        raise _validation_error("请求体不能为空")
+    try:
+        body = json.loads(raw)
+    except ValueError:
+        # json.JSONDecodeError 与无效编码（UnicodeDecodeError）都归为参数错误。
+        raise _validation_error("请求体不是有效的 JSON 文本")
+    return ensure_object_body(body)
 
 
 def parse_id(value: Any, field_name: str = "id") -> int:

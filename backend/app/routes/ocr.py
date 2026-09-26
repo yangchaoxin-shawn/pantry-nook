@@ -48,11 +48,11 @@ async def _recognize(image: bytes, content_type: str | None) -> list[dict]:
     if response.status_code == 422:
         raise AppError(422, "OCR_UNREADABLE_IMAGE", "无法从该图片识别出文字，请重拍或换一张清晰的小票")
     if response.status_code != 200:
-        raise AppError(502, "OCR_SERVICE_ERROR", "识别服务返回异常，请稍后重试")
+        raise AppError(502, "OCR_SERVICE_ERROR", "识别服务处理失败，请稍后重试；若连续失败，请重启 OCR 侧车（见 ocr/README.md）")
     payload = response.json()
     lines = payload.get("lines") if isinstance(payload, dict) else None
     if not isinstance(lines, list):
-        raise AppError(502, "OCR_SERVICE_ERROR", "识别服务返回格式异常，请稍后重试")
+        raise AppError(502, "OCR_SERVICE_ERROR", "识别服务返回格式异常，请重启 OCR 侧车后重试")
     return lines
 
 

@@ -5,7 +5,7 @@ from fastapi import APIRouter, Request
 from ..db import get_pool, lock_inventory_workflow, assert_stock_name_available
 from ..errors import conflict, not_found, validation_error
 from ..responses import created, ok
-from ..validation import enum_value, ensure_object_body, optional_number, optional_text, pagination, parse_id, required_text
+from ..validation import enum_value, ensure_object_body, optional_number, optional_text, pagination, parse_id, read_json_object, required_text
 from ..menu_workflow import assert_version
 from ..quantity import normalize_stock, parse_planned_quantity, render_stock
 router=APIRouter()
@@ -78,7 +78,7 @@ async def one(ingredient_id:int):
  return ok(dto(row))
 @router.post("/batch")
 async def batch(request:Request):
- b=ensure_object_body(await request.json());raw=b.get("items")
+ b=await read_json_object(request);raw=b.get("items")
  if not isinstance(raw,list) or not raw:raise validation_error("items 必须至少包含一项食材")
  if len(raw)>30:raise validation_error("一次最多记录 30 项食材")
  rows=[payload(ensure_object_body(x)) for x in raw]
@@ -108,7 +108,7 @@ async def batch(request:Request):
  return created(out)
 @router.patch("/{ingredient_id}")
 async def patch(ingredient_id:int,request:Request):
- b=ensure_object_body(await request.json());x=payload(b,True);pid=parse_id(ingredient_id)
+ b=await read_json_object(request);x=payload(b,True);pid=parse_id(ingredient_id)
  if x.get("stock_value")==0:raise validation_error("库存为零请使用“处理变质/损坏”")
  keys=list(x);pool=await get_pool()
  async with pool.acquire() as c:
@@ -124,7 +124,7 @@ async def patch(ingredient_id:int,request:Request):
  return ok(dto(row))
 @router.post("/{ingredient_id}/waste")
 async def waste(ingredient_id:int,request:Request):
- b=ensure_object_body(await request.json());pid=parse_id(ingredient_id);v=optional_number(b.get("stock_value"),"stock_value",min_value=0,exclusive_min=True)
+ b=await read_json_object(request);pid=parse_id(ingredient_id);v=optional_number(b.get("stock_value"),"stock_value",min_value=0,exclusive_min=True)
  if v is None:raise validation_error("stock_value 必须大于零")
  unit=required_text(b.get("stock_unit"),"stock_unit",50);text=required_text(b.get("stock_text"),"stock_text");reason=enum_value(b.get("reason"),"reason",WASTE_REASONS);note=optional_text(b.get("note"),"note",5000);version=required_text(b.get("expected_updated_at"),"expected_updated_at",64);pool=await get_pool()
  if normalize_stock(parse_planned_quantity(text,unit))!=normalize_stock(Decimal(v)):raise validation_error("处理数量原文与数值不一致")
@@ -139,7 +139,7 @@ async def waste(ingredient_id:int,request:Request):
 
 @router.post("/{ingredient_id}/use")
 async def use(ingredient_id:int,request:Request):
- b=ensure_object_body(await request.json());pid=parse_id(ingredient_id);v=optional_number(b.get("stock_value"),"stock_value",min_value=0,exclusive_min=True)
+ b=await read_json_object(request);pid=parse_id(ingredient_id);v=optional_number(b.get("stock_value"),"stock_value",min_value=0,exclusive_min=True)
  if v is None:raise validation_error("stock_value 必须大于零")
  unit=required_text(b.get("stock_unit"),"stock_unit",50);text=required_text(b.get("stock_text"),"stock_text");version=required_text(b.get("expected_updated_at"),"expected_updated_at",64)
  try: request_id=UUID(required_text(b.get("client_request_id"),"client_request_id",64))
@@ -182,7 +182,7 @@ async def recovery_preview(adjustment_id:int):
 async def revoke(adjustment_id:int,request:Request):
  from .. import recovery
  aid=parse_id(adjustment_id);pool=await get_pool()
- body=ensure_object_body(await request.json()) if await request.body() else {}
+ body=await read_json_object(request, allow_empty=True)
  async with pool.acquire() as c, c.transaction():
   await lock_inventory_workflow(c)
   root,rows=await recovery.load(c,"adjustment",aid)

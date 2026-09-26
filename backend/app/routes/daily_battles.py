@@ -23,6 +23,7 @@ from ..quantity import normalize_stock, parse_usage_quantity, render_stock
 from ..validation import (
     enum_value,
     ensure_object_body,
+    read_json_object,
     optional_date,
     optional_text,
     pagination,
@@ -376,7 +377,7 @@ async def get_battle_route(battle_id: int):
 
 @router.post("")
 async def create_battle(request: Request):
-    body = ensure_object_body(await request.json())
+    body = await read_json_object(request)
     battle_date_raw = required_text(body.get("battle_date"), "battle_date", 10)
     battle_date_val = optional_date(battle_date_raw, "battle_date")
     has_plan = body.get("meal_plan_id") not in (None, "")
@@ -412,7 +413,7 @@ async def create_battle(request: Request):
 @router.patch("/{battle_id}")
 async def update_battle(battle_id: int, request: Request):
     pid = parse_id(battle_id)
-    body = ensure_object_body(await request.json())
+    body = await read_json_object(request)
     input_ = {"dish_ids": ids_array(body.get("dish_ids"))}
     if "preparations" not in body:
         raise validation_error("更新菜单时请同时提交每道菜的耗材")
@@ -479,7 +480,7 @@ async def cancel_battle(battle_id: int):
 async def resume_battle(battle_id: int, request: Request):
     """将已取消的原菜单恢复为待完成，继续使用同一餐次和历史记录。"""
     pid = parse_id(battle_id)
-    body = ensure_object_body(await request.json())
+    body = await read_json_object(request)
     pool = await get_pool()
     async with pool.acquire() as conn:
         async with conn.transaction():
@@ -504,7 +505,7 @@ async def resume_battle(battle_id: int, request: Request):
 @router.post("/{battle_id}/confirm")
 async def confirm_battle(battle_id: int, request: Request):
     pid = parse_id(battle_id)
-    body = ensure_object_body(await request.json())
+    body = await read_json_object(request)
     inputs = confirm_input(body)
 
     pool = await get_pool()
@@ -638,7 +639,7 @@ async def recovery_preview(battle_id: int):
 async def revoke_confirmation(battle_id: int, request: Request):
     from .. import recovery
     pid = parse_id(battle_id)
-    body = ensure_object_body(await request.json()) if await request.body() else {}
+    body = await read_json_object(request, allow_empty=True)
     target_status = enum_value(body.get('target_status', 'planned'), 'target_status', REVOCATION_STATUSES)
     pool = await get_pool()
     async with pool.acquire() as conn, conn.transaction():

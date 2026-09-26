@@ -77,6 +77,13 @@ async def http_exception_handler(request: Request, exc: StarletteHTTPException):
             {"error": {"code": "ROUTE_NOT_FOUND", "message": "接口不存在"}},
             status_code=404,
         )
+    # FastAPI 把无法解码的请求体（UnicodeDecodeError）包成这个固定的英文 400；
+    # 与 validation.read_json_object 对齐，统一按参数错误返回中文提示。
+    if exc.status_code == 400 and exc.detail == "There was an error parsing the body":
+        return JSONResponse(
+            {"error": {"code": "VALIDATION_ERROR", "message": "请求体不是有效的 JSON 文本"}},
+            status_code=400,
+        )
     return JSONResponse(
         {"error": {"code": "REQUEST_ERROR", "message": str(exc.detail)}},
         status_code=exc.status_code,

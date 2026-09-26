@@ -106,7 +106,7 @@ uv run python scripts/seed_demo_data.py http://127.0.0.1:3010
 - `regression_test.py`：同名入库合并与分类冲突选择、批量原子性、搭配内容/名称唯一及并发保存、搭配引用、待完成菜单的库存保护、确认事务、重复确认和撤销历史。
 - `menu_workflow_test.py`：每道菜先贴库存耗材或待购买食材、草稿允许稍后补预计量、待购买项补货后关联库存、菜单版本校验、实际用量核对、库存版本冲突整体回滚、确认和撤销恢复。
 - `tests/test_api_contract.py`：统一错误结构与已归档 OpenAPI 契约。
-- `success_response_contract_test.py`：在全新隔离库串行覆盖 37/37 个成功 operation，按归档 OpenAPI 校验每个实际 JSON 响应，并在操作数变化时要求同步扩展场景。
+- `success_response_contract_test.py`：在全新隔离库串行覆盖 37/37 个成功 operation，按归档 OpenAPI 校验每个实际 JSON 响应，并在操作数变化时要求同步扩展场景；另含习惯库排序兜底——同名两条时直连隔离库把历史行 `updated_at` 顶到最新（该步用后端环境自带的 asyncpg 与 python-dotenv，断言后把时间改回），断言返回的是在库那条。
 - `../scripts/journal-api-test.py --base <独立后端URL> --database <本轮测试库名> --samples <公开样本目录>`：显式地址和数据库＋媒体双标记必须匹配；13组静态手记真实API及成功契约，含Apple/Pixel/三星原件回读与MOV/伪装视频拒绝；不清库。
 - `scripts/journal_edit_api_test.py --base <独立后端URL> --database <本轮测试库名> --samples <公开样本目录>`：显式地址/预期测试库及媒体双标记；真实照片编辑、封面/顺序/9张上限、归属、幂等/并发、原子失败回滚和旧实况行/磁盘保留。只在双标记隔离库构造历史元信息与视频测试资源；故障触发器在 finally 移除。必须与其他写入脚本串行。
 - `../scripts/journal-migration-test.py`：新建独立测试库验证快照上限、带历史升级及重复执行，包含 013 历史手记升级 014 的首图封面回填，保留证据与测试库。
