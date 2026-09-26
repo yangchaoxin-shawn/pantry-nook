@@ -1,4 +1,4 @@
-param(
+﻿param(
   [string]$ProjectDir = (Get-Location).Path,
   [string]$EnvFile = ".env.docker.local",
   [string]$ComposeProject = "pantry-nook-release-preflight",
