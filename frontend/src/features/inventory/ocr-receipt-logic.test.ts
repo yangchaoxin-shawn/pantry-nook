@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 import {
   MAX_OCR_ROWS,
   appendOcrDraft,
+  collapsePhotoDuplicates,
   editOcrRow,
+  groupDraftRows,
   markDuplicates,
   normalizeOcrQuantity,
   recognizeToDraft,
@@ -80,15 +82,24 @@ describe("appendOcrDraft", () => {
     expect(result.rows[0].needsQuantity).toBe(true);
   });
 
-  it("跨张重复行成对标记疑似重复而不自动删除", () => {
+  it("跨张完全一致的行自动合并（拍照重复），无需手动删", () => {
     const first = recognizeToDraft([item({ name: "沙葱", quantity_text: "0.398", price_text: "11.06" })], [], []);
     const second = recognizeToDraft([item({ name: "沙葱", quantity_text: "0.398", price_text: "11.06" })], [], []);
     const result = appendOcrDraft(first.rows, first.ignored, second);
-    // 对称标记：两行互为疑似重复，删掉任意一行后另一行的标记自动解除。
+    // 名称、数量、金额完全一致 = 拍照重复：自动保留最早一条并汇总，用户不用再核对删除。
+    expect(result.rows).toHaveLength(1);
+    expect(result.rows[0].duplicate).toBe(false);
+    expect(result.removedDuplicates).toEqual([{ name: "沙葱", quantity: "0.398", unit: "", count: 1 }]);
+  });
+
+  it("缺数量的同名行不自动合并，仍标记疑似重复", () => {
+    const first = recognizeToDraft([item({ name: "蒜头" })], [], []);
+    const second = recognizeToDraft([item({ name: "蒜头" })], [], []);
+    const result = appendOcrDraft(first.rows, first.ignored, second);
+    expect(result.rows).toHaveLength(2);
     expect(result.rows[0].duplicate).toBe(true);
     expect(result.rows[1].duplicate).toBe(true);
-    const afterRemove = markDuplicates(result.rows.filter((row) => row.id === result.rows[1].id));
-    expect(afterRemove[0].duplicate).toBe(false);
+    expect(result.removedDuplicates).toEqual([]);
   });
 
   it("同名但金额不同的行不算重复", () => {
@@ -120,6 +131,52 @@ describe("appendOcrDraft", () => {
     const result = appendOcrDraft(first.rows, first.ignored, second);
     expect(result.rows).toHaveLength(MAX_OCR_ROWS);
     expect(result.truncated).toBe(true);
+  });
+});
+
+describe("collapsePhotoDuplicates 与 groupDraftRows", () => {
+  const row = (id: number, overrides: Partial<OcrDraftRow> = {}): OcrDraftRow => ({
+    id, name: "土豆", quantity: "0.358", unit: "kg", priceText: "1.56", needsQuantity: false,
+    category: null, categoryTouched: false, uncertain: false, duplicate: false, openEnded: false,
+    ...overrides,
+  });
+
+  it("名称数量金额一致才自动合并，保留最早一条并汇总", () => {
+    const rows = [row(1), row(2), row(3, { quantity: "0.4", priceText: "1.80" }), row(4)];
+    const { rows: kept, removed } = collapsePhotoDuplicates(rows);
+    expect(kept.map((r) => r.id)).toEqual([1, 3]);
+    expect(removed).toEqual([{ name: "土豆", quantity: "0.358", unit: "kg", count: 2 }]);
+  });
+
+  it("缺数量的行不参与自动合并", () => {
+    const rows = [row(1, { quantity: "", priceText: null }), row(2, { quantity: "", priceText: null })];
+    const { rows: kept, removed } = collapsePhotoDuplicates(rows);
+    expect(kept).toHaveLength(2);
+    expect(removed).toEqual([]);
+  });
+
+  it("单张识别结果同样自动合并", () => {
+    const items = [
+      item({ name: "土豆", quantity_text: "0.358", price_text: "1.56" }),
+      item({ name: "土豆", quantity_text: "0.358", price_text: "1.56" }),
+      item({ name: "莴笋", quantity_text: "0.424", price_text: "2.12" }),
+    ];
+    const result = recognizeToDraft(items, [], []);
+    expect(result.rows.map((r) => r.name)).toEqual(["土豆", "莴笋"]);
+    expect(result.removed).toEqual([{ name: "土豆", quantity: "0.358", unit: "", count: 1 }]);
+  });
+
+  it("单张超过 30 项仍提示截断（合并不会吞掉上限提示）", () => {
+    const items = Array.from({ length: MAX_OCR_ROWS + 5 }, (_, index) => item({ name: `商品${index + 1}`, quantity_text: "1" }));
+    const result = recognizeToDraft(items, [], []);
+    expect(result.rows).toHaveLength(MAX_OCR_ROWS);
+    expect(result.truncated).toBe(true);
+  });
+
+  it("展示顺序按同名聚合相邻，组间保持首次出现顺序", () => {
+    const rows = [row(1, { name: "苹果" }), row(2, { name: "土豆" }), row(3, { name: "苹果", quantity: "3" })];
+    const groups = groupDraftRows(rows);
+    expect(groups.map((group) => group.rows.map((r) => r.id))).toEqual([[1, 3], [2]]);
   });
 });
 

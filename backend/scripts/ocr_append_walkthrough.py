@@ -6,7 +6,8 @@ scripts/ocr_browser_walkthrough.py 相同，不要复用用户正在验收的服
     uv run python scripts/ocr_append_walkthrough.py --base http://127.0.0.1:5219 --api http://127.0.0.1:3051 --receipts 上段.jpg 下段.jpg
 
 写入前要求前端与后端指向同一个空的隔离测试库；浏览器写请求逐次核对。
-覆盖累加、疑似重复标记与过滤、名称内联编辑、重复与待分类清零后进入第二轮、合并保存。
+覆盖累加、跨张缝合、拍照重复自动合并、同名组的"保留这条"一键去重、
+名称内联编辑、待分类清零后进入第二轮、合并保存。
 """
 
 from __future__ import annotations
@@ -88,18 +89,31 @@ with sync_playwright() as p:
             more.click()
             check("累加时保留已识别行", dialog.locator(".ocr-draft-row").count() == counts[0])
 
-    check("行数累加", counts[-1] > counts[0], f"两张后 {counts[-1]} 行 ≤ 第一张 {counts[0]}")
-    check("出现疑似重复徽标", dialog.locator(".ocr-draft-name small.ocr-duplicate").count() > 0)
+    check("识别后有草稿行", counts[-1] > 0, f"两张后 {counts[-1]} 行")
     check("第一轮不再有待补数量胶囊", dialog.locator(".ocr-chip", has_text="待补数量").count() == 0)
 
-    # 待办过滤：点疑似重复胶囊后只看重复行
-    dialog.locator(".ocr-chip", has_text="疑似重复").click()
-    page.wait_for_timeout(200)
-    dup_rows = dialog.locator(".ocr-draft-row").count()
-    dup_labels = dialog.locator(".ocr-draft-name small.ocr-duplicate").count()
-    check("过滤后只显示疑似重复行", dup_rows == dup_labels and dup_rows > 0, f"行 {dup_rows} / 标记 {dup_labels}")
-    dialog.locator(".ocr-chip", has_text="全部").click()
-    page.wait_for_timeout(200)
+    # 拍照重复：名称数量金额完全一致的行已自动合并（折叠提示）；数量或金额
+    # 不同的同名行聚合成组，组内"保留这条"一键去重——都不需要逐行手删。
+    removed = dialog.locator(".ocr-removed")
+    if removed.count():
+        check("自动合并提示可展开", "已自动去除" in removed.first.inner_text())
+
+    def duplicate_badges() -> int:
+        return dialog.locator(".ocr-draft-name small.ocr-duplicate").count()
+
+    if duplicate_badges():
+        check("有疑似重复时不能进入下一步", next_button(dialog).is_disabled(), next_button(dialog).inner_text())
+        group_heads = dialog.locator(".ocr-draft-group-head")
+        check("同名行聚合成组并有组头提示", group_heads.count() > 0, f"{group_heads.count()} 组")
+        for _ in range(10):
+            keep = dialog.get_by_role("button", name="保留这条")
+            if not keep.count():
+                break
+            keep.first.click()
+            page.wait_for_timeout(200)
+        check("组内保留一条后徽标清零", duplicate_badges() == 0, f"剩 {duplicate_badges()} 个")
+    else:
+        check("无遗留疑似重复（已自动合并或本无重叠）", duplicate_badges() == 0)
 
     # 名称内联编辑：改第一行名称再改回
     first_name = dialog.locator(".ocr-draft-name").first
@@ -116,18 +130,6 @@ with sync_playwright() as p:
     name_input = dialog.locator(".ocr-draft-name-input")
     name_input.fill(original)
     name_input.press("Enter")
-    page.wait_for_timeout(200)
-
-    # 有疑似重复时不能进入下一步；删完重复（后端规则：同一批不能有同名食材）。
-    check("有疑似重复时不能进入下一步", next_button(dialog).is_disabled(), next_button(dialog).inner_text())
-    dialog.locator(".ocr-chip", has_text="疑似重复").click()
-    page.wait_for_timeout(200)
-    for _ in range(20):
-        if not dialog.locator(".ocr-draft-row").count():
-            break
-        dialog.locator(".ocr-draft-row").first.get_by_role("button", name="删除").click()
-        page.wait_for_timeout(150)
-    dialog.locator(".ocr-chip", has_text="全部").click()
     page.wait_for_timeout(200)
 
     # 给识别错字等无法自动分类的行选分类。

@@ -37,6 +37,17 @@ _LEADING_BARCODE = re.compile(r"^\d{10,}[::]\s*")
 _TRAILING_MULTIPLIER = re.compile(r"[×xX*]\s*(\d+(?:\.\d+)?)$")
 # 无空格粘连行尾部的金额：农夫山泉550ml2.00 -> 名称 + 2.00。
 _TRAILING_PRICE = re.compile(r"(\d{1,6}\.\d{1,2})$")
+# 名称尾部的条码+数字粘连：黄心土豆/KG261900035860.3584.38 ->
+# 条码(11-13位) + 数量（必须带小数点：纯整数位是条码本身，不能当数量）+ 可选金额。
+# 先试带金额的拆分，再退回只有数量。
+_TAIL_BARCODE_NUMBERS = re.compile(r"(\d{11,13})(\d{1,3}\.\d{1,3})(\d{1,6}\.\d{2})$")
+_TAIL_BARCODE_QTY = re.compile(r"(\d{11,13})(\d{1,3}\.\d{1,3})$")
+# 名称行内嵌的优惠/促销残段：优惠:0.221.56、促销活动:-0.21。
+# 数字必须紧跟，避免误吞"优惠装"这类名称。
+_DISCOUNT_FRAGMENT = re.compile(r"(?:优惠|促销|活动)[:：]?\s*-?\d[\d.]*")
+# 名称行内嵌的原价残段：原价：4.98、原价4.98（OCR 常漏冒号）。
+# 剥离要求数字紧跟，避免误吞含"原价"字样的名称。
+_ORIGINAL_PRICE = re.compile(r"原价[:：]?\s*\d+(?:\.\d{1,2})?")
 # 日期或时间行。
 _DATETIME = re.compile(r"\d{4}[-/.年]\d{1,2}[-/.月]\d{1,2}|\d{1,2}:\d{2}(:\d{2})?$")
 # 全数字（含小数点）文本：粘连数字块或条码行。
@@ -170,10 +181,31 @@ def split_digit_block(text: str) -> tuple[str | None, str, str] | None:
     # 条码与数字块粘连：剥掉条码前缀后重试。
     barcode = _BARCODE.match(t)
     if barcode and barcode.end() < len(t):
-        stripped = split_digit_block(t[barcode.end():])
+        rest = t[barcode.end():]
+        stripped = split_digit_block(rest)
         if stripped:
             return stripped
+        # 省略金额列的称重行只剩“数量+单价”：数量从长到短取最长边界。
+        # 只在条码后触发（EAN-13 称重票数量固定三位小数，长数量优先即
+        # 三位小数优先）；无条码的 “1.0012.50” 类歧义块不在回退范围内。
+        for qty_end in range(min(len(rest), 8) - 1, 0, -1):
+            head = rest[:qty_end]
+            if not re.fullmatch(r"\d{1,3}(?:\.\d{1,3})?", head):
+                continue
+            if re.fullmatch(r"\d{1,6}\.\d{2}", rest[qty_end:]):
+                return head, rest[qty_end:], rest[qty_end:]
     return None
+
+
+def _cut_trailing_barcode_numbers(name: str) -> tuple[str, str | None, str | None]:
+    """剥掉名称尾部的条码+数量（+金额）粘连，返回（名称, 数量, 金额）。"""
+    with_price = _TAIL_BARCODE_NUMBERS.search(name)
+    if with_price:
+        return name[: with_price.start()], with_price.group(2), with_price.group(3)
+    qty_only = _TAIL_BARCODE_QTY.search(name)
+    if qty_only:
+        return name[: qty_only.start()], qty_only.group(2), None
+    return name, None, None
 
 
 def _clean_name(name: str) -> tuple[str, str | None]:
@@ -225,10 +257,13 @@ def _extract_from_numerics(state: dict) -> None:
 
 
 def _parse_row(row: list[dict]) -> dict | None:
-    texts = [s["text"].strip() for s in row if s["text"].strip()]
+    raw = _row_text(row)
+    # 优惠/原价残段在参与拆分前先剥掉，避免污染名称或被当成金额；
+    # 剥完整行为空的（纯优惠行）按无名称丢弃。
+    texts = [_DISCOUNT_FRAGMENT.sub("", _ORIGINAL_PRICE.sub("", s["text"])).strip() for s in row if s["text"].strip()]
+    texts = [t for t in texts if t]
     if not texts:
         return None
-    raw = _row_text(row)
     score = min(s["score"] for s in row)
     state: dict = {"quantity": None, "unit": None, "price": None, "numerics": []}
 
@@ -247,6 +282,12 @@ def _parse_row(row: list[dict]) -> dict | None:
             # 无法归类的文字残片并回名称，避免丢字。
             name_parts.append(" ".join(remainder))
     name = "".join(name_parts)
+    # 条码+数量+金额整段粘在名称尾部时剥出数字列。
+    name, tail_qty, tail_price = _cut_trailing_barcode_numbers(name)
+    if tail_qty and state["quantity"] is None:
+        state["quantity"] = tail_qty
+    if tail_price and state["price"] is None:
+        state["price"] = tail_price
 
     # 单段行没有数字列可拆：从粘连文本尾部抠金额，尾部空格分隔的小数列为数量。
     if len(texts) == 1:
@@ -316,10 +357,18 @@ def parse_receipt_lines(lines: list[dict]) -> dict:
 
     for row in _group_rows(lines):
         text = _row_text(row)
+        # 优惠/原价残段先剥掉再判噪声：纯残段行照旧丢弃，商品行带着
+        # 这些尾巴时不再被整行误杀。剥完既无数字也无计价单位斜杠
+        # （店庆活动、满减、本单、双十一……）说明这行本来就是优惠行，
+        # 按原文判噪声，避免剥出一个假商品名。
+        cleaned = _ORIGINAL_PRICE.sub("", _DISCOUNT_FRAGMENT.sub("", text))
+        if cleaned != text and not re.search(r"[/\d]", cleaned):
+            cleaned = text
         # 含小数点的独立数字行先尝试归属上一个名称行；拆不出再按噪声处理。
         # 该分支必须在噪声判断之前：纯数字行会被噪声检查判成 numeric-only。
-        if _DIGIT_BLOCK.match(text) and "." in text:
-            split = split_digit_block(text)
+        # 数字块判断用剥残段后的文本：条码+数量+金额+优惠整串粘连也能拆。
+        if _DIGIT_BLOCK.match(cleaned) and "." in cleaned:
+            split = split_digit_block(cleaned)
             if split and pending is not None:
                 quantity, _unit_price, amount = split
                 pending["quantity_text"] = quantity or pending["quantity_text"]
@@ -337,12 +386,12 @@ def parse_receipt_lines(lines: list[dict]) -> dict:
                     "amount_text": amount,
                 })
                 continue
-        reason = _noise_reason(text)
+        reason = _noise_reason(cleaned)
         if reason:
             # 原价/优惠行常夹在名称行与数字行之间，不能清掉 pending。
             ignored.append({"text": text, "reason": reason})
             continue
-        if _DIGIT_BLOCK.match(text):
+        if _DIGIT_BLOCK.match(cleaned):
             # 条码等无小数点的数字行：丢弃但不消耗 pending。
             ignored.append({"text": text, "reason": "numeric-only"})
             continue

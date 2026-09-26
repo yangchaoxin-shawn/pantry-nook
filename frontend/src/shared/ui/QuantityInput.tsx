@@ -47,6 +47,11 @@ export function QuantityInput({ value, onValueChange, label, allowZero = false, 
         aria-valuemin={allowZero ? 0 : 0.000001} aria-valuemax={max ?? 999999999.999999}
         aria-valuenow={value.trim() && !error ? Number(value) : undefined}
         onChange={event => onValueChange(event.target.value)}
+        onFocus={event => {
+          inputProps.onFocus?.(event);
+          // 聚焦即全选：点击后直接输数字就整体替换，不用先删旧值（0.3kg 改 1 根的场景）。
+          event.currentTarget.select();
+        }}
         onBlur={event => { inputProps.onBlur?.(event); setTouched(true); }}
         onKeyDown={event => {
           inputProps.onKeyDown?.(event);

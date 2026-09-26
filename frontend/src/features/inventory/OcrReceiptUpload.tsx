@@ -4,6 +4,7 @@ import { Icon } from "../../shared/ui/Primitives";
 import {
   appendOcrDraft,
   editOcrRow,
+  groupDraftRows,
   markDuplicates,
   MAX_OCR_ROWS,
   recognizeToDraft,
@@ -12,6 +13,7 @@ import {
   type OcrDraftRow,
   type OcrIgnoredEntry,
   type OcrPrefillRow,
+  type PhotoDuplicateSummary,
 } from "./ocr-receipt-logic";
 
 type ChecklistFilter = "all" | "duplicate" | "category";
@@ -38,6 +40,7 @@ export function OcrReceiptUpload({
   const [rows, setRows] = useState<OcrDraftRow[]>([]);
   const [ignored, setIgnored] = useState<OcrIgnoredEntry[]>([]);
   const [truncated, setTruncated] = useState(false);
+  const [removedSummary, setRemovedSummary] = useState<PhotoDuplicateSummary[]>([]);
   const [filter, setFilter] = useState<ChecklistFilter>("all");
   const [editingId, setEditingId] = useState<number | null>(null);
   const [confirmClear, setConfirmClear] = useState(false);
@@ -78,6 +81,7 @@ export function OcrReceiptUpload({
     let currentRows = rows;
     let currentIgnored = ignored;
     let currentTruncated = truncated;
+    let currentRemoved: PhotoDuplicateSummary[] = [];
     const failed: string[] = [];
     try {
       for (let index = 0; index < files.length; index += 1) {
@@ -99,11 +103,13 @@ export function OcrReceiptUpload({
             currentRows = recognition.rows;
             currentIgnored = recognition.ignored;
             currentTruncated = recognition.truncated;
+            currentRemoved = [...currentRemoved, ...recognition.removed];
           } else {
             const appended = appendOcrDraft(currentRows, currentIgnored, recognition);
             currentRows = appended.rows;
             currentIgnored = appended.ignored;
             currentTruncated = appended.truncated;
+            currentRemoved = [...currentRemoved, ...appended.removedDuplicates];
             if (appended.mergedName) {
               setNotice(`已把这张开头的数量金额并入上一张末尾的「${appended.mergedName}」。`);
             }
@@ -111,6 +117,7 @@ export function OcrReceiptUpload({
           setRows(currentRows);
           setIgnored(currentIgnored);
           setTruncated(currentTruncated);
+          setRemovedSummary(currentRemoved);
         } catch (cause) {
           failed.push(`第 ${index + 1} 张：${cause instanceof Error ? cause.message : "识别失败"}`);
         }
@@ -137,12 +144,90 @@ export function OcrReceiptUpload({
     setRows((current) => markDuplicates(current.filter((row) => row.id !== id)));
   }
 
+  /** 同名组里"保留这条"：组内其余行一并删除，避免逐个点。 */
+  function keepOnlyRow(groupRows: OcrDraftRow[], keepId: number) {
+    const ids = new Set(groupRows.map((row) => row.id));
+    setRows((current) => markDuplicates(current.filter((row) => row.id === keepId || !ids.has(row.id))));
+  }
+
   const checklist = reviewChecklist(rows);
   const visible = rows.filter((row) => {
     if (filter === "duplicate") return row.duplicate;
     if (filter === "category") return !row.category;
     return true;
   });
+  // 分组按全量行算（组员可能被当前过滤藏住）：这样"保留这条"能把
+  // 看不见的同名行一并删掉，重复徽标才能真正清零。
+  const visibleSet = new Set(visible);
+  const groups = groupDraftRows(rows).map((group) => ({
+    ...group,
+    visibleRows: group.rows.filter((row) => visibleSet.has(row)),
+  })).filter((group) => group.visibleRows.length > 0);
+
+  function renderRow(row: OcrDraftRow, index: number, groupRows?: OcrDraftRow[]) {
+    return (
+      <li className={row.duplicate ? "ocr-draft-row duplicate" : "ocr-draft-row"} key={row.id}>
+        <span className="batch-row-number" aria-hidden="true">{index}</span>
+        {editingId === row.id ? (
+          <input
+            className="ocr-draft-name-input"
+            aria-label={`修改第 ${index} 项名称`}
+            autoFocus
+            defaultValue={row.name}
+            maxLength={255}
+            onBlur={(event) => { updateRow(row.id, { name: event.target.value.trim() || row.name }); setEditingId(null); }}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") (event.target as HTMLInputElement).blur();
+              if (event.key === "Escape") setEditingId(null);
+            }}
+          />
+        ) : (
+          <button
+            type="button"
+            className="ocr-draft-name text-button"
+            title={row.name}
+            aria-label={`第 ${index} 项 ${row.name}，点击修改名称`}
+            onClick={() => setEditingId(row.id)}
+          >
+            <span className="ocr-draft-name-text">{row.name}</span>
+            {row.needsQuantity && <small>下一步补数量</small>}
+            {row.uncertain && <small className="ocr-uncertain">识别不确定</small>}
+            {row.duplicate && <small className="ocr-duplicate">疑似重复</small>}
+          </button>
+        )}
+        <select
+          className="ocr-draft-category"
+          aria-label={`第 ${index} 项 ${row.name} 的分类`}
+          value={row.category ?? ""}
+          onChange={(event) => updateRow(row.id, { category: (event.target.value || null) as OcrDraftRow["category"] })}
+        >
+          <option value="">待分类</option>
+          {CATEGORIES.map((category) => <option key={category} value={category}>{category}</option>)}
+        </select>
+        <span className="ocr-draft-meta">{row.quantity ? `${row.quantity}${row.unit}` : ""}</span>
+        {groupRows && groupRows.length > 1 && (
+          <button
+            type="button"
+            className="text-button ocr-keep"
+            aria-label={`保留这条：第 ${index} 项 ${row.name}，删除组内其余同名行`}
+            onClick={() => keepOnlyRow(groupRows, row.id)}
+          >
+            保留这条
+          </button>
+        )}
+        <button
+          type="button"
+          className="text-button batch-row-remove"
+          aria-label={`删除第 ${index} 项 ${row.name}`}
+          onClick={() => removeRow(row.id)}
+        >
+          删除
+        </button>
+      </li>
+    );
+  }
+
+  const removedCount = removedSummary.reduce((sum, item) => sum + item.count, 0);
 
   const chips: { key: ChecklistFilter; label: string }[] = [
     { key: "all", label: `全部 ${checklist.total}` },
@@ -201,56 +286,32 @@ export function OcrReceiptUpload({
       {notice && <p className="form-hint" role="status">{notice}</p>}
       <p className="form-hint">这一轮确认识别结果：改好名称和分类，删掉不要的行；数量怎么叫（如 0.3kg 改 1 根）在下一轮切换。</p>
       {truncated && <p className="form-notice">累计商品已到 30 项上限，本次先保存这些，其余请稍后再拍一张单独入库。</p>}
+      {removedCount > 0 && (
+        <details className="ocr-ignored ocr-removed">
+          <summary>已自动去除 {removedCount} 条拍照重复（名称、数量、金额完全一致）</summary>
+          <ul>
+            {removedSummary.map((item) => (
+              <li key={`${item.name}-${item.quantity}`}>{item.name} {item.quantity}{item.unit} ×{item.count}</li>
+            ))}
+          </ul>
+        </details>
+      )}
       <ul className="ocr-draft-rows">
-        {visible.map((row) => (
-          <li className={row.duplicate ? "ocr-draft-row duplicate" : "ocr-draft-row"} key={row.id}>
-            <span className="batch-row-number" aria-hidden="true">{rows.indexOf(row) + 1}</span>
-            {editingId === row.id ? (
-              <input
-                className="ocr-draft-name-input"
-                aria-label={`修改第 ${rows.indexOf(row) + 1} 项名称`}
-                autoFocus
-                defaultValue={row.name}
-                maxLength={255}
-                onBlur={(event) => { updateRow(row.id, { name: event.target.value.trim() || row.name }); setEditingId(null); }}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter") (event.target as HTMLInputElement).blur();
-                  if (event.key === "Escape") setEditingId(null);
-                }}
-              />
-            ) : (
-              <button
-                type="button"
-                className="ocr-draft-name text-button"
-                title="点击修改名称"
-                onClick={() => setEditingId(row.id)}
-              >
-                {row.name}
-                {row.needsQuantity && <small>下一步补数量</small>}
-                {row.uncertain && <small className="ocr-uncertain">识别不确定</small>}
-                {row.duplicate && <small className="ocr-duplicate">疑似重复</small>}
-              </button>
-            )}
-            <select
-              className="ocr-draft-category"
-              aria-label={`第 ${rows.indexOf(row) + 1} 项 ${row.name} 的分类`}
-              value={row.category ?? ""}
-              onChange={(event) => updateRow(row.id, { category: (event.target.value || null) as OcrDraftRow["category"] })}
-            >
-              <option value="">待分类</option>
-              {CATEGORIES.map((category) => <option key={category} value={category}>{category}</option>)}
-            </select>
-            <span className="ocr-draft-meta">{row.quantity ? `${row.quantity}${row.unit}` : ""}</span>
-            <button
-              type="button"
-              className="text-button batch-row-remove"
-              aria-label={`删除第 ${rows.indexOf(row) + 1} 项 ${row.name}`}
-              onClick={() => removeRow(row.id)}
-            >
-              删除
-            </button>
-          </li>
-        ))}
+        {groups.flatMap((group) => {
+          const rowsWithIndex = group.visibleRows.map((row) => ({ row, index: rows.indexOf(row) + 1 }));
+          if (group.rows.length < 2) {
+            const { row, index } = rowsWithIndex[0];
+            return [renderRow(row, index)];
+          }
+          return [(
+            <li className="ocr-draft-group" key={`group-${group.key}`}>
+              <div className="ocr-draft-group-head">同名 {group.rows.length} 条——保留一条，删掉其余</div>
+              <ul className="ocr-draft-rows ocr-draft-group-rows">
+                {rowsWithIndex.map(({ row, index }) => renderRow(row, index, group.rows))}
+              </ul>
+            </li>
+          )];
+        })}
         {!visible.length && <li className="ocr-draft-empty">这一类没有待处理的行。</li>}
       </ul>
       {ignored.length > 0 && <details className="ocr-ignored">
@@ -262,7 +323,7 @@ export function OcrReceiptUpload({
         <button type="button" className="btn-ghost" disabled={phase.busy} onClick={() => inputRef.current?.click()}>
           再拍一张累加
         </button>
-        {confirmClear ? <button type="button" className="btn-ghost" autoFocus onClick={() => { setRows([]); setIgnored([]); setTruncated(false); setNotice(""); setError(""); setFilter("all"); setConfirmClear(false); }}>
+        {confirmClear ? <button type="button" className="btn-ghost" autoFocus onClick={() => { setRows([]); setIgnored([]); setTruncated(false); setRemovedSummary([]); setNotice(""); setError(""); setFilter("all"); setConfirmClear(false); }}>
           再点一次确认清空
         </button> : <button type="button" className="btn-ghost" disabled={phase.busy} onClick={() => { setConfirmClear(true); window.setTimeout(() => setConfirmClear(false), 3000); }}>
           清空重拍

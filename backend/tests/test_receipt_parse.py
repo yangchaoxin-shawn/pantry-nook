@@ -218,5 +218,78 @@ class WeightedReceiptTests(unittest.TestCase):
         self.assertEqual(item["price_text"], "1.90")
 
 
+class GluedReceiptTests(unittest.TestCase):
+    """真实密集小票的三种粘连：优惠/原价残段、条码+数量+金额粘在名称尾、条码+数量+单价独立成行。"""
+
+    def receipt(self, *rows):
+        return parse_receipt_lines([line(text, 20, 100 + index * 30) for index, text in enumerate(rows)])
+
+    def test_product_row_with_discount_fragment_survives(self):
+        # 优惠残段剥掉后商品行保留，条码+数量+金额从名称尾部剥出。
+        result = self.receipt("[惠]黄心土豆/KG261900035860.3584.38优惠:0.221.56")
+        self.assertEqual(result["ignored"], [])
+        item = result["items"][0]
+        self.assertEqual(item["name"], "黄心土豆")
+        self.assertEqual(item["unit"], "kg")
+        self.assertEqual(item["quantity_text"], "0.358")
+        self.assertEqual(item["price_text"], "4.38")
+
+    def test_name_row_with_original_price_pairs_with_glued_barcode_qty(self):
+        # 名称行带原价尾巴：剥掉后等下面的条码+数量+单价粘连行来缝合。
+        result = self.receipt(
+            "6.[惠]去皮红洋葱/KG原价：4.98",
+            "20006050030840.3084.38",
+            "原价:4.90",
+        )
+        self.assertEqual(len(result["items"]), 1)
+        item = result["items"][0]
+        self.assertEqual(item["name"], "去皮红洋葱")
+        self.assertEqual(item["unit"], "kg")
+        self.assertEqual(item["quantity_text"], "0.308")
+        self.assertEqual(item["price_text"], "4.38")
+        self.assertEqual([entry["text"] for entry in result["ignored"]], ["原价:4.90"])
+
+    def test_discount_only_rows_stay_dropped(self):
+        result = self.receipt("优惠明细", "促销活动:-0.21", "原价:4.90")
+        self.assertEqual(result["items"], [])
+        self.assertEqual(len(result["ignored"]), 3)
+
+    def test_pure_barcode_tail_keeps_name_and_drops_digits(self):
+        # 条码后没有带小数点的数量：条码整段按噪声剥掉，不虚构数量。
+        for text, name in (("虫草花盒20010400100025", "虫草花盒"), ("牛奶6902538001234", "牛奶")):
+            result = self.receipt(text)
+            self.assertEqual(len(result["items"]), 1, text)
+            self.assertEqual(result["items"][0]["name"], name)
+            self.assertIsNone(result["items"][0]["quantity_text"], text)
+
+    def test_discount_prefix_row_does_not_steal_pending_quantity(self):
+        # "活动优惠:2.00" 剥掉残段后只剩词头：必须按噪声丢弃，
+        # 不能冒充商品把下一行的数量金额抢走。
+        result = self.receipt("[惠]沙葱/KG", "活动优惠:2.00", "0.030136.004.08")
+        self.assertEqual([item["name"] for item in result["items"]], ["沙葱"])
+        self.assertEqual(result["items"][0]["quantity_text"], "0.030")
+        self.assertEqual(result["items"][0]["price_text"], "4.08")
+        self.assertEqual([e["text"] for e in result["ignored"]], ["活动优惠:2.00"])
+
+    def test_promo_word_rows_without_digits_stay_noise(self):
+        for text in ("活动优惠:2.00", "满减优惠:5.00", "本单优惠3.50", "券优惠:2.00",
+                     "店庆活动优惠:3.00", "周年活动优惠:5.00", "限时促销活动:3.00", "双十一活动:9.90"):
+            result = self.receipt(text)
+            self.assertEqual(result["items"], [], text)
+
+    def test_original_price_without_colon_still_stripped(self):
+        result = self.receipt("去皮红洋葱/KG原价4.98", "20006050030840.3084.38")
+        self.assertEqual(len(result["items"]), 1)
+        item = result["items"][0]
+        self.assertEqual(item["name"], "去皮红洋葱")
+        self.assertEqual(item["quantity_text"], "0.308")
+
+    def test_ambiguous_two_number_block_without_barcode_unchanged(self):
+        # 无条码的 "1.0012.50" 歧义块拆不开：整块保留在跳过行，不猜。
+        result = parse_receipt_lines([line("1.0012.50", 20, 100)])
+        self.assertEqual(result["items"], [])
+        self.assertNotIn("quantity_text", result["ignored"][0])
+
+
 if __name__ == "__main__":
     unittest.main()

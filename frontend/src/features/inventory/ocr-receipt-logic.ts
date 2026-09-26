@@ -29,7 +29,54 @@ export type OcrRecognition = {
   rows: OcrDraftRow[];
   ignored: OcrIgnoredEntry[];
   truncated: boolean;
+  /** 拍照重复被自动合并的汇总；界面上折叠展示供核查。 */
+  removed: PhotoDuplicateSummary[];
 };
+
+export type PhotoDuplicateSummary = { name: string; quantity: string; unit: string; count: number };
+
+/**
+ * 拍照重复自动合并：同一张小票被拍进两张照片时，商品行的名称、数量、
+ * 金额完全一致——直接保留最早一条，其余删除，不再让用户逐个核对删除。
+ * 缺数量的行（等待缝合或待补填）不参与，避免误删缝合对象；
+ * 名称或数量不同的同名行仍走疑似重复标记，由用户定夺。
+ */
+export function collapsePhotoDuplicates(rows: OcrDraftRow[]): { rows: OcrDraftRow[]; removed: PhotoDuplicateSummary[] } {
+  const seen = new Set<string>();
+  const kept: OcrDraftRow[] = [];
+  const removed = new Map<string, PhotoDuplicateSummary>();
+  for (const row of rows) {
+    const key = normalizeIngredientName(row.name).toLowerCase();
+    const signature = key && row.quantity ? `${key}|${row.quantity}|${row.priceText ?? ""}` : null;
+    if (signature && seen.has(signature)) {
+      const summary = removed.get(signature) ?? { name: row.name, quantity: row.quantity, unit: row.unit, count: 0 };
+      summary.count += 1;
+      removed.set(signature, summary);
+      continue;
+    }
+    if (signature) seen.add(signature);
+    kept.push(row);
+  }
+  return { rows: kept, removed: [...removed.values()] };
+}
+
+export type OcrDraftGroup = { key: string; rows: OcrDraftRow[] };
+
+/** 展示顺序：同名行聚合相邻（组间按首次出现顺序），方便对照取舍。 */
+export function groupDraftRows(rows: OcrDraftRow[]): OcrDraftGroup[] {
+  const groups = new Map<string, OcrDraftGroup>();
+  const order: string[] = [];
+  for (const row of rows) {
+    const key = normalizeIngredientName(row.name).toLowerCase() || `#${row.id}`;
+    const group = groups.get(key);
+    if (group) group.rows.push(row);
+    else {
+      groups.set(key, { key, rows: [row] });
+      order.push(key);
+    }
+  }
+  return order.map((key) => groups.get(key) as OcrDraftGroup);
+}
 
 /** 批量入库接口一次最多 30 项，超出部分提示用户分两次。 */
 export const MAX_OCR_ROWS = 30;
@@ -132,10 +179,14 @@ export function recognizeToDraft(
   ignored: OcrIgnoredEntry[],
   known: { name: string; category: string }[],
 ): OcrRecognition {
+  // 截断按原始商品行数判断：合并只减少行数，不能把"超过上限"这件事也吞掉。
+  const usableCount = items.filter((item) => item.name.trim() !== "").length;
+  const collapsed = collapsePhotoDuplicates(toDraftRows(items, known, 1));
   return {
-    rows: toDraftRows(items, known, 1),
+    rows: collapsed.rows,
     ignored,
-    truncated: items.filter((item) => item.name.trim() !== "").length > MAX_OCR_ROWS,
+    truncated: usableCount > MAX_OCR_ROWS,
+    removed: collapsed.removed,
   };
 }
 
@@ -145,13 +196,16 @@ export type AppendResult = {
   truncated: boolean;
   /** 本次缝合成功的商品名称；用于界面轻提示。 */
   mergedName: string | null;
+  /** 本次自动合并的拍照重复；用于界面折叠展示。 */
+  removedDuplicates: PhotoDuplicateSummary[];
 };
 
 /**
  * 把新识别的一张小票累加进已有草稿：
  * - 行 id 续号，新行照常自动分类；
  * - 新图开头若为孤儿数量金额、且上一张末尾有悬空名称行，自动缝合；
- * - 新行与已有行归一化名称和金额都相同时标记疑似重复，由用户核对删除；
+ * - 两张照片里名称数量金额完全一致的行自动合并（拍照重复）；
+ * - 剩余的同名行标记疑似重复，由用户核对删除；
  * - 超过批量上限 30 项的行丢弃并置 truncated，提示分两次保存。
  */
 export function appendOcrDraft(
@@ -186,17 +240,19 @@ export function appendOcrDraft(
     }
   }
 
-  const nextId = rows.reduce((max, row) => Math.max(max, row.id), 0) + 1;
-  let nextRowId = nextId;
-  let remaining = MAX_OCR_ROWS - rows.length;
+  let nextRowId = rows.reduce((max, row) => Math.max(max, row.id), 0) + 1;
   for (const row of incoming.rows) {
-    if (remaining <= 0) {
-      return { rows: markDuplicates(rows), ignored, truncated: true, mergedName };
-    }
     rows.push({ ...row, id: nextRowId++ });
-    remaining -= 1;
   }
-  return { rows: markDuplicates(rows), ignored, truncated: incoming.truncated, mergedName };
+  // 拍照重复自动合并：跨照片完全一致的行直接去掉，免去逐个核对。
+  const collapsed = collapsePhotoDuplicates(rows);
+  let merged = collapsed.rows;
+  let truncated = incoming.truncated;
+  if (merged.length > MAX_OCR_ROWS) {
+    merged = merged.slice(0, MAX_OCR_ROWS);
+    truncated = true;
+  }
+  return { rows: markDuplicates(merged), ignored, truncated, mergedName, removedDuplicates: collapsed.removed };
 }
 
 /** 核对待办计数：分层核对引导条的数据源。 */
