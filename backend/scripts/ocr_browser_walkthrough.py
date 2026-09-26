@@ -116,7 +116,7 @@ with sync_playwright() as p:
     file_input = dialog.locator('input[type="file"]')
     check("存在文件选择控件", file_input.count() == 1)
     file_input.set_input_files(str(receipt))
-    print("…已上传，等待 CPU 识别（单张约 15–40 秒）")
+    print("…已上传，等待 CPU 识别（简单样张约 15–40 秒，密集小票可达约 160 秒）")
     wait_recognized(dialog, page)
 
     draft_rows = dialog.locator(".ocr-draft-row")

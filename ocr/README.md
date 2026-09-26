@@ -22,7 +22,7 @@ PADDLE_PDX_MODEL_SOURCE=modelscope uv run uvicorn app.main:app --host 127.0.0.1 
 | `OCR_MAX_SIDE_PIXELS` | 2200 | 推理前把长边缩到该值，控制 CPU 耗时 |
 | `PADDLE_PDX_MODEL_SOURCE` | huggingface | 模型下载源，国内建议 `modelscope` |
 
-backend 侧相关变量：`OCR_SERVICE_URL`（默认 `http://127.0.0.1:9610`）、`OCR_TIMEOUT_SECONDS`（默认 90）、`OCR_MAX_IMAGE_BYTES`。
+backend 侧相关变量：`OCR_SERVICE_URL`（默认 `http://127.0.0.1:9610`）、`OCR_TIMEOUT_SECONDS`（默认 300；密集中文整张小票在 Windows CPU 实测约 160 秒，超时会报 503）、`OCR_MAX_IMAGE_BYTES`。
 
 ## 接口
 

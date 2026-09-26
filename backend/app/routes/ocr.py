@@ -28,7 +28,8 @@ def _sidecar_url() -> str:
 
 
 def _timeout_seconds() -> float:
-    return float(os.getenv("OCR_TIMEOUT_SECONDS", "90"))
+    # 密集中文整张小票在 Windows CPU 上实测约 160 秒；90 秒会让真实小票全部超时报 503。
+    return float(os.getenv("OCR_TIMEOUT_SECONDS", "300"))
 
 
 def _max_image_bytes() -> int:
