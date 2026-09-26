@@ -87,7 +87,8 @@ async function request<T>(
     );
   return body as Envelope<T>;
 }
-// 小票识别在本地 OCR 服务上运行，CPU 推理可能超过普通请求超时，单独放宽。
+// 小票识别在本地 OCR 服务上运行，CPU 推理可能超过普通请求超时，单独放宽：
+// 后端默认 300 秒（密集中文整张小票实测约 160 秒），这里留出上传与响应余量。
 async function requestMultipart<T>(path: string, file: File): Promise<Envelope<T>> {
   let response: Response;
   try {
@@ -96,7 +97,7 @@ async function requestMultipart<T>(path: string, file: File): Promise<Envelope<T
     response = await fetch(`${BASE}${path}`, {
       method: "POST",
       body: form,
-      signal: AbortSignal.timeout(120000),
+      signal: AbortSignal.timeout(310000),
     });
   } catch {
     throw new Error("识别请求没有完成，请确认网络与识别服务后重试。");
