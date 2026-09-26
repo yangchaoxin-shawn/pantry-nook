@@ -1,4 +1,4 @@
-param(
+﻿param(
   [string]$ProjectDir = (Split-Path -Parent $PSScriptRoot),
   [string]$EnvFile = ".env.docker.local",
   [int]$WebPort = 18080,
@@ -10,6 +10,9 @@ $ErrorActionPreference = 'Stop'
 $composeProject = 'pantry-nook-release-preflight'
 $backendPort = 18014
 $nginxContainer = "$composeProject-nginx"
+$ocrComposeProject = "${composeProject}-ocr"
+$ocrContainer = "$composeProject-ocr"
+$ocrComposeFile = Join-Path $ProjectDir 'ocr\deploy\docker-compose.yml'
 $runtimeDir = Join-Path $ProjectDir '.review\release-preflight'
 $distDir = Join-Path $ProjectDir 'frontend\dist'
 $nginxConfig = Join-Path $ProjectDir 'scripts\release-preflight\nginx.conf'
@@ -100,10 +103,39 @@ $htpasswdPath = Join-Path $runtimeDir 'pantry-nook.htpasswd'
 Set-Content -LiteralPath $htpasswdPath -Value "preflight:{SHA}$passwordHash" -NoNewline
 
 try {
-  Write-Host '[1/8] 启动测试专用空库与 Docker 后端'
+  Write-Host '[1/10] 启动测试专用空库与 Docker 后端'
   & (Join-Path $PSScriptRoot 'preflight-docker-local.ps1') -ProjectDir $ProjectDir -EnvFile $EnvFile -ComposeProject $composeProject -BackendPort $BackendPort -FrontendOrigin "http://127.0.0.1:$WebPort"
 
-  Write-Host '[2/8] 使用固定生产子路径构建前端'
+  Write-Host '[2/10] 构建 OCR 侧车镜像并用生产同款部署文件拉起、等健康'
+  Assert-True (Test-Path $ocrComposeFile) '缺少 OCR 侧车部署文件 ocr/deploy/docker-compose.yml。'
+  # 部署文件不含 build 段（服务器只 load 镜像），预检镜像统一在此构建，与后端 up --build 对齐。
+  Invoke-Docker @('build', '-t', 'pantry-nook-ocr:local', (Join-Path $ProjectDir 'ocr')) '构建预检 OCR 侧车镜像失败' | Out-Null
+  $previousOcrEnv = @{}
+  foreach ($name in @('PANTRY_OCR_IMAGE_TAG', 'PANTRY_OCR_CONTAINER_NAME', 'PANTRY_NETWORK')) {
+    $previousOcrEnv[$name] = [Environment]::GetEnvironmentVariable($name, 'Process')
+  }
+  try {
+    Set-ProcessVariable 'PANTRY_OCR_IMAGE_TAG' 'local'
+    Set-ProcessVariable 'PANTRY_OCR_CONTAINER_NAME' $ocrContainer
+    Set-ProcessVariable 'PANTRY_NETWORK' "${composeProject}_default"
+    Invoke-Docker @('compose', '-p', $ocrComposeProject, '-f', $ocrComposeFile, 'up', '-d') '启动预检 OCR 侧车失败' | Out-Null
+  } finally {
+    foreach ($name in $previousOcrEnv.Keys) {
+      Set-ProcessVariable $name $previousOcrEnv[$name]
+    }
+  }
+  # compose 会把服务名 pantry-ocr 作为网络别名，backend 默认 OCR_SERVICE_URL 即经它解析。
+  $ocrDeadline = (Get-Date).AddMinutes(4)
+  while ($true) {
+    $ocrHealth = & docker inspect --format '{{.State.Health.Status}}' $ocrContainer 2>$null
+    if ($LASTEXITCODE -eq 0 -and $ocrHealth -eq 'healthy') { break }
+    if ((Get-Date) -gt $ocrDeadline) { throw 'OCR 侧车未在 4 分钟内健康，请检查 ocr 镜像与模型。' }
+    Start-Sleep -Seconds 3
+  }
+  $ocrLoaded = Invoke-Docker @('exec', $ocrContainer, '.venv/bin/python', '-c', "import urllib.request, json; print(json.load(urllib.request.urlopen('http://127.0.0.1:9610/health'))['loaded'])") '读取 OCR 侧车健康详情失败'
+  Assert-True ("$ocrLoaded".Trim() -eq 'True') 'OCR 侧车健康但模型未加载完成。'
+
+  Write-Host '[3/10] 使用固定生产子路径构建前端'
   $previousWebBase = [Environment]::GetEnvironmentVariable('PANTRY_WEB_BASE', 'Process')
   $previousApiBase = [Environment]::GetEnvironmentVariable('VITE_API_BASE', 'Process')
   Set-ProcessVariable 'PANTRY_WEB_BASE' '/pantry-nook/'
@@ -127,7 +159,7 @@ try {
   $builtJavascript = Get-ChildItem (Join-Path $distDir 'assets') -Filter '*.js' | ForEach-Object { Get-Content -Raw $_.FullName }
   Assert-True (($builtJavascript -join "`n") -match '/pantry-nook') '构建后的 JavaScript 未固化 /pantry-nook API 基路径。'
 
-  Write-Host '[3/8] 启动本地 Nginx，复现正式子路径、鉴权、SPA 与 API 代理'
+  Write-Host '[4/10] 启动本地 Nginx，复现正式子路径、鉴权、SPA 与 API 代理'
   & docker inspect $nginxContainer 2>$null | Out-Null
   if ($LASTEXITCODE -eq 0) {
     Invoke-Docker @('rm', '-f', $nginxContainer) '删除旧的预检 Nginx 容器失败' | Out-Null
@@ -156,7 +188,7 @@ try {
     }
   } while ($null -eq $anonymous)
 
-  Write-Host '[4/8] 验证匿名拦截与登录后页面'
+  Write-Host '[5/10] 验证匿名拦截与登录后页面'
   Assert-True ($anonymous.StatusCode -eq 401) "匿名访问应为 401，实际为 $($anonymous.StatusCode)。"
   Assert-True ([string]$anonymous.Headers['WWW-Authenticate'] -match '^Basic') '匿名首页没有返回 Basic Auth challenge。'
   $homeResponse = Get-Response "$baseUri/pantry-nook/" $authHeaders
@@ -166,7 +198,7 @@ try {
   $spa = Get-Response "$baseUri/pantry-nook/inventory" $authHeaders
   Assert-True ($spa.StatusCode -eq 200 -and $spa.Content -match '<div id="root"></div>') 'SPA 子路由未正确回退首页。'
 
-  Write-Host '[5/8] 验证实际 CSS、JavaScript、字体、手记分包与不存在资源'
+  Write-Host '[6/10] 验证实际 CSS、JavaScript、字体、手记分包与不存在资源'
   $assetMatches = [regex]::Matches($homeResponse.Content, '/pantry-nook/assets/[^"'']+\.(?:css|js)')
   Assert-True ($assetMatches.Count -ge 2) '首页没有同时引用 CSS 与 JavaScript 产物。'
   foreach ($match in $assetMatches) {
@@ -211,7 +243,7 @@ try {
   $missing = Get-Response "$baseUri/pantry-nook/assets/not-present.js" $authHeaders
   Assert-True ($missing.StatusCode -eq 404) '不存在的静态资源没有返回 404。'
 
-  Write-Host '[6/8] 验证后端健康与七个真实列表接口（含手记）'
+  Write-Host '[7/10] 验证后端健康与七个真实列表接口（含手记）'
   $health = Get-Response "http://127.0.0.1:$BackendPort/health"
   Assert-True ($health.StatusCode -eq 200 -and [string]$health.Headers['Content-Type'] -match '^application/json') '后端 /health 未返回 JSON 200。'
   $listPaths = @('ingredients', 'dishes', 'meal-plans', 'consumptions', 'inventory-adjustments', 'daily-battles', 'journal/entries')
@@ -255,7 +287,37 @@ try {
   $missingPayload = $missingApi.Content | ConvertFrom-Json
   Assert-True ($missingPayload.error.code -eq 'ROUTE_NOT_FOUND') '不存在的 API 未返回 ROUTE_NOT_FOUND。'
 
-  Write-Host '[7/8] 验证图片经 Nginx 上传、鉴权、MIME、Range、拒绝伪装视频与媒体卷重启持久化'
+  Write-Host '[8/10] 验证小票 OCR 链路：匿名拦截、鉴权识别、非法图片 422'
+  $ocrUri = "$baseUri/pantry-nook/api/ocr/receipts"
+  # 生成确定性测试小票图（白底黑字两行）；预检验证的是部署链路，解析质量由后端单测覆盖。
+  $ocrImagePath = Join-Path $runtimeDir 'preflight-receipt.png'
+  Add-Type -AssemblyName System.Drawing
+  $bitmap = New-Object System.Drawing.Bitmap(620, 260)
+  $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
+  $graphics.Clear([System.Drawing.Color]::White)
+  $receiptFont = New-Object System.Drawing.Font('Microsoft YaHei', 30)
+  $graphics.DrawString('农夫山泉 2 2.00', $receiptFont, [System.Drawing.Brushes]::Black, 20, 30)
+  $graphics.DrawString('可乐 3.50 3.50', $receiptFont, [System.Drawing.Brushes]::Black, 20, 120)
+  $graphics.Dispose()
+  $bitmap.Save($ocrImagePath, [System.Drawing.Imaging.ImageFormat]::Png)
+  $bitmap.Dispose()
+  $anonymousOcr = Invoke-PhotoUpload $ocrUri @{} $ocrImagePath ([guid]::NewGuid().ToString())
+  Assert-True ($anonymousOcr.StatusCode -eq 401) "匿名小票识别应为 401，实际为 $($anonymousOcr.StatusCode)。"
+  Assert-True ([string]$anonymousOcr.Headers['WWW-Authenticate'] -match '^Basic') '匿名小票识别未返回 Basic Auth challenge。'
+  $ocrUpload = Invoke-PhotoUpload $ocrUri $authHeaders $ocrImagePath ([guid]::NewGuid().ToString())
+  Assert-True ($ocrUpload.StatusCode -eq 200) "小票识别未返回 200，实际为 $($ocrUpload.StatusCode)：$($ocrUpload.Content)。"
+  Assert-True ([string]$ocrUpload.Headers['Content-Type'] -match '^application/json') '小票识别没有返回 JSON。'
+  $ocrPayload = $ocrUpload.Content | ConvertFrom-Json
+  Assert-True (@($ocrPayload.data.items).Count -ge 1) '小票识别没有返回商品行。'
+  $recognizedNames = (@($ocrPayload.data.items | ForEach-Object { $_.name }) -join ',')
+  Assert-True ($recognizedNames -match '农夫山泉') "识别结果不含农夫山泉：$recognizedNames。"
+  $badImagePath = Join-Path $runtimeDir 'not-an-image.jpg'
+  [IO.File]::WriteAllText($badImagePath, 'this is not an image')
+  $badOcr = Invoke-PhotoUpload $ocrUri $authHeaders $badImagePath ([guid]::NewGuid().ToString())
+  Assert-True ($badOcr.StatusCode -eq 422) "非图片内容应返回 422，实际为 $($badOcr.StatusCode)。"
+  Assert-True ([string]$badOcr.Headers['Content-Type'] -match '^application/json') '非图片错误没有返回后端 JSON。'
+
+  Write-Host '[9/10] 验证图片经 Nginx 上传、鉴权、MIME、Range、拒绝伪装视频与媒体卷重启持久化'
   $photoPath = Join-Path $ProjectDir 'frontend\src\assets\journal\table-memories.png'
   Assert-True (Test-Path $photoPath) '缺少可重复使用的手记预检图片。'
   Assert-True ((Get-Item -LiteralPath $photoPath).Length -gt 1MB) '手记预检图片必须超过 1 MiB，才能覆盖 Nginx 上传限制。'
@@ -343,6 +405,10 @@ try {
     Assert-True ($LASTEXITCODE -eq 0 -and $imageId -match '^sha256:[0-9a-f]{64}$') '无法读取本地预检后端镜像 ID。'
     $containerImageId = (& docker inspect "$composeProject-backend" --format '{{.Image}}').Trim()
     Assert-True ($LASTEXITCODE -eq 0 -and $containerImageId -eq $imageId) '预检后端容器与候选镜像 ID 不一致。'
+    $ocrImageId = (& docker image inspect 'pantry-nook-ocr:local' --format '{{.Id}}').Trim()
+    Assert-True ($LASTEXITCODE -eq 0 -and $ocrImageId -match '^sha256:[0-9a-f]{64}$') '无法读取预检 OCR 侧车镜像 ID。'
+    $ocrContainerImageId = (& docker inspect $ocrContainer --format '{{.Image}}').Trim()
+    Assert-True ($LASTEXITCODE -eq 0 -and $ocrContainerImageId -eq $ocrImageId) '预检 OCR 侧车容器与候选镜像 ID 不一致。'
     $evidencePayload = [ordered]@{
       result = 'passed'
       commit = $fullCommit
@@ -350,6 +416,9 @@ try {
       completed_at_utc = (Get-Date).ToUniversalTime().ToString('o')
       backend_image = 'pantry-nook-backend:local'
       backend_image_id = $imageId
+      ocr_sidecar_image = 'pantry-nook-ocr:local'
+      ocr_sidecar_image_id = $ocrImageId
+      ocr_chain_verified = $true
       frontend_tree_sha256 = Get-DirectoryTreeHash $distDir
       nginx_config_sha256 = (Get-FileHash -LiteralPath $nginxConfig -Algorithm SHA256).Hash.ToLowerInvariant()
       docker_compose_sha256 = (Get-FileHash -LiteralPath (Join-Path $ProjectDir 'docker-compose.yml') -Algorithm SHA256).Hash.ToLowerInvariant()
@@ -358,9 +427,11 @@ try {
       media_nginx_persistence_verified = $true
     }
   }
-  Write-Host '[8/8] 发布预检通过：空库、Docker、子路径、鉴权、MIME、SPA、真实 API 与媒体持久化均已验证。'
+  Write-Host '[10/10] 发布预检通过：空库、Docker、子路径、鉴权、MIME、SPA、真实 API、OCR 链路与媒体持久化均已验证。'
 } finally {
   Remove-Item -LiteralPath $disguisedVideoPath -Force -ErrorAction SilentlyContinue
+  if ($ocrImagePath) { Remove-Item -LiteralPath $ocrImagePath -Force -ErrorAction SilentlyContinue }
+  if ($badImagePath) { Remove-Item -LiteralPath $badImagePath -Force -ErrorAction SilentlyContinue }
   if (-not $KeepRunning) {
     & docker inspect $nginxContainer 2>$null | Out-Null
     if ($LASTEXITCODE -eq 0) {
@@ -368,10 +439,17 @@ try {
     }
     & docker inspect $nginxContainer 2>$null | Out-Null
     Assert-True ($LASTEXITCODE -ne 0) "清理后仍存在容器 $nginxContainer。"
+    # 先下线 OCR 侧车再清主栈：侧车挂在主栈网络上，主栈 down 才能连网一并移除。
+    & docker inspect $ocrContainer 2>$null | Out-Null
+    if ($LASTEXITCODE -eq 0) {
+      Invoke-Docker @('compose', '-p', $ocrComposeProject, '-f', $ocrComposeFile, 'down') '清理预检 OCR 侧车失败' | Out-Null
+    }
+    & docker inspect $ocrContainer 2>$null | Out-Null
+    Assert-True ($LASTEXITCODE -ne 0) "清理后仍存在容器 $ocrContainer。"
     & (Join-Path $PSScriptRoot 'preflight-docker-local.ps1') -ProjectDir $ProjectDir -EnvFile $EnvFile -ComposeProject $composeProject -BackendPort $BackendPort -FrontendOrigin "http://127.0.0.1:$WebPort" -CleanupOnly
-    Write-Host '已核实测试专用 Nginx、后端、数据库容器、数据库卷与媒体卷均不存在。'
+    Write-Host '已核实测试专用 Nginx、后端、数据库容器、数据库卷、媒体卷与 OCR 侧车均不存在。'
   } else {
-    Write-Host "保留预检环境：http://127.0.0.1:$WebPort/pantry-nook/（preflight / preflight）"
+    Write-Host "保留预检环境：http://127.0.0.1:$WebPort/pantry-nook/（preflight / preflight）；OCR 侧车容器 $ocrContainer 一并保留。"
   }
 }
 

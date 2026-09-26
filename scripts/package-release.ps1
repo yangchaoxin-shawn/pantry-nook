@@ -1,4 +1,4 @@
-param(
+﻿param(
   [string]$ProjectDir = (Split-Path -Parent $PSScriptRoot)
 )
 
@@ -49,6 +49,10 @@ $localImage = 'pantry-nook-backend:local'
 $localImageId = (& docker image inspect $localImage --format '{{.Id}}').Trim()
 Assert-True ($LASTEXITCODE -eq 0 -and $localImageId -eq $evidence.backend_image_id) '本地后端镜像与预检证据不一致，请重新运行预检。'
 
+Assert-True ($evidence.ocr_chain_verified -eq $true) '预检证据缺少 OCR 链路通过记录，请重新运行预检。'
+$localOcrImageId = (& docker image inspect 'pantry-nook-ocr:local' --format '{{.Id}}').Trim()
+Assert-True ($LASTEXITCODE -eq 0 -and $localOcrImageId -eq $evidence.ocr_sidecar_image_id) '本地 OCR 侧车镜像与预检证据不一致，请重新运行预检。'
+
 $utcStamp = (Get-Date).ToUniversalTime().ToString('yyyyMMddTHHmmssZ')
 $releaseId = "$version-$utcStamp-$shortSha"
 $imageTag = $releaseId.Replace('+', '-build.')
@@ -69,6 +73,11 @@ $rawImageName = "pantry-nook-backend-image-$releaseId.tar"
 $rawImagePath = Join-Path $releaseDir $rawImageName
 
 $releaseImage = "pantry-nook-backend:$imageTag"
+$ocrReleaseImage = "pantry-nook-ocr:$imageTag"
+$ocrRawName = "pantry-nook-ocr-image-$releaseId.tar"
+$ocrPackedName = "$ocrRawName.gz"
+$ocrRawPath = Join-Path $packageRoot $ocrRawName
+$ocrPackedPath = Join-Path $packageRoot $ocrPackedName
 try {
   & tar -czf $frontendPath -C $distDir .
   Assert-True ($LASTEXITCODE -eq 0) '前端发布包生成失败。'
@@ -79,6 +88,19 @@ try {
     --exclude='*/__pycache__' --exclude='*.pyc' `
     -C $project docker-compose.yml backend scripts/server-release-record.py
   Assert-True ($LASTEXITCODE -eq 0) '后端源代码发布包生成失败。'
+
+  # OCR 侧车镜像不属于 manifest 三制品（固定发布入口不管理侧车），作为独立传输物
+  # 放在发布目录旁，随 ops 工具一起上传；上传与装载核对见 DEPLOY-SERVER.md 侧车章节。
+  & docker image tag 'pantry-nook-ocr:local' $ocrReleaseImage
+  Assert-True ($LASTEXITCODE -eq 0) 'OCR 侧车候选镜像标记失败。'
+  & docker image save --output $ocrRawPath $ocrReleaseImage
+  Assert-True ($LASTEXITCODE -eq 0) 'OCR 侧车候选镜像导出失败。'
+  & tar -czf $ocrPackedPath -C $packageRoot $ocrRawName
+  Assert-True ($LASTEXITCODE -eq 0) 'OCR 侧车候选镜像压缩失败。'
+  Remove-Item -LiteralPath $ocrRawPath -Force
+  $ocrHash = (Get-FileHash -LiteralPath $ocrPackedPath -Algorithm SHA256).Hash.ToLowerInvariant()
+  $ocrImageId = (& docker image inspect $ocrReleaseImage --format '{{.Id}}').Trim()
+  Assert-True ($LASTEXITCODE -eq 0 -and $ocrImageId -match '^sha256:[0-9a-f]{64}$') '无法读取 OCR 侧车发布镜像 ID。'
 
   & docker image tag $localImage $releaseImage
   Assert-True ($LASTEXITCODE -eq 0) '后端候选镜像标记失败。'
@@ -102,6 +124,8 @@ try {
   Assert-True ($LASTEXITCODE -eq 0 -and $releaseImageId -match '^sha256:[0-9a-f]{64}$') '无法读取发布镜像 ID。'
   $releaseImagePlatform = (& docker image inspect $releaseImage --format '{{.Os}}/{{.Architecture}}').Trim()
   Assert-True ($LASTEXITCODE -eq 0 -and $releaseImagePlatform -match '^linux/(amd64|arm64)$') '发布镜像不是受支持的 Linux 平台。'
+  $ocrImagePlatform = (& docker image inspect $ocrReleaseImage --format '{{.Os}}/{{.Architecture}}').Trim()
+  Assert-True ($ocrImagePlatform -eq $releaseImagePlatform) 'OCR 侧车镜像与后端镜像平台不一致。'
   $migrations = @(Get-ChildItem -LiteralPath (Join-Path $project 'backend\migrations') -File -Filter '*.sql' | Sort-Object Name | ForEach-Object {
     $content = (Get-Content -LiteralPath $_.FullName -Raw).Replace("`r`n", "`n").Replace("`r", "`n")
     $bytes = [Text.Encoding]::UTF8.GetBytes($content)
@@ -138,10 +162,13 @@ try {
   Assert-True ($releaseFiles.Count -eq 4) "发布目录应正好包含 4 个文件，实际为 $($releaseFiles.Count)。"
 } catch {
   & docker image rm $releaseImage 2>$null | Out-Null
+  & docker image rm $ocrReleaseImage 2>$null | Out-Null
   Remove-Item -LiteralPath $releaseDir -Recurse -Force -ErrorAction SilentlyContinue
+  Remove-Item -LiteralPath $ocrPackedPath -Force -ErrorAction SilentlyContinue
   throw
 } finally {
   Remove-Item -LiteralPath $rawImagePath -Force -ErrorAction SilentlyContinue
+  Remove-Item -LiteralPath $ocrRawPath -Force -ErrorAction SilentlyContinue
 }
 
 Write-Output "RELEASE_ID=$releaseId"
@@ -151,4 +178,7 @@ Write-Output "BACKEND_SHA256=$backendHash"
 Write-Output "IMAGE_SHA256=$imageHash"
 Write-Output "IMAGE_ID=$releaseImageId"
 Write-Output "IMAGE_TAG=$imageTag"
+Write-Output "OCR_IMAGE=$ocrPackedPath"
+Write-Output "OCR_IMAGE_SHA256=$ocrHash"
+Write-Output "OCR_IMAGE_ID=$ocrImageId"
 Write-Output "MANIFEST=$manifestPath"

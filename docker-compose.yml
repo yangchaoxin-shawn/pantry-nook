@@ -35,6 +35,9 @@ services:
       PANTRY_ALLOW_TEST_DATA: ${PANTRY_ALLOW_TEST_DATA:-false}
       PORT: 3000
       MEDIA_ROOT: /data/media
+      # OCR 侧车按独立部署单元运行（ocr/deploy/docker-compose.yml），经共享网络以容器名访问；
+      # 侧车不在时小票接口报 503，其余功能不受影响。预检环境经 OCR_SERVICE_URL 覆盖为专用容器名。
+      OCR_SERVICE_URL: ${OCR_SERVICE_URL:-http://pantry-ocr:9610}
     volumes:
       - pantry-media-data:/data/media
     ports:

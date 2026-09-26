@@ -14,6 +14,10 @@ PADDLE_PDX_MODEL_SOURCE=modelscope uv run uvicorn app.main:app --host 127.0.0.1 
 
 `PADDLE_PDX_MODEL_SOURCE=modelscope` 指定从国内镜像下载模型（默认 huggingface，国内可能连不上）；也可以用 `aistudio`。模型缓存在 `%USERPROFILE%\.paddlex`。
 
+## 容器部署
+
+`docker build -t pantry-nook-ocr:local ocr/` 构建含模型的镜像（构建期下载，运行期不联网），`deploy/docker-compose.yml` 是独立部署单元——侧车不进主项目 compose（固定发布入口只认两个服务），容器由 backend 经共享网络以 `pantry-ocr:9610` 访问。服务器首装、升级与回滚步骤见 [DEPLOY-SERVER.md](../DEPLOY-SERVER.md) 的"OCR 侧车"章节；本地类生产预检（preflight-release.ps1）会自动构建镜像、用同一份部署文件真实拉起侧车并验证识别链路。
+
 ## 环境变量
 
 | 变量 | 默认 | 说明 |

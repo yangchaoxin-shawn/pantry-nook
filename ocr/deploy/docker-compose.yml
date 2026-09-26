@@ -1,0 +1,33 @@
+# Pantry Nook OCR 侧车的独立部署单元。
+# 故意不进主项目 docker-compose.yml：固定发布入口（release.sh + release_checks.py）
+# 只认 pantry-db / pantry-backend 两个服务，侧车按"首装组件"单独管理，
+# 生命周期见 DEPLOY-SERVER.md 的侧车章节。回滚即 down，无状态、不涉及任何卷。
+#
+# 用法（服务器首装）：
+#   PANTRY_OCR_IMAGE_TAG=<发布镜像 tag> \
+#   docker compose -p pantry-nook-ocr -f ocr/deploy/docker-compose.yml up -d
+# 本地预检会以不同项目名/容器名/网络名复用本文件，验证的正是要上服务器的东西。
+services:
+  pantry-ocr:
+    image: pantry-nook-ocr:${PANTRY_OCR_IMAGE_TAG:-local}
+    container_name: ${PANTRY_OCR_CONTAINER_NAME:-pantry-ocr}
+    environment:
+      OCR_MAX_IMAGE_BYTES: "15728640"
+      OCR_MAX_SIDE_PIXELS: "2200"
+      # 模型已烘焙进镜像时不会实际下载；仅当缓存 miss 时生效，指向国内可达的源以便快速失败诊断。
+      PADDLE_PDX_MODEL_SOURCE: modelscope
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", ".venv/bin/python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:9610/health').read(); print('ok')"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      # 首次启动要加载检测+识别两份模型，CPU 上需几十秒。
+      start_period: 120s
+    # 不发布任何宿主机端口：backend 经共享网络以容器名访问（OCR_SERVICE_URL）。
+    # 运维检查用 docker exec 或 docker run --network 共享网络。
+
+networks:
+  default:
+    name: ${PANTRY_NETWORK:-pantry-nook_default}
+    external: true

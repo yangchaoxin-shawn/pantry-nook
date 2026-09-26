@@ -25,7 +25,30 @@ pwsh ./scripts/package-release.ps1
 
 打包输出四个文件：前端包、后端代码包、Docker 镜像包和 manifest。核对干净 Git、完整 commit、版本、三个 SHA256、镜像 ID/架构及 migration。独立 agent 检查最终制品与回滚兼容性；主负责人亲自运行门禁。
 
-普通升级使用固定 [release.sh](scripts/server/release.sh)，不再把多段 Bash 粘贴到远程 stdin。脚本说明、恢复边界和离线验证见 [工具说明](scripts/server/README.md)。该脚本本轮仅完成离线测试，首次使用前还需在隔离 Linux Docker 环境完成真实升级/恢复演练；历史发布证据不能代替新工具的演练。
+普通升级使用固定 [release.sh](scripts/server/release.sh)，不再把多段 Bash 粘贴到远程 stdin。脚本说明、恢复边界和离线验证见 [工具说明](scripts/server/README.md)。该脚本已完成离线测试与真实 Linux Docker 隔离升级/自动恢复演练；每次发布仍须核验最新候选与服务器实际状态，历史证据不能代替当次核对。
+
+## 1b. OCR 侧车（v1.4.0 起的独立部署单元）
+
+拍小票入库依赖独立 OCR 服务（`ocr/`，PP-OCRv6 CPU 推理）。固定发布入口（`release.sh` + `release_checks.py`）只认 `pantry-db` / `pantry-backend` 两个服务，这是刻意约束，不得放宽；因此侧车**不进入项目 compose**，按"首装组件"单独管理：
+
+- 镜像 `pantry-nook-ocr:<与后端相同的 release 镜像 tag>`，模型烘焙进镜像层，运行期不联网；部署文件 `ocr/deploy/docker-compose.yml`（独立项目 `pantry-nook-ocr`，容器名 `pantry-ocr`，挂共享网络，不发布宿主机端口，无状态、无卷）。本地构建入口：`docker build -t pantry-nook-ocr:local ocr/`（preflight 会自动构建）。
+- backend 经 `OCR_SERVICE_URL`（compose 默认 `http://pantry-ocr:9610`）访问；侧车不在线只影响小票接口（503），其余功能不受影响。
+- 打包时 `package-release.ps1` 额外导出 `pantry-nook-ocr-image-<RELEASE_ID>.tar.gz` 与部署文件一起作为**独立传输物**（不进 manifest，不计入四制品）；上传后本地/服务器 SHA256 逐文件核对，`docker load` 后核对镜像 ID 与 `linux/amd64` 平台。
+- 服务器首装（在 `release.sh --apply` 的维护窗口**之前**完成，窗口内不再动它）：
+
+```bash
+mkdir -p /data/pantry-nook-ocr
+# 上传 ocr/deploy/docker-compose.yml 至 /data/pantry-nook-ocr/docker-compose.yml
+docker load < /tmp/pantry-nook-ocr-image-<RELEASE_ID>.tar.gz
+PANTRY_OCR_IMAGE_TAG='<发布镜像 tag>' \
+  docker compose -p pantry-nook-ocr -f /data/pantry-nook-ocr/docker-compose.yml up -d
+docker inspect pantry-ocr --format '{{.State.Health.Status}}'   # 等 healthy
+```
+
+- 验证：宿主机 `docker exec pantry-backend python -c "import urllib.request; print(urllib.request.urlopen('http://pantry-ocr:9610/health').read())"`（走 backend 同款网络路径）；线上验收时以真实小票图走公网链路核对 401/200。
+- 回滚：`docker compose -p pantry-nook-ocr -f /data/pantry-nook-ocr/docker-compose.yml down`。无状态、不涉及任何卷，旧后端不感知；`external` 共享网络不会被 down 移除。
+- 升级：随某次普通发布一起出（新镜像 tag 同该次 release），先 `docker load` + `up -d` 换容器再走常规发布流程；首装证据（镜像 ID、SHA256、compose SHA256、容器启动时间）记入当次发布记录目录。
+- 服务器资源门槛：磁盘需容纳镜像包（约 1 GB）与解包镜像（约 2.5 GB）；内存需容纳 paddle 推理峰值（约 2 GB）；CPU 核数决定密小票推理时长（Windows CPU 实测约 160 秒/张，backend 超时 300 秒）。摸查不达标时回到方案评估，不强行上线。
 
 ## 2. 连接授权、只读摸查与上传
 
