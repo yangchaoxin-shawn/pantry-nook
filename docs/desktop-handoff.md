@@ -4,7 +4,7 @@
 
 ## 接手入口
 
-固定目录：`C:/Users/yangchaoxin/Desktop/pantry-nook`。Claude Desktop 的 Code 会话选择这个本地目录；单人接续开发优先直接在目录工作。若启用 worktree，阶段交付须核对桌面改动后安全接回，并在桌面运行最终基线检查。以后交给 Codex 时也遵守这一点。
+固定目录：`C:/Users/yangchaoxin/Desktop/pantry-nook`，检出唯一开发主线 `main`。Claude Desktop 的 Code 会话选择这个目录并开启 worktree：app 从 `main` 切出 `claude/<名字>` 分支，开工先运行 `scripts/prepare-worktree.ps1`，交付时在桌面把 `main` 快进到会话分支并运行交接检查，流程见 [Git 约定](git.md#分支与基线)。以后交给 Codex 时同样以 `main` 为准。
 
 先读根目录 `CLAUDE.md`（导入 `AGENTS.md`）、本页及状态页；然后按任务读取 PRD、项目结构、Git 约定和 backend/TESTING.md。无需重读所有历史报告。
 
@@ -26,7 +26,7 @@ pwsh ./scripts/check-handoff.ps1 -ExpectedRef <交付消息中的准确SHA> -Dep
 - 已实现：长票可分段多拍、一次多选，累加成一个草稿，自动缝合跨张切开的商品并标记疑似重复；分类与存放位置按食材习惯库自动预填，用户改过的结果随食材入库，持续覆盖内置词表与默认位置；第二轮可勾选多行统一设置位置。界面不展示金额。
 - 结构：`ocr/` 独立侧车（启动命令见 `ocr/README.md`，默认 127.0.0.1:9610，Windows CPU 需 `PADDLE_PDX_ENABLE_MKLDNN_BYDEFAULT=false`）+ backend `/api/ocr/receipts` 转发与行解析、`/api/ocr/ingredient-habits` 食材习惯库 + 库存页入口与两轮核对。
 - 已验证（agent 层面，非用户验收，2026-09-26）：最终代码上后端单测 71（1 项跳过）、前端 typecheck/lint/测试 181/build、OpenAPI 归档一致；位置习惯走查（识别存根、新建隔离库）30 项通过，含第二轮在 1280/390/320px 宽度下的行布局与单位建议检查，并先用改动前的样式确认这些检查会报错；另测 375/360/768/769px 无重叠。成功契约 37/37、真实识别单张 15 项、两段多拍 18 项为 2026-09-25 较早运行，其后只改前端，未重跑。CPU 识别单张约 15–40 秒。
-- 评审入口：用户在 `http://127.0.0.1:5217` 试用（`.claude/worktrees/ocr-receipts`，后端 3047 隔离测试库、侧车 9610）；2026-09-26 经用户同意切到最新交付提交（准确 SHA 以交付消息为准），3047 复用原隔离测试库，数据保留。这是临时本机服务，复用前先确认进程、代码与数据库标记。尚无用户验收结论。
+- 评审入口：用户在 `http://127.0.0.1:5217` 试用（专用评审 worktree `.claude/worktrees/ocr-receipts`，后端 3047 隔离测试库、侧车 9610）；2026-09-26 经用户同意切到最新交付提交（准确 SHA 以交付消息为准），3047 复用原隔离测试库，数据保留。这是临时本机服务，复用前先确认进程、代码与数据库标记。尚无用户验收结论。
 - 未做（超出本轮批准范围）：生产部署侧车、OCR 历史与图片持久化、菜谱/包装识别。
 
 ## 工具和外接 API

@@ -1,6 +1,6 @@
 # Git 与版本约定
 
-更新：2026-09-17。当前没有远程仓库，push、merge、远程发布仍需另行确定。开发与部署基线见 [项目状态](project-status.md)，不由分支名推断。
+更新：2026-09-26。当前没有远程仓库，push、merge、远程发布仍需另行确定。开发与部署基线见 [项目状态](project-status.md)，不由分支名推断。
 
 ## 版本号
 
@@ -58,9 +58,15 @@ docs: 统一协作和部署入口
 
 同一行为的代码、API、必要测试和文档放在一个可审查提交中。只 stage 本轮范围，不提交 `.env`、测试数据、数据库备份、构建产物、日志和个人配置。
 
+Claude 会话的提交在说明末尾加一行 `Claude-Session: claude/<会话分支名>`，记录提交来自哪个会话；2026-09-23 至 09-26 拍小票入库等 16 个提交用 git notes 补记了同样的标记。notes 只存本机，rebase 默认不会带走它们；重写历史前如需保留，先执行 `git config notes.rewriteRef refs/notes/commits`。查看全部会话提交（只看某个会话时把分支名写进 `--grep`）：
+
+```powershell
+git log --notes --grep="Claude-Session:" --format="%h %ad %s" --date=short
+```
+
 ## 自动提交门禁
 
-用户已授权 Codex 在以下条件全部满足时建立本地提交，无需逐次确认：
+用户已授权开发负责 agent（Codex 或 Claude Code 会话）在以下条件全部满足时建立本地提交，无需逐次确认：
 
 1. 改动属于已经批准的范围，没有新增业务取舍、部署、线上写入或数据清理。
 2. `git diff` 已复核，未混入用户改动、secret、测试数据、生成垃圾或个人配置。
@@ -72,11 +78,18 @@ docs: 统一协作和部署入口
 
 ## 分支与基线
 
-已批准改动从核对过的开发提交继续，较大功能默认使用 `codex/<任务名>`，沿用用户明确指定的分支。桌面目录、`main` 或默认新 worktree 可能落后或分叉，不能自动视为稳定候选；正式 tag 也不包含其后尚未发布的维护提交。
+`main` 是唯一开发主线，桌面目录检出 `main`；2026-09-26 起原 `codex/desktop-handoff` 已并入后删除。正式 tag 不包含其后尚未发布的维护提交，`main` 不等于已部署版本。
+
+会话流程：Claude 桌面版新建会话选桌面目录并开启 worktree，app 从 `main` 切出 `claude/<名字>`；Codex 使用 `codex/<任务名>`。
+
+1. 开工在会话 worktree 根目录运行 `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/prepare-worktree.ps1`：分支落后 `main` 且没有自己的提交时快进，复制本机连接配置，按锁文件安装依赖；有服务正从该目录运行时不快进、不装依赖。
+2. 改动提交在会话分支上，不另开旁路 worktree；交付前 app 的 diff 面板对照 `main` 显示本会话的改动。
+3. 交付时若 `main` 已前进，先把会话分支 rebase 到最新 `main` 并重跑相关检查；rebase 后提交 SHA 全部变化，交付消息与状态页必须写 rebase 后的值；该目录有服务正在运行时不要 rebase（工作文件会被替换），`prepare-worktree.ps1` 只挡快进、管不到这一步。再在桌面执行 `git merge --ff-only <会话分支>`，保持线性历史，并运行交接检查。
+4. 用户验收满意后在 app 里归档会话：删除 worktree，保留分支和对话；不用“删除会话”，那会连分支一起删除。
 
 新任务交接要给出准确开发 SHA 和部署 ref，在目标工作区运行 `scripts/check-handoff.ps1` 后回传实际 HEAD 与改动状态。默认精确匹配；允许后续提交必须显式使用 `-AllowDescendant`。脚本只读，不切换或清理。用户已授权同步时，确认工作区干净且没有影响其运行服务后可切换准确提交；有用户修改或来源不明的分叉不得强制重置。详见 [交接流程](collaboration.md#评审入口与跨会话交接)。
 
-用户正在验收时，不在同一运行目录触发热更新；隔离开发必须同时隔离代码、端口和数据库。`.claude/worktrees/` 是历史工作区，不能未经检查清理、强制重置或合并。
+用户正在验收时，不在同一运行目录触发热更新；隔离开发必须同时隔离代码、端口和数据库。用户的评审环境放在专用 worktree，只在用户同意后更新。`.claude/worktrees/` 下既有进行中的会话，也有旧的历史 worktree，不能未经检查清理、强制重置或合并。
 
 提交前核对 `git status`、适用检查和当前候选；没有新改动或新风险时不重复无意义的全量测试。
 

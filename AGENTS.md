@@ -3,12 +3,12 @@
 ## 进入项目
 
 - 当前开发负责人及阶段以 docs/project-status.md 为准；Claude Code 与 Codex 共用本文件和同一套项目文档。
-- 用户指定桌面 `C:/Users/yangchaoxin/Desktop/pantry-nook` 为固定开发与最终交付目录。临时 worktree 完成后须安全接回桌面并核验准确提交；不能只交付工具私有目录。接回前检查桌面改动和运行服务，不强制覆盖。
+- 用户指定桌面 `C:/Users/yangchaoxin/Desktop/pantry-nook` 为固定开发与最终交付目录。临时 worktree 完成后须快进接回桌面 `main` 并核验准确提交；不能只交付工具私有目录。接回前检查桌面改动和运行服务，不强制覆盖。
 - 先读 [当前状态](docs/project-status.md) 与 [协作流程](docs/collaboration.md)，再按任务读取 [PRD](docs/PRD.md) 的对应模块。
 - [CHATGPT_HANDOFF.md](CHATGPT_HANDOFF.md) 是简短交接索引；历史报告不是当前规格或永久有效的测试证明。
 - 最新用户指令优先于仓库文档；若需求、实现和文档矛盾，说明差异，不把现有代码自动认定为用户要求。
 - 稳定规则写在本文件与 PRD；临时进度只更新状态表；不要每轮复制整套项目背景。
-- 开工与交接同时核对线上发布提交、实际开发提交和本轮评审入口；桌面目录、默认分支或新 worktree 不自动代表最新版。使用 `scripts/check-handoff.ps1` 对照交接给定的准确 ref，不能只在提示词中声称基线已对齐。
+- 开工与交接同时核对线上发布提交、实际开发提交和本轮评审入口；新 worktree 开工先运行 `scripts/prepare-worktree.ps1` 对齐 `main`。使用 `scripts/check-handoff.ps1` 对照交接给定的准确 ref，不能只在提示词中声称基线已对齐。
 
 ## 授权与工作边界
 
@@ -54,7 +54,7 @@
 - 契约改变时同步导出 contracts/openapi.yaml 和生成 frontend/src/api-schema.d.ts，不手改生成文件。
 - 注释和面向用户的文案用中文，标识符用英文。
 - Windows PowerShell 操作使用明确工作目录；先确认服务状态，避免重复启动或结束用户服务。
-- Git 遵循 [提交约定](docs/git.md)，新功能分支默认 codex/ 前缀；只提交本轮范围。
+- Git 遵循 [提交约定](docs/git.md)：`main` 是唯一开发主线；分支前缀跟随工具（Claude 会话 `claude/`，Codex `codex/`）；只提交本轮范围。
 - 版本号与 tag 必须经用户确认；满足 `docs/git.md` 自动提交门禁后可直接建立本地 commit，但不自动 push、merge、tag 或部署。
 
 ## 验证与交付
