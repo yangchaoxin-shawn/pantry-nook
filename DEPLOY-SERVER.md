@@ -29,6 +29,8 @@ pwsh ./scripts/package-release.ps1
 
 ## 1b. OCR 侧车（v1.4.0 起的独立部署单元）
 
+> **状态（2026-09-27）：已暂停。** 首装演练实测：目标服务器（2 核 / 3.4G 内存，多项目共用）承载不了侧车的刚性内存峰值（密小票推理 VmHWM 约 2.1G），一次推理即引发全机内存抖动、SSH 不可达数分钟；容器内存硬顶（3G）及时把 OOM 限制在侧车自身，未损及其他项目。经用户决定暂停部署并完整回退，服务器保持 v1.3.0。重启条件：服务器升级到内存 ≥8G、CPU ≥4 核，或另立专用主机；届时按本节流程重走首装演练，不得跳过资源核验。以下流程保留供重启时使用。
+
 拍小票入库依赖独立 OCR 服务（`ocr/`，PP-OCRv6 CPU 推理）。固定发布入口（`release.sh` + `release_checks.py`）只认 `pantry-db` / `pantry-backend` 两个服务，这是刻意约束，不得放宽；因此侧车**不进入项目 compose**，按"首装组件"单独管理：
 
 - 镜像 `pantry-nook-ocr:<与后端相同的 release 镜像 tag>`，模型烘焙进镜像层，运行期不联网；部署文件 `ocr/deploy/docker-compose.yml`（独立项目 `pantry-nook-ocr`，容器名 `pantry-ocr`，挂共享网络，不发布宿主机端口，无状态、无卷）。本地构建入口：`docker build -t pantry-nook-ocr:local ocr/`（preflight 会自动构建）。
