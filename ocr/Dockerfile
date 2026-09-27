@@ -5,8 +5,10 @@ FROM python:3.12-slim
 COPY --from=ghcr.io/astral-sh/uv:0.12.10 /uv /uvx /bin/
 
 # slim 镜像没有 OpenCV 运行时需要的系统库（libGL.so.1 等），容器内 import cv2 必需。
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends libgl1 libglib2.0-0 \
+# 国内构建直连 deb.debian.org 很慢，构建期换清华 Debian 源（只影响本镜像的 apt 层）。
+RUN sed -i 's|deb.debian.org|mirrors.tuna.tsinghua.edu.cn|g' /etc/apt/sources.list.d/debian.sources \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends libgl1 libglib2.0-0 libgomp1 \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
@@ -16,7 +18,8 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     UV_LINK_MODE=copy
 
 COPY pyproject.toml uv.lock ./
-RUN uv sync --frozen --no-dev
+# 锁文件带哈希校验，换国内 PyPI 镜像不改变完整性；UV_DEFAULT_INDEX 只作用于本层。
+RUN UV_DEFAULT_INDEX=https://pypi.tuna.tsinghua.edu.cn/simple uv sync --frozen --no-dev
 
 COPY app ./app
 
