@@ -48,7 +48,7 @@ docker inspect pantry-ocr --format '{{.State.Health.Status}}'   # 等 healthy
 - 验证：宿主机 `docker exec pantry-backend python -c "import urllib.request; print(urllib.request.urlopen('http://pantry-ocr:9610/health').read())"`（走 backend 同款网络路径）；线上验收时以真实小票图走公网链路核对 401/200。
 - 回滚：`docker compose -p pantry-nook-ocr -f /data/pantry-nook-ocr/docker-compose.yml down`。无状态、不涉及任何卷，旧后端不感知；`external` 共享网络不会被 down 移除。
 - 升级：随某次普通发布一起出（新镜像 tag 同该次 release），先 `docker load` + `up -d` 换容器再走常规发布流程；首装证据（镜像 ID、SHA256、compose SHA256、容器启动时间）记入当次发布记录目录。
-- 服务器资源门槛：磁盘需容纳镜像包（约 1 GB）与解包镜像（约 2.5 GB）；内存需容纳 paddle 推理峰值（约 2 GB）；CPU 核数决定密小票推理时长（Windows CPU 实测约 160 秒/张，backend 超时 300 秒）。摸查不达标时回到方案评估，不强行上线。
+- 服务器资源门槛（2026-09-27 实测标定）：推理峰值内存约 2.1G（密小票 1706px，VmHWM）、稳态约 0.76G，部署文件已设 `mem_limit: 3g` + `memswap_limit: 4g` 硬顶，OOM 只影响侧车自身；**要求服务器有 swap 且空余不小于 2G**（首装用 `free -h` 核验），2 核 CPU 实测密小票 22-25 秒/张，300 秒超时余量充足。磁盘需容纳镜像包（约 1 GB）与解包镜像（约 4.2 GB）。摸查不达标时回到方案评估，不强行上线。
 
 ## 2. 连接授权、只读摸查与上传
 

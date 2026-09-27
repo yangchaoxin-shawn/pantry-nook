@@ -17,6 +17,10 @@ services:
       # 模型已烘焙进镜像时不会实际下载；仅当缓存 miss 时生效，指向国内可达的源以便快速失败诊断。
       PADDLE_PDX_MODEL_SOURCE: modelscope
     restart: unless-stopped
+    # 实测（密小票 1706px）：推理峰值 VmHWM 约 2.1G，稳态 0.76G。目标服务器 RAM 紧张但已有
+    # 11G swap（swappiness=0）；硬顶保证任何情况下 OOM 只影响侧车容器自身，不殃及同机其他项目。
+    mem_limit: 3g
+    memswap_limit: 4g
     healthcheck:
       test: ["CMD", ".venv/bin/python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:9610/health').read(); print('ok')"]
       interval: 30s
