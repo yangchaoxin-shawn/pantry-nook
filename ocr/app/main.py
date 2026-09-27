@@ -31,12 +31,18 @@ def _load_engine():
     from paddleocr import PaddleOCR
 
     # 小票是正对拍摄的打印文字，关闭文档矫正与方向分类，省去额外模型与耗时。
+    # Linux CPU 的 paddle 3.3.1 oneDNN+PIR 执行器有未实现路径（ConvertPirAttribute2RuntimeAttribute），
+    # 推理直接崩溃；Windows 不受影响。容器/服务器都是 Linux，故仅在非 Windows 关闭 oneDNN。
+    load_kwargs: dict = {}
+    if os.name != "nt":
+        load_kwargs["enable_mkldnn"] = False
     return PaddleOCR(
         ocr_version="PP-OCRv6",
         lang="ch",
         use_doc_orientation_classify=False,
         use_doc_unwarping=False,
         use_textline_orientation=False,
+        **load_kwargs,
     )
 
 
