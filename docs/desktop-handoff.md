@@ -8,10 +8,10 @@
 
 先读根目录 `CLAUDE.md`（导入 `AGENTS.md`）、本页及状态页；然后按任务读取 PRD、项目结构、Git 约定和 backend/TESTING.md。无需重读所有历史报告。
 
-2026-09-23 代码接回基线为 `54be232725101cfe66ed4ee258d16996913162e9`，包含已发布 `41c75ac4b0eefdd850bb2ec8e12b974e61a13f9b`。**2026-09-27 交付基线为 `39b55b5`（含 1.4.0 拍小票入库与 OCR 部署件；线上仍为 `v1.3.0`，1.4.0 未发布、无 tag）**；不可用 `-ExpectedRef HEAD` 自证。
+2026-09-23 代码接回基线为 `54be232725101cfe66ed4ee258d16996913162e9`，包含已发布 `41c75ac4b0eefdd850bb2ec8e12b974e61a13f9b`。**2026-09-27 代码交付锚点为 `39b55b5`（拍小票入库 + OCR 部署件 + 1.4.0 版本号；线上仍为 `v1.3.0`，1.4.0 未发布、无 tag）**，其后的文档提交以交付消息给出的最终 SHA 为准；核对用 `-AllowDescendant` 放行文档提交，不可用 `-ExpectedRef HEAD` 自证。
 
 ```powershell
-pwsh ./scripts/check-handoff.ps1 -ExpectedRef 39b55b5 -DeployedRef 41c75ac4b0eefdd850bb2ec8e12b974e61a13f9b
+pwsh ./scripts/check-handoff.ps1 -ExpectedRef 39b55b5 -AllowDescendant -DeployedRef 41c75ac4b0eefdd850bb2ec8e12b974e61a13f9b
 ```
 
 本机只有 Windows PowerShell 5.1、没有 `pwsh` 时，用 `powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/check-handoff.ps1`，参数相同；`-ExecutionPolicy Bypass` 只作用于这一次进程，不改系统设置。
