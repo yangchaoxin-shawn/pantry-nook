@@ -7,7 +7,7 @@
 | 项目 | 当前依据 |
 |---|---|
 | 线上发布 | `v1.3.0`，部署提交 `41c75ac4b0eefdd850bb2ec8e12b974e61a13f9b`；[发布记录](deployment-v1.3.0-2026-09-18.md) |
-| 后续开发 | 桌面 `C:/Users/yangchaoxin/Desktop/pantry-nook`，唯一开发主线 `main`（2026-09-26 起，原 `codex/desktop-handoff` 已并入后删除）；代码接回基线 `54be232725101cfe66ed4ee258d16996913162e9`，其后为交接文档与拍小票入库提交；新会话核对交付给出的准确 SHA |
+| 后续开发 | 桌面 `C:/Users/yangchaoxin/Desktop/pantry-nook`，唯一开发主线 `main`（2026-09-26 起，原 `codex/desktop-handoff` 已并入后删除）；代码接回基线 `39b55b5`（2026-09-27，含 1.4.0 拍小票入库与 OCR 部署件；线上仍为 v1.3.0，1.4.0 未发布）；新会话核对交付给出的准确 SHA |
 | 用户体验入口 | [公司预览环境](https://preview.aihuashen.com/pantry-nook/)的最近发布记录为 `v1.3.0`；本轮未复查线上。`http://localhost:5221/` 仅为历史测试入口，当前未核验，不直接当作可用评审地址 |
 
 发布 tag 固定不动；本地维护提交不代表已经部署。2026-09-23 桌面曾从最新代码基线创建 `codex/desktop-handoff`，2026-09-26 起统一为 `main`，app 新会话从 `main` 切出（见 [Git 约定](git.md#分支与基线)）；原桌面分支 `codex/inventory-merge-recovery` 及其 `e7daf55` 提交保留，未强制合并旧文档。收到新会话后使用 [交接检查](../scripts/check-handoff.ps1) 验证准确 ref；本地服务地址若需要复用，先确认进程、代码与数据库。
