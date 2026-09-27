@@ -80,6 +80,15 @@ try {
   $env:PANTRY_ALLOW_TEST_DATA = 'false'
   $env:DOCKER_CONFIG = Join-Path $env:TEMP 'docker-temp-config'
   New-Item -ItemType Directory -Force -Path $env:DOCKER_CONFIG | Out-Null
+  # 空 DOCKER_CONFIG 会隔离掉凭证，但新式用户级安装的 compose/buildx 插件也只在配置目录发现，
+  # 预检会卡在 docker compose。把应用自带插件复制进临时配置：保持无凭证隔离，仅恢复插件。
+  $dockerExeDir = Split-Path -Parent (Get-Command docker).Source
+  $pluginsSource = Join-Path (Split-Path -Parent $dockerExeDir) 'cli-plugins'
+  if (Test-Path $pluginsSource) {
+    $cliPlugins = Join-Path $env:DOCKER_CONFIG 'cli-plugins'
+    New-Item -ItemType Directory -Force -Path $cliPlugins | Out-Null
+    Copy-Item (Join-Path $pluginsSource '*.exe') $cliPlugins -Force
+  }
 
   $composePrefix = @('compose', '-p', $ComposeProject, '--env-file', $envPath)
 
