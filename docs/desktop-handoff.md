@@ -8,7 +8,7 @@
 
 先读根目录 `CLAUDE.md`（导入 `AGENTS.md`）、本页及状态页；然后按任务读取 PRD、项目结构、Git 约定和 backend/TESTING.md。无需重读所有历史报告。
 
-**2026-10-01 起 v1.4.0（拍小票入库 + OCR 侧车）已发布上线并经用户验收，部署提交 `33accd0`，RELEASE_ID `1.4.0-20261001T051302Z-33accd0fc33c`，tag 待用户确认后建**；此前代码锚点 `39b55b5` 为其子集。新会话核对用交付消息给出的准确 SHA，不可用 `-ExpectedRef HEAD` 自证。**2026-09-30 线上迁移至新服务器 `123.56.128.73`（入口 `https://system.aihuashen.com/pantry-nook/`），旧机 `182.92.205.147` 已彻底清理，见 [迁移记录](server-migration-2026-10-01.md)。**
+**2026-10-01 起 v1.4.0（拍小票入库 + OCR 侧车）已发布上线并经用户验收：tag `v1.4.0` 绑定部署提交 `33accd0`，RELEASE_ID `1.4.0-20261001T051302Z-33accd0fc33c`**；此前代码锚点 `39b55b5` 为其子集。新会话核对用交付消息给出的准确 SHA，不可用 `-ExpectedRef HEAD` 自证。**2026-09-30 线上迁移至新服务器 `123.56.128.73`（入口 `https://system.aihuashen.com/pantry-nook/`），旧机 `182.92.205.147` 已彻底清理，见 [迁移记录](server-migration-2026-10-01.md)。**
 
 ```powershell
 pwsh ./scripts/check-handoff.ps1 -ExpectedRef 39b55b5 -AllowDescendant -DeployedRef 41c75ac4b0eefdd850bb2ec8e12b974e61a13f9b
