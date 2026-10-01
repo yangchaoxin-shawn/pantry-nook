@@ -1,6 +1,6 @@
 # 食隅记 Pantry Nook 部署入口
 
-公司预览服务器的项目执行口径是 [DEPLOY-SERVER.md](DEPLOY-SERVER.md)。该文档固定真实域名、`/pantry-nook/` 子路径、服务器本机 Nginx、Docker 后端、8014 端口、Basic Auth、数据保护、验证与回滚规则。首次发布采用空生产库；后续不得把“空库”当永久要求。不要从旧的根路径、`/var/www` 或系统 Nginx 示例推导本项目配置。
+公司服务器的项目执行口径是 [DEPLOY-SERVER.md](DEPLOY-SERVER.md)。该文档固定真实域名、`/pantry-nook/` 子路径、服务器本机 Nginx、Docker 后端、8016 端口、Basic Auth、数据保护、验证与回滚规则。首次发布采用空生产库；后续不得把“空库”当永久要求。不要从旧的根路径、`/var/www` 或系统 Nginx 示例推导本项目配置。
 
 ## 本地开发
 
@@ -38,7 +38,7 @@ pwsh ./scripts/preflight-release.ps1
 ## 健康检查边界
 
 - 容器内：`http://127.0.0.1:3000/health`
-- 公司服务器宿主机：`http://127.0.0.1:8014/health`
-- 公网当前不单独提供健康入口；`/pantry-nook/api/health` 不是有效接口
+- 公司服务器宿主机：`http://127.0.0.1:8016/health`
+- 公网 `/pantry-nook/api/health` 在 Basic Auth 之后（匿名 401），不作为匿名探活入口
 
-执行服务器部署、换密和回滚时只使用 [DEPLOY-SERVER.md](DEPLOY-SERVER.md)，并遵守 deploy-company-server skill 的文档确认、连接许可、数据库备份、同一镜像、差异检查和 Nginx 语法检查要求。
+执行服务器部署、换密和回滚时只使用 [DEPLOY-SERVER.md](DEPLOY-SERVER.md)，并遵守对应部署 skill（服务器 `123.56.128.73` 为 deploy-ahs-server）的文档确认、连接许可、数据库备份、同一镜像、差异检查和 Nginx 语法检查要求。

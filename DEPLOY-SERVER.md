@@ -2,7 +2,7 @@
 
 这是公司服务器部署的执行入口。当前版本、代码基线和已发生的发布只看 [项目状态](docs/project-status.md)，历史发布记录用于追溯。每次发布生成唯一 `RELEASE_ID`，记录制品校验值及准确备份路径，禁止以通配符猜测回滚对象。
 
-> **2026-09-30 服务器迁移**：pantry 已迁至 `123.56.128.73`（deploy-ahs-server skill 管辖）；迁移事实与核验见 [迁移记录](docs/server-migration-2026-10-01.md)。下节口径已更新；**第 2—6 节仍是 182 时期的流程文本**，发布 v1.4.0（阶段 2）时须按新机形态（apt Nginx + snippets、端口 8016、`/data/pantry-nook/` 布局）适配 `preflight-release.ps1`、`release.sh` 并同步重写这些章节。
+> **2026-09-30 服务器迁移**：pantry 已迁至 `123.56.128.73`（deploy-ahs-server skill 管辖）；迁移事实与核验见 [迁移记录](docs/server-migration-2026-10-01.md)。发布工具（`release.sh` / `release_checks.py` / `verify-deployment.ps1`）已于 2026-10-01 适配新机布局并随 v1.4.0 发布真实跑通（含自动备份、切换、回滚路径），首装组件 OCR 侧车也已按 1b 节完成首装；后续发布沿用现有流程，仍须逐次核验候选与服务器实际状态。
 
 ## 部署与数据口径（2026-09-30 迁移后）
 
@@ -32,7 +32,7 @@ pwsh ./scripts/package-release.ps1
 
 ## 1b. OCR 侧车（v1.4.0 起的独立部署单元）
 
-> **状态（2026-10-01 更新）：可重启，随阶段 2 发布执行。** 原 182 服务器（2 核 / 3.4G）实测承载不了侧车刚性内存峰值（密小票推理 VmHWM 约 2.1G），2026-09-27 经用户决定暂停并完整回退。**2026-09-30 服务器迁移后，新机 `123.56.128.73`（4 核 / 14 GiB / swap 4G）实测满足重启条件**（峰值 2.1G 后仍余 10G+）；v1.4.0 发布时按本节流程在新机重走首装演练，不得跳过资源核验。注意本节 compose 路径按新机布局（`/data/pantry-nook-ocr/`）；共享网络与 backend 的 `OCR_SERVICE_URL` 在演练时现场核对。以下流程保留供执行时使用。
+> **状态（2026-10-01）：已首装上线（v1.4.0）。** 原 182 服务器（2 核 / 3.4G）承载不了侧车刚性内存峰值，2026-09-27 暂停；2026-09-30 迁移至 `123.56.128.73`（4 核 / 14 GiB / swap 4G）后随 v1.4.0 完成首装：容器 `pantry-ocr`（镜像 tag 与后端同 release），部署文件在 `/data/pantry-nook-ocr/`，经共享网络 `pantry-nook_default` 以 `pantry-ocr:9610` 供 backend 访问，线上真实识别由用户验收。首装证据见 [v1.4.0 发布记录](docs/deployment-v1.4.0-2026-10-01.md)。以下流程保留供升级侧车时使用。
 
 拍小票入库依赖独立 OCR 服务（`ocr/`，PP-OCRv6 CPU 推理）。固定发布入口（`release.sh` + `release_checks.py`）只认 `pantry-db` / `pantry-backend` 两个服务，这是刻意约束，不得放宽；因此侧车**不进入项目 compose**，按"首装组件"单独管理：
 
