@@ -48,13 +48,15 @@
 | `DEPLOYED_RELEASE.txt`（182 末次发布记录） | `5e170024…95f10e` |
 | `pantry-nook-shared-archive-20261001.tar.gz`（182 历次发布备份与记录归档） | `4d81f9b9…2a319` |
 
-## 旧机（182.92.205.147）清理终态（2026-10-01）
+## 旧机（182.92.205.147）清理终态（2026-10-01，两轮）
 
-已删除：pantry-db / pantry-backend 容器、全部 pantry 镜像（1.0.0—1.3.0 及派生 tag）、`/data/pantry-nook`、`/data/pantry-nook.bak.*` 四个旧发布目录、`/usr/local/nginx/html/pantry-nook`、`.pantry-nook.htpasswd`、`/data/pantry-nook-shared`（先归档）、preview.conf 中的 pantry 块。
+第一轮：pantry-db / pantry-backend 容器、全部 pantry 镜像（1.0.0—1.3.0 及派生 tag）、`/data/pantry-nook`、`/data/pantry-nook.bak.*` 四个旧发布目录、`/usr/local/nginx/html/pantry-nook`、`.pantry-nook.htpasswd`、`/data/pantry-nook-shared`（先归档）、preview.conf 中的 pantry 块。
 
-- **保留**：数据卷 `pantry-db-data`、`pantry-media-data`（终态原件，约 60M；新机稳定运行经用户确认后删除）。
-- 配置备份：`/usr/local/nginx/cert.d/preview.conf.bak.pantry-removal-20261001`。
-- 旧入口 `preview.aihuashen.com/pantry-nook/` 返回 404；同机其他项目验证正常。
+第二轮（用户确认本地备份齐全后）：`/usr/local/nginx/html/pantry-nook.bak.*` 四个前端历史备份（Git tag + 构建可复现）、`preview.conf.bak.1.0.0—1.3.0` 与 `preview.conf.bak.pantry-removal-20261001` 五份配置备份、`/tmp` 迁移暂存物、**数据卷 `pantry-db-data` 与 `pantry-media-data`**。
+
+- 终态（2026-10-01 复查）：全盘 `find -iname '*pantry*'` 零命中；容器、镜像、卷零命中；`nginx -t` 通过，同机其他项目正常。
+- 旧入口 `preview.aihuashen.com/pantry-nook/` 返回 404。
+- 182 的 `preview.conf.bak.0.6.1-*`、`bak-office-*`、`nginx.conf.bak-haishu-*` 属其他项目，未动。
 
 ## 过程中的坑（后续避免）
 
@@ -67,4 +69,4 @@
 
 - 未做：两台机器间免密互传（无直连凭据，全部经本机中转，属预期）。
 - 阶段 2（另轮发布）：v1.4.0 + OCR 侧车首装 + API 前缀切 `/api/pantry-nook/` + health 免鉴权 + `preflight-release.ps1` / `release.sh` 适配新机形态。OCR 资源条件已在新机实测满足（4 核 / 14G，峰值 2.1G 后余 10G+，swap 4G）。
-- 用户确认新机稳定后：删除 182 上两个 pantry 数据卷，迁移彻底完结。
+- 旧机清理已彻底完结（2026-10-01 用户确认本地备份齐全后连数据卷一并删除）；线上数据的唯一生产副本在新机，本地 `.backups/migration-20260930/` 为迁移时点快照。
