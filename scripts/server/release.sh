@@ -27,8 +27,8 @@ setup_paths() {
   SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)
   CHECKS="$SCRIPT_DIR/release_checks.py"
   BACKEND_DIR=/data/pantry-nook
-  FRONTEND_DIR=/usr/local/nginx/html/pantry-nook
-  SHARED=/data/pantry-nook-shared
+  FRONTEND_DIR=/data/pantry-nook-frontend
+  SHARED=/data/pantry-nook-back
   MANIFEST="/tmp/pantry-nook-release-${RELEASE_ID}.json"
   RECORD_DIR="$SHARED/releases/$RELEASE_ID"
   BACKEND_STAGE="$BACKEND_DIR.stage.$RELEASE_ID"
@@ -39,9 +39,9 @@ setup_paths() {
   FAILED_FRONTEND="$FRONTEND_DIR.failed.$RELEASE_ID"
   DB_BACKUP="$SHARED/backups/pantry_nook-$RELEASE_ID.dump"
   MEDIA_BACKUP="$SHARED/backups/pantry-media-$RELEASE_ID.tar.gz"
-  NGINX_CONF=/usr/local/nginx/cert.d/preview.conf
+  NGINX_CONF=/etc/nginx/snippets/system/pantry-nook.conf
   NGINX_BACKUP="$NGINX_CONF.bak.$RELEASE_ID"
-  NGINX_BIN=/usr/local/nginx/sbin/nginx
+  NGINX_BIN=/usr/sbin/nginx
   MEDIA_VOLUME=pantry-media-data
 }
 
@@ -140,7 +140,7 @@ wait_healthy() {
   local expected=$1
   for ((attempt=0; attempt<90; attempt++)); do
     if [[ $(docker inspect pantry-backend --format '{{.State.Health.Status}}') == healthy ]] && \
-      curl --max-time 5 -fsS http://127.0.0.1:8014/health >/dev/null; then
+      curl --max-time 5 -fsS http://127.0.0.1:8016/health >/dev/null; then
       [[ $(docker inspect pantry-backend --format '{{.Image}}') == "$expected" ]]
       return
     fi

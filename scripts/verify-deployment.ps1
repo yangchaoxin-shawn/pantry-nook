@@ -1,5 +1,5 @@
 ﻿param(
-  [string]$BaseUrl = 'https://preview.aihuashen.com/pantry-nook',
+  [string]$BaseUrl = 'https://system.aihuashen.com/pantry-nook',
   [Parameter(Mandatory = $true)]
   [PSCredential]$Credential,
   [switch]$ExpectEmpty,

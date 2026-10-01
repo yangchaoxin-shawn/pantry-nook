@@ -120,7 +120,7 @@ $credential = Get-Credential -UserName <读取本地秘密记录中的用户名>
 完成适用验收、写明获准不执行项及剩余边界，并由独立 agent 只读复核后，主负责人再标记：
 
 ```bash
-RECORD_DIR="/data/pantry-nook-shared/releases/${RELEASE_ID}"
+RECORD_DIR="/data/pantry-nook-back/releases/${RELEASE_ID}"
 python3 /data/pantry-nook/scripts/server-release-record.py set-status \
   --record "${RECORD_DIR}/deployed-release.txt" --status verified
 cp -p "${RECORD_DIR}/deployed-release.txt" /data/pantry-nook/DEPLOYED_RELEASE.txt
@@ -130,7 +130,7 @@ cp -p "${RECORD_DIR}/deployed-release.txt" /data/pantry-nook/DEPLOYED_RELEASE.tx
 
 ## 6. 回滚与记录
 
-脚本执行中的自动恢复与发布后人工回滚不同。公网验收失败时，先读取准确 `/data/pantry-nook-shared/releases/<RELEASE_ID>/deployed-release.txt`，核对旧镜像 ID、前后端/Nginx 备份、当前目录位置、`execution-state.txt` 和 migration 兼容性，再形成该次回滚命令。不要重新执行失败的 `--apply`，也不要调用历史 release 的固定脚本。
+脚本执行中的自动恢复与发布后人工回滚不同。公网验收失败时，先读取准确 `/data/pantry-nook-back/releases/<RELEASE_ID>/deployed-release.txt`，核对旧镜像 ID、前后端/Nginx 备份、当前目录位置、`execution-state.txt` 和 migration 兼容性，再形成该次回滚命令。不要重新执行失败的 `--apply`，也不要调用历史 release 的固定脚本。
 
 普通代码回滚的顺序是：停止当前后端；把当前代码移入新的唯一失败目录；恢复对应前后端备份；按记录核对旧镜像并启动后端；保留数据库和媒体卷；重新完成适用线上验收。Nginx 只有本次确实修改过且确认没有其他项目后续变更时才恢复对应配置，否则保持现状。任何一步失败都先核对实际状态，不靠通配符清理重来。
 

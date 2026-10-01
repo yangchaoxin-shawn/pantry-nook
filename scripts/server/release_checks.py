@@ -145,7 +145,7 @@ def compose_check(backend: Path, tag: str) -> None:
             db_mounts[0].get("source") == "pantry-db-data", "数据库挂载发生变化")
     ports = backend_config["ports"]
     require(len(ports) == 1 and ports[0]["host_ip"] == "127.0.0.1" and
-            str(ports[0]["published"]) == "8014" and str(ports[0]["target"]) == "3000",
+            str(ports[0]["published"]) == "8016" and str(ports[0]["target"]) == "3000",
             "后端端口发生变化")
     settings = backend_config["environment"]
     require(settings["APP_ENV"] == "production" and str(settings["PANTRY_ALLOW_TEST_DATA"]).lower() == "false",
@@ -156,7 +156,7 @@ def compose_check(backend: Path, tag: str) -> None:
             "数据库或媒体配置发生变化")
     require(bool(settings["DB_PASSWORD"]) and settings["DB_PASSWORD"] == db["environment"]["POSTGRES_PASSWORD"],
             "后端和数据库口令配置不一致")
-    require(settings["FRONTEND_ORIGIN"] == "https://preview.aihuashen.com", "前端来源发生变化")
+    require(settings["FRONTEND_ORIGIN"] == "https://system.aihuashen.com", "前端来源发生变化")
 
 
 def previous_record(path: Path) -> None:
