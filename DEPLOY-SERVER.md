@@ -2,14 +2,17 @@
 
 这是公司服务器部署的执行入口。当前版本、代码基线和已发生的发布只看 [项目状态](docs/project-status.md)，历史发布记录用于追溯。每次发布生成唯一 `RELEASE_ID`，记录制品校验值及准确备份路径，禁止以通配符猜测回滚对象。
 
-## 部署与数据口径
+> **2026-09-30 服务器迁移**：pantry 已迁至 `123.56.128.73`（deploy-ahs-server skill 管辖）；迁移事实与核验见 [迁移记录](docs/server-migration-2026-10-01.md)。下节口径已更新；**第 2—6 节仍是 182 时期的流程文本**，发布 v1.4.0（阶段 2）时须按新机形态（apt Nginx + snippets、端口 8016、`/data/pantry-nook/` 布局）适配 `preflight-release.ps1`、`release.sh` 并同步重写这些章节。
 
-- 服务器 `182.92.205.147`；用户入口 `https://preview.aihuashen.com/pantry-nook/`。
-- 服务器本机 Nginx 托管 `/usr/local/nginx/html/pantry-nook/`；Docker FastAPI 位于 `/data/pantry-nook/`，仅绑定 `127.0.0.1:8014`。
-- PostgreSQL 使用 `pantry-db-data`，照片使用 `pantry-media-data`；共享备份与记录位于 `/data/pantry-nook-shared/`。
-- 项目级 Basic Auth 只保留一个生效用户。秘密只记在忽略 Git 的 `.local/deployment-secrets.md` 和服务器配置，不进入发布包；普通发布不重设口令。
+## 部署与数据口径（2026-09-30 迁移后）
+
+- 服务器 `123.56.128.73`（阿里云 ECS，Ubuntu 24.04，4 核 / 14 GiB / 200G NVMe，root 公钥免密）；用户入口 `https://system.aihuashen.com/pantry-nook/`。
+- Nginx 为 apt 安装（systemd 管理）：主块 `/etc/nginx/conf.d/system.conf`，项目片段 `/etc/nginx/snippets/system/pantry-nook.conf`；Basic Auth 口令文件 `/etc/nginx/.pantry-nook.htpasswd`（root:www-data 640）。泛域名证书 `/etc/nginx/cert/cert.pem`，**2026-11-10 到期**。
+- Docker FastAPI 位于 `/data/pantry-nook/`（compose + `.env` + `backend/app/db/schema.sql` + `frontend/`），仅绑定 `127.0.0.1:8016`；Docker data-root 为 `/data/docker`。
+- PostgreSQL 使用 `pantry-db-data`，照片使用 `pantry-media-data`（均为新机 docker 卷）；历次发布备份归档已随迁移移至本地工作区 `.backups/migration-20260930/`。
+- 项目级 Basic Auth 只保留一个生效用户。秘密只记在本机忽略 Git 的位置与服务器配置，不进入发布包；普通发布不重设口令。
 - 发布只传代码、构建产物和后端镜像，不上传本地业务库、mock、测试照片或 `.env`。
-- 线上已经产生数据：普通发布与回滚不得 seed/reset、清表、删卷、`down -v`，不得以空库验收要求清空线上。首次空库和受批准的业务数据导入是独立流程。
+- 线上已经产生数据（迁移自 182 的真实业务数据，2026-10-01 逐表内容指纹核验一致）：普通发布与回滚不得 seed/reset、清表、删卷、`down -v`，不得以空库验收要求清空线上。首次空库和受批准的业务数据导入是独立流程。
 - 照片发布还须遵循 [媒体持久化、备份恢复](docs/photo-journal-operations.md)。数据库 dump 与媒体归档必须来自同一停写窗口，普通回滚只恢复代码，不回灌生产数据。
 
 ## 1. 本地准备与独立审查
@@ -29,7 +32,7 @@ pwsh ./scripts/package-release.ps1
 
 ## 1b. OCR 侧车（v1.4.0 起的独立部署单元）
 
-> **状态（2026-09-27）：已暂停。** 首装演练实测：目标服务器（2 核 / 3.4G 内存，多项目共用）承载不了侧车的刚性内存峰值（密小票推理 VmHWM 约 2.1G），一次推理即引发全机内存抖动、SSH 不可达数分钟；容器内存硬顶（3G）及时把 OOM 限制在侧车自身，未损及其他项目。经用户决定暂停部署并完整回退，服务器保持 v1.3.0。重启条件：服务器升级到内存 ≥8G、CPU ≥4 核，或另立专用主机；届时按本节流程重走首装演练，不得跳过资源核验。以下流程保留供重启时使用。
+> **状态（2026-10-01 更新）：可重启，随阶段 2 发布执行。** 原 182 服务器（2 核 / 3.4G）实测承载不了侧车刚性内存峰值（密小票推理 VmHWM 约 2.1G），2026-09-27 经用户决定暂停并完整回退。**2026-09-30 服务器迁移后，新机 `123.56.128.73`（4 核 / 14 GiB / swap 4G）实测满足重启条件**（峰值 2.1G 后仍余 10G+）；v1.4.0 发布时按本节流程在新机重走首装演练，不得跳过资源核验。注意本节 compose 路径按新机布局（`/data/pantry-nook-ocr/`）；共享网络与 backend 的 `OCR_SERVICE_URL` 在演练时现场核对。以下流程保留供执行时使用。
 
 拍小票入库依赖独立 OCR 服务（`ocr/`，PP-OCRv6 CPU 推理）。固定发布入口（`release.sh` + `release_checks.py`）只认 `pantry-db` / `pantry-backend` 两个服务，这是刻意约束，不得放宽；因此侧车**不进入项目 compose**，按"首装组件"单独管理：
 
