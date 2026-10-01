@@ -16,7 +16,7 @@ pwsh ./scripts/check-handoff.ps1 -ExpectedRef 39b55b5 -AllowDescendant -Deployed
 
 本机只有 Windows PowerShell 5.1、没有 `pwsh` 时，用 `powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/check-handoff.ps1`，参数相同；`-ExecutionPolicy Bypass` 只作用于这一次进程，不改系统设置。
 
-旧桌面分支及其他 worktree 保留，不作为默认开发入口；不删除其个人配置或未跟踪文件。依赖、环境文件与服务状态不随 Git 提交自动同步；首次启动核对 README 和测试说明，确认指向独立测试库。当前没有配置远程仓库。
+旧桌面分支及其他 worktree 保留，不作为默认开发入口；不删除其个人配置或未跟踪文件。依赖、环境文件与服务状态不随 Git 提交自动同步；首次启动核对 README 和测试说明，确认指向独立测试库。远程为私有仓库 `github.com/ShawnYoung-21/pantry-nook`（2026-10-01 建立，含全部分支与 tag；push 需逐次授权）。
 
 ## 拍小票入库（OCR）：用户已验收（2026-09-26）；服务器部署暂停（2026-09-27）
 

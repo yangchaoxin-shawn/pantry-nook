@@ -1,6 +1,6 @@
 # Git 与版本约定
 
-更新：2026-09-26。当前没有远程仓库，push、merge、远程发布仍需另行确定。开发与部署基线见 [项目状态](project-status.md)，不由分支名推断。
+更新：2026-10-01。远程仓库：`https://github.com/ShawnYoung-21/pantry-nook`（**私有**，2026-10-01 经用户确认建立并完成首次全量推送：main、全部历史分支与 tag）。push 仍需用户逐次授权，自动提交授权不含 push。开发与部署基线见 [项目状态](project-status.md)，不由分支名推断。
 
 ## 版本号
 
