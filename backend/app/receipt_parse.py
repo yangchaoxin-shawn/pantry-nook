@@ -94,6 +94,127 @@ def _line_height(box) -> float:
     return max(ys) - min(ys)
 
 
+def _is_vertical_layout(lines: list[dict]) -> bool:
+    """旋转 90° 拍摄的票：多数文本框呈竖长条（高大于宽）。"""
+    flags = []
+    for line in lines:
+        box = line.get("box") or []
+        if len(box) >= 2:
+            xs = [float(p[0]) for p in box]
+            ys = [float(p[1]) for p in box]
+            flags.append(max(ys) - min(ys) > max(xs) - min(xs))
+    return bool(flags) and sum(flags) * 2 > len(flags)
+
+
+def _vertical_rows(lines: list[dict]) -> list[list[dict]] | None:
+    """竖排票装配：列聚类 → 品名定行 → 数字列按行序配对，合成水平行。
+
+    横躺的票面文字沿图 y 排布、列沿图 x 排布；拍摄倾斜会让"行坐标"
+    （原 x）在品名列与数字列之间漂移上百像素，无法按 y 带直接聚行。
+    但列坐标（原 y）稳定：同列文本框的 y 带聚在一起，列内顺序即票面
+    行序（倾斜是保序变形）。因此先按列坐标聚类出品名/数字列，品名列
+    定行锚，数字列与行锚做只前进的单调配对（容忍 OCR 漏项），最后把
+    配对结果合成"名称 数量 单价 金额"的行段，交回既有 _parse_row。
+    返回 None 表示不是竖排布局。
+    """
+    if not _is_vertical_layout(lines):
+        return None
+    span = max(float(p[0]) for line in lines for p in (line.get("box") or []))
+    kept: list[dict] = []
+    for line in lines:
+        box = line.get("box") or []
+        if len(box) < 2 or not (line.get("text") or "").strip():
+            continue
+        reason = _noise_reason(_row_text([line]))
+        # 纯数字框是数量/单价/金额列的成员，竖排装配依赖它们，不能当噪声丢。
+        if reason is not None and reason != "numeric-only":
+            continue
+        if reason == "numeric-only" and not _DIGIT_BLOCK.match(line["text"].strip()):
+            continue
+        kept.append({**line, "box": [[float(p[1]), span - float(p[0])] for p in box]})
+    if not kept:
+        return None
+
+    def center(seg: dict, axis: int) -> float:
+        values = [float(p[axis]) for p in seg["box"]]
+        return (min(values) + max(values)) / 2
+
+    def spread(seg: dict, axis: int) -> float:
+        values = [float(p[axis]) for p in seg["box"]]
+        return max(values) - min(values)
+
+    # 两轮列聚类：品名竖条长度即它在列坐标方向的范围（可达数百像素），
+    # 与数字框同用一套阈值会把品名列和数字列并在一起。中文框（品名）
+    # 先按宽松阈值聚成品名列；纯数字框按紧阈值聚出数量/单价/金额列
+    # （数字列中心间隙 ≥ 数百像素，数字框本身只有几十像素宽）。
+    chinese = [s for s in kept if re.search(r"[一-鿿]", s["text"])]
+    digits = [s for s in kept if _DIGIT_BLOCK.match(s["text"].strip())]
+    name_sources = sorted(chinese, key=lambda s: center(s, 0))
+    name_columns: list[list[dict]] = []
+    for seg in name_sources:
+        if name_columns and center(seg, 0) - center(name_columns[-1][-1], 0) <= max(
+            spread(name_columns[-1][-1], 0), spread(seg, 0), 1.0
+        ) * 0.6:
+            name_columns[-1].append(seg)
+        else:
+            name_columns.append([seg])
+    digit_width = median([spread(s, 0) for s in digits]) if digits else 80.0
+
+    def split_digit_columns(segs: list[dict]) -> list[list[dict]]:
+        """按列坐标递归最大间隙切分；链式贪心会被跨列桥接值（如合计）
+        糊住，而"段内散布超阈值就按最大间隙再切"对列结构更稳。"""
+        if len(segs) <= 1:
+            return [segs]
+        ordered = sorted(segs, key=lambda s: center(s, 0))
+        best_i, best_gap = 1, 0.0
+        for i in range(1, len(ordered)):
+            gap = center(ordered[i], 0) - center(ordered[i - 1], 0)
+            if gap > best_gap:
+                best_i, best_gap = i, gap
+        threshold = max(digit_width * 0.5, 60.0)
+        if best_gap <= threshold:
+            return [ordered]
+        return split_digit_columns(ordered[:best_i]) + split_digit_columns(ordered[best_i:])
+
+    numeric_columns = split_digit_columns(digits)
+
+    name_rows: list[dict] = []
+    for column in name_columns:
+        for seg in sorted(column, key=lambda s: center(s, 1)):
+            stripped = seg["text"].strip()
+            if len(stripped) < 2 and not any(ch.isdigit() for ch in stripped):
+                continue
+            if any(w in stripped for w in _HEADER_WORDS):
+                continue
+            if name_rows and center(seg, 1) - name_rows[-1]["center"] <= spread(seg, 1) * 0.35:
+                name_rows[-1]["parts"].append(seg)
+                name_rows[-1]["center"] = (name_rows[-1]["center"] + center(seg, 1)) / 2
+            else:
+                name_rows.append({"parts": [seg], "center": center(seg, 1)})
+    numeric_columns = [sorted(c, key=lambda s: center(s, 1)) for c in numeric_columns]
+    if not name_rows:
+        return None
+
+    rows: list[list[dict]] = [list(name_row["parts"]) for name_row in name_rows]
+    if numeric_columns:
+        widths = [spread(s, 1) for row in name_rows for s in row["parts"]]
+        tolerance = (median(widths) if widths else 80.0) * 2.5
+        for column in numeric_columns:
+            cursor = 0
+            for seg in column:
+                best_index: int | None = None
+                best_gap = 0.0
+                for index in range(cursor, len(name_rows)):
+                    gap = abs(center(seg, 1) - name_rows[index]["center"])
+                    if best_index is None or gap < best_gap:
+                        best_index, best_gap = index, gap
+                if best_index is None or best_gap > tolerance:
+                    continue
+                rows[best_index].append(seg)
+                cursor = best_index + 1
+    return rows
+
+
 def _group_rows(lines: list[dict]) -> list[list[dict]]:
     """按纵坐标把 OCR 零散文本聚成物理行；行内按横坐标排序。"""
     segments = []
@@ -348,6 +469,9 @@ def parse_receipt_lines(lines: list[dict]) -> dict:
     items: list[dict] = []
     ignored: list[dict] = []
     pending: dict | None = None
+    rows = _vertical_rows(lines)
+    if rows is None:
+        rows = _group_rows(lines)
 
     def flush() -> None:
         nonlocal pending
@@ -355,7 +479,7 @@ def parse_receipt_lines(lines: list[dict]) -> dict:
             items.append(pending)
             pending = None
 
-    for row in _group_rows(lines):
+    for row in rows:
         text = _row_text(row)
         # 优惠/原价残段先剥掉再判噪声：纯残段行照旧丢弃，商品行带着
         # 这些尾巴时不再被整行误杀。剥完既无数字也无计价单位斜杠

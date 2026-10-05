@@ -311,5 +311,67 @@ class GluedReceiptTests(unittest.TestCase):
         self.assertNotIn("quantity_text", result["ignored"][0])
 
 
+class RotatedReceiptTests(unittest.TestCase):
+    """旋转 90° 拍摄的竖排小票：列聚类 + 行序配对装配（2026-10-03 真实票沉淀）。"""
+
+    @staticmethod
+    def vline(text, col, y, chars=1, score=0.98):
+        # 竖排框：图 x 窄（行坐标带），图 y 长（文字沿 y 展开）。
+        w, h = 20, 16 * chars
+        return {"text": text, "score": score,
+                "box": [[col, y], [col + w, y], [col + w, y + h], [col, y + h]]}
+
+    def test_vertical_receipt_assembles_rows(self):
+        lines = [
+            # 票面第一行的行坐标（图 x）最大：变换后行序与票面一致。
+            self.vline("农夫山泉", 500, 20, chars=4),
+            self.vline("0.278", 490, 200, chars=5),
+            self.vline("3.98", 500, 400, chars=4),
+            self.vline("1.10", 510, 600, chars=4),
+            self.vline("可乐", 270, 250, chars=2),
+            self.vline("1", 265, 200, chars=1),
+            self.vline("3.00", 275, 400, chars=4),
+            self.vline("3.00", 280, 600, chars=4),
+        ]
+        result = parse_receipt_lines(lines)
+        self.assertEqual([i["name"] for i in result["items"]], ["农夫山泉", "可乐"])
+        first, second = result["items"]
+        self.assertEqual(first["quantity_text"], "0.278")
+        self.assertEqual(first["price_text"], "1.10")
+        self.assertEqual(second["quantity_text"], "1")
+        self.assertEqual(second["price_text"], "3.00")
+
+    def test_horizontal_receipt_with_one_tall_box_untouched(self):
+        # 水平票混入一个竖长装饰框不触发竖排装配。
+        lines = [line("农夫山泉", 20, 100), line("0.278", 300, 100),
+                 line("1.10", 420, 100), RotatedReceiptTests.vline("装", 600, 320, chars=12)]
+        result = parse_receipt_lines(lines)
+        first = result["items"][0]
+        self.assertEqual(first["name"], "农夫山泉")
+        self.assertEqual(first["quantity_text"], "0.278")
+        self.assertEqual(first["price_text"], "1.10")
+
+    def test_real_vertical_receipt_fixture(self):
+        import json
+        from pathlib import Path
+        fixture = Path(__file__).parent / "fixtures" / "receipt_rotated_vertical.json"
+        data = json.loads(fixture.read_text(encoding="utf-8"))
+        result = parse_receipt_lines(data["lines"])
+        self.assertEqual(len(result["items"]), 8)
+        by_name = {item["name"]: item for item in result["items"]}
+        self.assertEqual(by_name["黄心菜"]["quantity_text"], "0.278")
+        self.assertEqual(by_name["黄心菜"]["price_text"], "1.10")
+        self.assertEqual(by_name["莲藕"]["quantity_text"], "0.212")
+        self.assertEqual(by_name["黄心土豆"]["price_text"], "0.49")
+        self.assertEqual(by_name["海底捞浓香牛油火锅底/包"]["quantity_text"], "1")
+        self.assertEqual(by_name["海底捞浓香牛油火锅底/包"]["price_text"], "8.90")
+        # OCR 漏掉数量"1"的行仍保留为草稿行，交给核对页补数量。
+        self.assertIsNone(by_name["粤盐加碘低钠盐250g/包"]["quantity_text"])
+        # 合计等噪声不进商品行。
+        joined = " ".join(item["name"] for item in result["items"])
+        self.assertNotIn("24.67", joined)
+
+
+
 if __name__ == "__main__":
     unittest.main()
