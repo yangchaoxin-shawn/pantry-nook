@@ -118,6 +118,20 @@ export function IngredientBatchEditor({
     key: K,
     value: BatchIngredientRow[K],
   ) => setRows((current) => current.map((row) => row.id === id ? { ...row, [key]: value } : row));
+  /** 把第一个问题行滚到视口并短暂高亮：错误横幅给了行号，用户不用再找。 */
+  function revealRow(row: BatchIngredientRow | undefined) {
+    if (!row) return;
+    window.setTimeout(() => {
+      const el = document.getElementById(`batch-row-${row.id}`);
+      if (!el) return;
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+      el.classList.remove("row-flash");
+      void el.offsetWidth;
+      el.classList.add("row-flash");
+      window.setTimeout(() => el.classList.remove("row-flash"), 1600);
+    });
+  }
+
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const filled = startedBatchRows(rows);
@@ -134,6 +148,7 @@ export function IngredientBatchEditor({
       setError(incompleteRows.length === 1
         ? `${numberList(incompleteRows)}请补全食材名、数量和单位。`
         : `还有 ${incompleteRows.length} 项没填完整（${numberList(incompleteRows)}），请补全食材名、数量和单位。`);
+      revealRow(incompleteRows[0]);
       return;
     }
     const badQuantityRows = filled.filter((row) => {
@@ -144,6 +159,7 @@ export function IngredientBatchEditor({
       setError(badQuantityRows
         .map((row) => `第 ${lineNumber(row)} 项${quantityInputError(row.quantity, { required: true })}`)
         .join("；"));
+      revealRow(badQuantityRows[0]);
       return;
     }
     // 小票第二轮的分类来自第一轮，不能悄悄落到隐藏的整批分类。
@@ -274,7 +290,7 @@ export function IngredientBatchEditor({
       {error && <p className="form-error" role="alert">{error}</p>}
       <div className="batch-ingredient-rows">
         {rows.map((row, index) => (
-          <div className={`batch-ingredient-row${hasRowCategories ? " picker" : ""}${row.selected ? " selected" : ""}`} key={row.id}>
+          <div id={`batch-row-${row.id}`} className={`batch-ingredient-row${hasRowCategories ? " picker" : ""}${row.selected ? " selected" : ""}`} key={row.id}>
             <span className="batch-row-number" aria-hidden="true">{index + 1}</span>
             {hasRowCategories && <input
               type="checkbox"
