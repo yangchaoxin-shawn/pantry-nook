@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type DragEvent } from "react";
 import { api, CATEGORIES, type Ingredient } from "../../shared/api/client";
 import { Icon } from "../../shared/ui/Primitives";
 import {
+  addManualRow,
   appendOcrDraft,
   editOcrRow,
   groupDraftRows,
@@ -139,6 +140,15 @@ export function OcrReceiptUpload({
     setRows((current) => editOcrRow(current, id, patch, library));
   }
 
+  /** 第一轮手动补行：OCR 漏识别的商品直接加进草稿，插入后进入名称编辑。 */
+  function addRow() {
+    const added = addManualRow(rows);
+    if (added) {
+      setRows(added.rows);
+      setEditingId(added.id);
+    }
+  }
+
   function removeRow(id: number) {
     // duplicate 是行间关系：删行后重算，解除另一行上的幽灵标记。
     setRows((current) => markDuplicates(current.filter((row) => row.id !== id)));
@@ -186,10 +196,10 @@ export function OcrReceiptUpload({
             type="button"
             className="ocr-draft-name text-button"
             title={row.name}
-            aria-label={`第 ${index} 项 ${row.name}，点击修改名称`}
+            aria-label={`第 ${index} 项 ${row.name || "未命名"}，点击修改名称`}
             onClick={() => setEditingId(row.id)}
           >
-            <span className="ocr-draft-name-text">{row.name}</span>
+            <span className="ocr-draft-name-text">{row.name || "点击填写名称"}</span>
             {row.needsQuantity && <small>下一步补数量</small>}
             {row.uncertain && <small className="ocr-uncertain">识别不确定</small>}
             {row.duplicate && <small className="ocr-duplicate">疑似重复</small>}
@@ -325,6 +335,15 @@ export function OcrReceiptUpload({
         <button type="button" className="btn-ghost" disabled={phase.busy} onClick={() => inputRef.current?.click()}>
           再拍一张累加
         </button>
+        <button
+          type="button"
+          className="btn-ghost"
+          disabled={phase.busy || rows.length >= MAX_OCR_ROWS}
+          title={rows.length >= MAX_OCR_ROWS ? "已到 30 项上限" : "小票上漏识别的商品，手动补一行"}
+          onClick={addRow}
+        >
+          手动添加一行
+        </button>
         {confirmClear ? <button type="button" className="btn-ghost" autoFocus onClick={() => { setRows([]); setIgnored([]); setTruncated(false); setRemovedSummary([]); setNotice(""); setError(""); setFilter("all"); setConfirmClear(false); }}>
           再点一次确认清空
         </button> : <button type="button" className="btn-ghost" disabled={phase.busy} onClick={() => { setConfirmClear(true); window.setTimeout(() => setConfirmClear(false), 3000); }}>
@@ -336,7 +355,8 @@ export function OcrReceiptUpload({
           disabled={phase.busy || !checklist.readyToContinue}
           title={checklist.duplicates
             ? "同一批不能有同名食材，请先删除疑似重复的行"
-            : checklist.pendingCategory ? "下一步不再有分类选项，请先给每项选好分类" : undefined}
+            : checklist.pendingCategory ? "下一步不再有分类选项，请先给每项选好分类"
+            : checklist.pendingName ? "还有没填名称的行，填好或删掉后再继续" : undefined}
           onClick={() => onRecognized(toPrefillRows(rows, library))}
         >
           {phase.busy
@@ -345,6 +365,8 @@ export function OcrReceiptUpload({
             ? `${checklist.duplicates} 项疑似重复，删除后再继续`
             : checklist.pendingCategory
             ? `${checklist.pendingCategory} 项待分类，选好后再继续`
+            : checklist.pendingName
+            ? `${checklist.pendingName} 行没填名称，填好后再继续`
             : "下一步：核对数量与位置"}
         </button>
       </div>

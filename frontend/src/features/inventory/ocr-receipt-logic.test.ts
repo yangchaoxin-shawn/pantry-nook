@@ -8,6 +8,7 @@ import {
   markDuplicates,
   normalizeOcrQuantity,
   recognizeToDraft,
+  addManualRow,
   reviewChecklist,
   toPrefillRows,
   type OcrDraftRow,
@@ -245,6 +246,40 @@ describe("markDuplicates 与 editOcrRow", () => {
   });
 });
 
+
+describe("addManualRow", () => {
+  const filled: OcrDraftRow = {
+    id: 1, name: "鸡蛋", quantity: "1", unit: "个", priceText: null,
+    needsQuantity: false, category: "蛋白质", categoryTouched: false,
+    uncertain: false, duplicate: false, openEnded: false,
+  };
+
+  it("新行以空白名称开始并排在末尾，填名后走既有联动", () => {
+    const added = addManualRow([filled]);
+    expect(added).not.toBeNull();
+    expect(added!.rows).toHaveLength(2);
+    expect(added!.rows[1].id).toBe(2);
+    expect(added!.rows[1].name).toBe("");
+    expect(added!.rows[1].needsQuantity).toBe(true);
+    const renamed = editOcrRow(added!.rows, 2, { name: "西红柿" }, [{ name: "西红柿", category: "蔬菜" }]);
+    expect(renamed.find((row) => row.id === 2)!.category).toBe("蔬菜");
+  });
+
+  it("到 30 项上限时拒绝新增", () => {
+    const full = Array.from({ length: MAX_OCR_ROWS }, (_, index) => ({ ...filled, id: index + 1 }));
+    expect(addManualRow(full)).toBeNull();
+  });
+
+  it("没填名称的行拦住进入第二轮，填名或删除后放行", () => {
+    const added = addManualRow([filled])!;
+    const checklist = reviewChecklist(added.rows);
+    expect(checklist.pendingName).toBe(1);
+    expect(checklist.readyToContinue).toBe(false);
+    const named = added.rows.map((row): OcrDraftRow => (row.id === added.id ? { ...row, name: "西红柿", category: "蔬菜" } : row));
+    expect(reviewChecklist(named).readyToContinue).toBe(true);
+  });
+});
+
 describe("reviewChecklist", () => {
   const base = { quantity: "2", unit: "斤", priceText: null, needsQuantity: false, categoryTouched: false, uncertain: false, duplicate: false, openEnded: false };
 
@@ -253,7 +288,7 @@ describe("reviewChecklist", () => {
       { ...base, id: 1, name: "土豆", category: "蔬菜" },
       { ...base, id: 2, name: "糖果", category: null, duplicate: true },
     ];
-    expect(reviewChecklist(rows)).toEqual({ total: 2, duplicates: 1, pendingCategory: 1, readyToContinue: false });
+    expect(reviewChecklist(rows)).toEqual({ total: 2, duplicates: 1, pendingCategory: 1, pendingName: 0, readyToContinue: false });
     expect(reviewChecklist([rows[0]]).readyToContinue).toBe(true);
   });
 

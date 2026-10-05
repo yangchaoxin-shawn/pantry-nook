@@ -265,16 +265,47 @@ export function reviewChecklist(rows: OcrDraftRow[]): {
   total: number;
   duplicates: number;
   pendingCategory: number;
+  pendingName: number;
   readyToContinue: boolean;
 } {
   const duplicates = rows.filter((row) => row.duplicate).length;
   const pendingCategory = rows.filter((row) => !row.category).length;
+  // 手动新增的行以空白名称开始，没填名就进第二轮会成为无名食材。
+  const pendingName = rows.filter((row) => !row.name.trim()).length;
   return {
     total: rows.length,
     duplicates,
     pendingCategory,
-    readyToContinue: rows.length > 0 && duplicates === 0 && pendingCategory === 0,
+    pendingName,
+    readyToContinue:
+      rows.length > 0 && duplicates === 0 && pendingCategory === 0 && pendingName === 0,
   };
+}
+
+/**
+ * 第一轮手动新增一行：OCR 漏识别的商品由用户直接补进草稿，不用再开
+ * 一次批量录入。行以空白名称开始（点名称填写），分类在填名后按习惯库
+ * 自动推断，也可先手选；到上限时返回 null。
+ */
+export function addManualRow(
+  rows: OcrDraftRow[],
+): { rows: OcrDraftRow[]; id: number } | null {
+  if (rows.length >= MAX_OCR_ROWS) return null;
+  const id = rows.reduce((max, row) => Math.max(max, row.id), 0) + 1;
+  const draft: OcrDraftRow = {
+    id,
+    name: "",
+    quantity: "",
+    unit: "",
+    priceText: null,
+    needsQuantity: true,
+    category: null,
+    categoryTouched: false,
+    uncertain: false,
+    duplicate: false,
+    openEnded: false,
+  };
+  return { rows: markDuplicates([...rows, draft]), id };
 }
 
 /** 进入第二轮时带过去的一行：分类已在第一轮定好，位置按习惯预填。 */
