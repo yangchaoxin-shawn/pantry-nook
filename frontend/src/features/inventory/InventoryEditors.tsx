@@ -95,6 +95,10 @@ export function IngredientBatchEditor({
   const habitCount = rows.filter((row) => row.locationSource === "habit").length;
   const guessCount = rows.filter((row) => row.locationSource === "guess").length;
   const receiptEmptied = hasRowCategories && rows.length === 0;
+  // 小票第二轮的主要缺口是 OCR 漏识别的数量：按钮上直接预告，不用点保存才知道。
+  const pendingQuantityCount = hasRowCategories
+    ? rows.filter((row) => row.name.trim() && !row.quantity.trim()).length
+    : 0;
   /** 把勾选行的存放位置统一设为下拉选中的位置；其余行不动。你定的位置不再标来源。 */
   const applyBulkLocation = () => {
     if (!bulkLocation) return;
@@ -119,20 +123,31 @@ export function IngredientBatchEditor({
       setError("先填写至少一项食材。");
       return;
     }
-    const incomplete = filled.find((row) => !row.name.trim() || !row.quantity.trim() || !row.unit.trim());
-    if (incomplete) {
-      setError(`第 ${rows.indexOf(incomplete) + 1} 项请补全食材名、数量和单位。`);
+    // 校验一次汇总所有问题行：只报第一项会让用户补一条、再点保存又蹦
+    // 下一条，看起来像提示和实际对不上。
+    const lineNumber = (row: BatchIngredientRow) => rows.indexOf(row) + 1;
+    const numberList = (list: BatchIngredientRow[]) => `第 ${list.map((row) => lineNumber(row)).join("、")} 项`;
+    const incompleteRows = filled.filter((row) => !row.name.trim() || !row.quantity.trim() || !row.unit.trim());
+    if (incompleteRows.length) {
+      setError(incompleteRows.length === 1
+        ? `${numberList(incompleteRows)}请补全食材名、数量和单位。`
+        : `还有 ${incompleteRows.length} 项没填完整（${numberList(incompleteRows)}），请补全食材名、数量和单位。`);
       return;
     }
-    const quantityError = filled.map(row => quantityInputError(row.quantity, { required: true })).find(Boolean);
-    if (quantityError) {
-      setError(quantityError);
+    const badQuantityRows = filled.filter((row) => {
+      const message = quantityInputError(row.quantity, { required: true });
+      return message && message !== "请填写数量。";
+    });
+    if (badQuantityRows.length) {
+      setError(badQuantityRows
+        .map((row) => `第 ${lineNumber(row)} 项${quantityInputError(row.quantity, { required: true })}`)
+        .join("；"));
       return;
     }
     // 小票第二轮的分类来自第一轮，不能悄悄落到隐藏的整批分类。
-    const uncategorized = hasRowCategories ? filled.find((row) => !row.category) : undefined;
-    if (uncategorized) {
-      setError(`第 ${rows.indexOf(uncategorized) + 1} 项没有分类，请关闭后重新识别，在第一轮给它选好分类。`);
+    const uncategorizedRows = hasRowCategories ? filled.filter((row) => !row.category) : [];
+    if (uncategorizedRows.length) {
+      setError(`${numberList(uncategorizedRows)}没有分类，请关闭后重新识别，在第一轮给它选好分类。`);
       return;
     }
     const rowLocation = (row: BatchIngredientRow): IngredientCreate["location"] =>
@@ -326,7 +341,11 @@ export function IngredientBatchEditor({
         再加一行
       </button>}
       <button className="btn-primary submit" disabled={busy || receiptEmptied}>
-        {busy ? "保存中…" : single ? "保存食材" : "保存这批食材"}
+        {busy ? "保存中…" : single
+          ? "保存食材"
+          : hasRowCategories && pendingQuantityCount
+          ? `还有 ${pendingQuantityCount} 项没填数量，填好后再保存`
+          : "保存这批食材"}
       </button>
     </form>
   );
