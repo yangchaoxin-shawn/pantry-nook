@@ -363,10 +363,10 @@ class RotatedReceiptTests(unittest.TestCase):
         self.assertEqual(by_name["黄心菜"]["price_text"], "1.10")
         self.assertEqual(by_name["莲藕"]["quantity_text"], "0.212")
         self.assertEqual(by_name["黄心土豆"]["price_text"], "0.49")
-        self.assertEqual(by_name["海底捞浓香牛油火锅底/包"]["quantity_text"], "1")
-        self.assertEqual(by_name["海底捞浓香牛油火锅底/包"]["price_text"], "8.90")
+        self.assertEqual(by_name["海底捞浓香牛油火锅底"]["quantity_text"], "1")
+        self.assertEqual(by_name["海底捞浓香牛油火锅底"]["price_text"], "8.90")
         # OCR 漏掉数量"1"的行仍保留为草稿行，交给核对页补数量。
-        self.assertIsNone(by_name["粤盐加碘低钠盐250g/包"]["quantity_text"])
+        self.assertIsNone(by_name["粤盐加碘低钠盐250g"]["quantity_text"])
         # 合计等噪声不进商品行。
         joined = " ".join(item["name"] for item in result["items"])
         self.assertNotIn("24.67", joined)
