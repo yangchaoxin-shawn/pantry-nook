@@ -294,19 +294,29 @@ export function MenuConfirm({ battleId, busy, save, onPending, onEdit, onRestock
     .map((id) => ingredients.find((i) => i.id === id))
     .filter((ingredient): ingredient is Ingredient => !!ingredient && (ingredient.stock_value === null || !ingredient.stock_unit));
   const totals = new Map<number, { ingredient: Ingredient; used: number }>();
-  let invalidUsage = false;
+  const invalidUsageKeys = new Set<number>();
   for (const row of rows) {
     const ingredient = ingredients.find((item) => item.id === row.ingredient_id);
     const usedText = row.quantity_used_text.trim();
     const used = usageValue(usedText);
     if (!usedText || used === null) {
-      invalidUsage = true;
+      invalidUsageKeys.add(row.key);
       continue;
     }
     if (!ingredient) continue;
     const total = totals.get(row.ingredient_id);
     totals.set(row.ingredient_id, { ingredient, used: (total?.used ?? 0) + used });
   }
+  const invalidUsage = invalidUsageKeys.size > 0;
+  const invalidUsageNames = [...invalidUsageKeys]
+    .map((key) => rows.find((row) => row.key === key))
+    .filter((row): row is (typeof rows)[number] => Boolean(row))
+    .map((row) => ingredients.find((item) => item.id === row.ingredient_id)?.name ?? row.ingredient_name);
+  // 菜单里每道菜已有关联但没填预计用量时，核对页也要点名（与入口汇总同口径）。
+  const missingAmountDishes = battle.dishes.filter((dish) => {
+    const preparations = battle.preparations.filter((prep) => prep.daily_battle_dish_id === dish.id);
+    return preparations.length > 0 && preparations.some((prep) => !prep.planned_quantity_text?.trim());
+  });
   const insufficient = [...totals.values()].some(({ ingredient, used }) => ingredient.stock_value !== null && used > ingredient.stock_value);
   const shortageItems = [...totals.values()].filter(({ ingredient, used }) => ingredient.stock_value !== null && used > ingredient.stock_value);
   const restockNames = restockSuggestions(battle, ingredients, rows, shortageItems.map(({ ingredient }) => ingredient.name));
@@ -355,9 +365,10 @@ export function MenuConfirm({ battleId, busy, save, onPending, onEdit, onRestock
       {!processed && menuChanged && <p className="form-error" role="alert">这餐已被修改，你填写的实际用量已保留。请先核对最新菜单，再继续。</p>}
       {!processed && notice && <p className="form-notice" role="status">{notice}</p>}
       {error && <p className="form-error" role="alert">{error}<button type="button" className="text-button" onClick={() => setRetry(r => r + 1)}>重新读取</button></p>}
-      {!processed && (pending.length > 0 || unavailable || insufficient) && <div className="review-summary review-summary--blocked" role="alert">
+      {!processed && (pending.length > 0 || unavailable || insufficient || missingAmountDishes.length > 0) && <div className="review-summary review-summary--blocked" role="alert">
         <strong>确认前，还差这几步</strong>
         <ul>
+          {missingAmountDishes.map((dish) => <li key={`amount-${dish.id}`}>{dish.name}：菜单预计用量还没填，返回编辑这餐补齐</li>)}
           {pending.map((preparation) => <li key={`pending-${preparation.id}`}>{preparation.pending_ingredient_name}：{ingredients.some(item => item.name.trim().toLocaleLowerCase() === preparation.pending_ingredient_name?.trim().toLocaleLowerCase()) ? '库存已有同名食材，待你选择关联' : '尚未关联库存'}{preparation.planned_quantity_text ? `，菜单预计 ${preparation.planned_quantity_text}` : ''}</li>)}
           {rows.filter((row, index, all) => !ingredients.some((item) => item.id === row.ingredient_id) && all.findIndex((item) => item.ingredient_id === row.ingredient_id) === index).map((row) => <li key={`missing-${row.ingredient_id}`}>{row.ingredient_name}：已不在库</li>)}
           {shortageItems.map(({ ingredient, used }) => <li key={`short-${ingredient.id}`}>{ingredient.name}：本餐实际填写 {quantityLabel(used, ingredient.stock_unit)}，当前库存只有 {stockLabel(ingredient)}</li>)}
@@ -392,6 +403,7 @@ export function MenuConfirm({ battleId, busy, save, onPending, onEdit, onRestock
                       实际用量{i?.stock_unit ? `（${i.stock_unit}）` : ''}
                       <input
                         aria-label={`${d.name}的${i?.name}实际用量`}
+                        aria-invalid={invalidUsageKeys.has(r.key) || undefined}
                         required
                         maxLength={255}
                         inputMode="decimal"
@@ -428,7 +440,7 @@ export function MenuConfirm({ battleId, busy, save, onPending, onEdit, onRestock
           这餐没有使用已记录的库存
         </label>
       )}
-      {invalidUsage && <p className="form-error" role="alert">实际用量可填 1、0.5、1/2 或 1/3；单位已标在标题中。</p>}
+      {invalidUsage && <p className="form-error" role="alert">{[...new Set(invalidUsageNames)].join("、")}的实际用量还没填好（可填 1、0.5、1/2 或 1/3；单位已标在标题中，输入框已标红）。</p>}
       {nonCalculable.length > 0 && <p className="form-error" role="alert">{nonCalculable.map((i) => i.name).join('、')}缺少可计算的库存数量或单位，请先到库存详情补全后再确认。</p>}
       {!processed && (menuChanged || unitChanged || incompatiblePlannedUnit || needsPreparation || nonCalculable.length > 0) && <div className="form-notice"><p>{needsPreparation ? '这餐还有耗材或预计用量未补齐，请先编辑补全。' : '可以返回编辑这餐，核对关联和预计量。'}</p><button type="button" className="btn-ghost" onClick={editMenu}>编辑这餐并继续核对</button></div>}
       <button

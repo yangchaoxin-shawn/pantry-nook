@@ -31,8 +31,10 @@ export function RecoveryDialog({ kind, id, draft, onDraft, onPending, onSuccess 
     return () => controller.abort();
   }, [kind, id, revision]);
   const merges = preview?.items.filter(r => r.target_ingredient_id !== null) ?? [];
-  const invalid = merges.some(r => !canConvertUnits(r.restored_unit, r.target_unit) &&
+  // 逐项列出缺"合并后的实际数量"的食材：按钮禁用但不说明时，用户要逐项摸索。
+  const invalidMerges = merges.filter(r => !canConvertUnits(r.restored_unit, r.target_unit) &&
     Boolean(quantityInputError(totals[r.source_ingredient_id] ?? '', { required: true })));
+  const invalid = invalidMerges.length > 0;
   async function submit() {
     if (!preview || busy || loading || needsRefresh || invalid || lock.current) return;
     lock.current = true; setBusy(true); onPending(true); setError('');
@@ -66,6 +68,7 @@ export function RecoveryDialog({ kind, id, draft, onDraft, onPending, onSuccess 
         </fieldset>;
       })}
       {kind === 'battle' && merges.length > 0 && <p className="form-hint">菜单将回到待完成。合并涉及的用量需要重新填写并核对。</p>}
+      {invalid && <p className="form-error" role="alert">还有 {invalidMerges.length} 项没填合并后的实际数量（{invalidMerges.map(r => r.name).join("、")}），填好后才能确认撤销。</p>}
       {needsRefresh ? <button className="btn-ghost" disabled={busy} onClick={() => { setLoading(true); setRevision(v => v + 1); }}>刷新预览并重新核对</button>
         : <button className="btn-primary" disabled={!preview || busy || invalid} onClick={() => void submit()}>{busy ? '正在恢复…' : merges.length ? '确认合并撤销' : '确认撤销'}</button>}
     </>}

@@ -84,13 +84,14 @@ export function OcrReceiptUpload({
     let currentTruncated = truncated;
     let currentRemoved: PhotoDuplicateSummary[] = [];
     const failed: string[] = [];
+    const notices: string[] = [];
     try {
       for (let index = 0; index < files.length; index += 1) {
         setPhase({ busy: true, current: index + 1, total: files.length });
         const remaining = MAX_OCR_ROWS - currentRows.length;
         if (remaining <= 0) {
           const rest = files.length - index;
-          setNotice(`已累计 ${MAX_OCR_ROWS} 项到上限，本次先保存这些，剩余 ${rest} 张未识别。`);
+          notices.push(`已累计 ${MAX_OCR_ROWS} 项到上限，本次先保存这些，剩余 ${rest} 张未识别。`);
           break;
         }
         try {
@@ -112,7 +113,8 @@ export function OcrReceiptUpload({
             currentTruncated = appended.truncated;
             currentRemoved = [...currentRemoved, ...appended.removedDuplicates];
             if (appended.mergedName) {
-              setNotice(`已把这张开头的数量金额并入上一张末尾的「${appended.mergedName}」。`);
+              // 多张分段票可能缝合多次：收集后合并展示，避免互相覆盖。
+              notices.push(`已把这张开头的数量金额并入上一张末尾的「${appended.mergedName}」。`);
             }
           }
           setRows(currentRows);
@@ -123,6 +125,7 @@ export function OcrReceiptUpload({
           failed.push(`第 ${index + 1} 张：${cause instanceof Error ? cause.message : "识别失败"}`);
         }
       }
+      if (notices.length) setNotice(notices.join(" "));
       if (failed.length) setError(failed.join("；"));
     } finally {
       setPhase({ busy: false, current: 0, total: 0 });

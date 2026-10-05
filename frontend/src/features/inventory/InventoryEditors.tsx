@@ -95,9 +95,10 @@ export function IngredientBatchEditor({
   const habitCount = rows.filter((row) => row.locationSource === "habit").length;
   const guessCount = rows.filter((row) => row.locationSource === "guess").length;
   const receiptEmptied = hasRowCategories && rows.length === 0;
-  // 小票第二轮的主要缺口是 OCR 漏识别的数量：按钮上直接预告，不用点保存才知道。
-  const pendingQuantityCount = hasRowCategories
-    ? rows.filter((row) => row.name.trim() && !row.quantity.trim()).length
+  // 小票第二轮的主要缺口是 OCR 漏识别的数量与单位：按钮预告口径必须与
+  // 保存校验一致（名称+数量+单位），只数数量会漏掉缺单位的行。
+  const pendingRowCount = hasRowCategories
+    ? rows.filter((row) => row.name.trim() && (!row.quantity.trim() || !row.unit.trim())).length
     : 0;
   /** 把勾选行的存放位置统一设为下拉选中的位置；其余行不动。你定的位置不再标来源。 */
   const applyBulkLocation = () => {
@@ -343,8 +344,8 @@ export function IngredientBatchEditor({
       <button className="btn-primary submit" disabled={busy || receiptEmptied}>
         {busy ? "保存中…" : single
           ? "保存食材"
-          : hasRowCategories && pendingQuantityCount
-          ? `还有 ${pendingQuantityCount} 项没填数量，填好后再保存`
+          : hasRowCategories && pendingRowCount
+          ? `还有 ${pendingRowCount} 项没填完整，填好后再保存`
           : "保存这批食材"}
       </button>
     </form>

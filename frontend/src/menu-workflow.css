@@ -96,3 +96,9 @@
   .inline-dish-add { flex-wrap: wrap; }
   .inline-dish-add .field { flex-basis: 100%; }
 }
+
+/* 实际用量校验未通过时标红对应输入框，与错误横幅联动定位。 */
+.confirm-usage-input input[aria-invalid="true"] {
+  border-color: var(--danger);
+  box-shadow: 0 0 0 1px var(--danger);
+}

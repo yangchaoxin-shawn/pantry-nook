@@ -49,9 +49,19 @@ const isReadyForConfirmation = (battle: Battle) => battle.dishes.every((dish) =>
   const preparations = battle.preparations.filter((prep) => prep.daily_battle_dish_id === dish.id);
   return preparations.length > 0 && preparations.every((prep) => Boolean(prep.planned_quantity_text?.trim()));
 });
-const confirmationNotice = (battle: Battle) => battle.dishes.some((dish) => !battle.preparations.some((prep) => prep.daily_battle_dish_id === dish.id))
-  ? "确认前先为每道菜添加耗材。"
-  : "确认前请填写每项耗材的预计用量。";
+// 一次列出全部阻断原因：只报第一项会让用户补完一条、再点又冒下一条。
+const confirmationNotice = (battle: Battle) => {
+  const missingPrep = battle.dishes.filter((dish) => !battle.preparations.some((prep) => prep.daily_battle_dish_id === dish.id));
+  const missingAmount = battle.dishes.filter((dish) => {
+    if (missingPrep.includes(dish)) return false;
+    const preparations = battle.preparations.filter((prep) => prep.daily_battle_dish_id === dish.id);
+    return preparations.some((prep) => !prep.planned_quantity_text?.trim());
+  });
+  const parts: string[] = [];
+  if (missingPrep.length) parts.push(`为「${missingPrep.map((dish) => dish.name).join("、")}」添加耗材`);
+  if (missingAmount.length) parts.push(`补全「${missingAmount.map((dish) => dish.name).join("、")}」的预计用量`);
+  return parts.length ? `确认前：${parts.join("；")}。` : "";
+};
 export default function App() {
   const initialAdjustmentKind = adjustmentKindFromUrl();
   const [page, setPage] = useState<Page>(() => initialAdjustmentKind ? "adjustments" : "battles"),
