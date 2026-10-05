@@ -1,7 +1,7 @@
 import { useEffect, useRef, type ReactNode } from "react";
 import { KitchenSketch } from './JournalArt';
 
-export type IconName = "sun" | "pantry" | "book" | "plus" | "moon" | "bowl" | "arrow" | "close" | "grid" | "history" | "camera";
+export type IconName = "sun" | "pantry" | "book" | "plus" | "moon" | "bowl" | "arrow" | "close" | "grid" | "history" | "camera" | "alert" | "eye" | "dup" | "check";
 
 export function Icon({ name, size = 20 }: { name: IconName; size?: number }) {
   const paths: Record<IconName, ReactNode> = {
@@ -16,6 +16,10 @@ export function Icon({ name, size = 20 }: { name: IconName; size?: number }) {
     plus: <path d="M12 5v14M5 12h14" />,
     arrow: <path d="m9 5 7 7-7 7" />,
     close: <path d="m6 6 12 12M6 18 18 6" />,
+    alert: <><circle cx="12" cy="12" r="9" /><path d="M12 7.5v5.5" /><circle cx="12" cy="16.4" r="0.4" fill="currentColor" /></>,
+    eye: <><path d="M2.5 12S6 6.5 12 6.5 21.5 12 21.5 12 18 17.5 12 17.5 2.5 12 2.5 12Z" /><circle cx="12" cy="12" r="2.5" /></>,
+    dup: <><rect x="9" y="9" width="11" height="11" rx="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" /></>,
+    check: <path d="m4.5 12.5 5 5 10-11" />,
   };
   return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{paths[name]}</svg>;
 }

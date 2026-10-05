@@ -203,9 +203,9 @@ export function OcrReceiptUpload({
             onClick={() => setEditingId(row.id)}
           >
             <span className="ocr-draft-name-text">{row.name || "点击填写名称"}</span>
-            {row.needsQuantity && <small>下一步补数量</small>}
-            {row.uncertain && <small className="ocr-uncertain">识别不确定</small>}
-            {row.duplicate && <small className="ocr-duplicate">疑似重复</small>}
+            {row.needsQuantity && <small className="ocr-flag ocr-flag--todo"><Icon name="alert" size={12} />下一步补数量</small>}
+            {row.uncertain && <small className="ocr-flag ocr-flag--check"><Icon name="eye" size={12} />识别不确定</small>}
+            {row.duplicate && <small className="ocr-flag ocr-flag--bad"><Icon name="dup" size={12} />疑似重复</small>}
           </button>
         )}
         <select
@@ -356,10 +356,6 @@ export function OcrReceiptUpload({
           type="button"
           className={checklist.readyToContinue ? "btn-primary" : "btn-ghost ocr-save-pending"}
           disabled={phase.busy || !checklist.readyToContinue}
-          title={checklist.duplicates
-            ? "同一批不能有同名食材，请先删除疑似重复的行"
-            : checklist.pendingCategory ? "下一步不再有分类选项，请先给每项选好分类"
-            : checklist.pendingName ? "还有没填名称的行，填好或删掉后再继续" : undefined}
           onClick={() => onRecognized(toPrefillRows(rows, library))}
         >
           {phase.busy
@@ -385,11 +381,7 @@ export function OcrReceiptUpload({
           event.target.value = "";
         }}
       />
-      <p className="form-hint">
-        {checklist.readyToContinue
-          ? "这一轮确认好了。下一步数量可以换成你习惯的说法，存放位置已自动预填，核对即可。"
-          : "这一轮只管三件事：删掉不要的行、确认名称、确认分类。数量和存放位置下一步再调。"}
-      </p>
+      {checklist.readyToContinue && <p className="form-hint">这一轮确认好了。下一步数量可以换成你习惯的说法，存放位置已自动预填，核对即可。</p>}
     </div>
   );
 }

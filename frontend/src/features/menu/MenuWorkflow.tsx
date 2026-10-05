@@ -362,7 +362,7 @@ export function MenuConfirm({ battleId, busy, save, onPending, onEdit, onRestock
         核对每种耗材的实际用量；点“确定”后自动更新库存。
       </p>
       {processed && <p className="form-notice" role="status">这餐已{battle.status === 'confirmed' ? '确认' : '取消'}，不能再次扣库存。关闭后即可查看最新记录。</p>}
-      {!processed && menuChanged && <p className="form-error" role="alert">这餐已被修改，你填写的实际用量已保留。请先核对最新菜单，再继续。</p>}
+
       {!processed && notice && <p className="form-notice" role="status">{notice}</p>}
       {error && <p className="form-error" role="alert">{error}<button type="button" className="text-button" onClick={() => setRetry(r => r + 1)}>重新读取</button></p>}
       {!processed && (pending.length > 0 || unavailable || insufficient || missingAmountDishes.length > 0) && <div className="review-summary review-summary--blocked" role="alert">
@@ -379,8 +379,11 @@ export function MenuConfirm({ battleId, busy, save, onPending, onEdit, onRestock
           <button type="button" className={restockNames.length ? 'btn-primary' : 'btn-ghost'} onClick={() => onRestock(restockNames, battle, currentDraft(), ingredients)}>{restockNames.length ? '补货并返回这餐' : '另外补货'}</button>
         </div>
       </div>}
-      {unitChanged && <p className="form-error" role="alert">库存单位已改变，下方保留的是上次填写的数值。请按新单位重新填写实际用量。</p>}
-      {incompatiblePlannedUnit && <p className="form-error" role="alert">库存单位与菜单保存时不同且不能自动换算，请返回编辑菜单重新填写预计用量。</p>}
+      {!processed && (menuChanged || unitChanged || incompatiblePlannedUnit) && <p className="form-error" role="alert">{[
+        menuChanged ? "这餐已被修改，你填写的实际用量已保留，请核对最新菜单后再继续" : "",
+        unitChanged ? "库存单位已改变，请按新单位重新填写实际用量" : "",
+        incompatiblePlannedUnit ? "库存单位与菜单保存时不同且不能自动换算，请返回编辑菜单重新填写预计用量" : "",
+      ].filter(Boolean).join("；")}。</p>}
       {battle.dishes.map((d) => (
         <fieldset key={d.id} disabled={sending || processed || menuChanged}>
           <legend>{d.name}</legend>

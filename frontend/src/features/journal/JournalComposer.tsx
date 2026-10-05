@@ -248,10 +248,10 @@ export default function JournalComposer({ active, open, setOpen, onSaved, entry 
           {images.length === 0 && <p className="journal-draft-note">至少留一张照片，记住这一餐。</p>}
           <Field label="这一天"><input type="date" required value={entryDate} disabled={blocked} onChange={event => setEntryDate(event.target.value)} /></Field>
           <Field label="留一句话 · 不写也可以"><textarea maxLength={2000} value={caption} disabled={blocked} onChange={event => setCaption(event.target.value)} placeholder="今天的饭，有什么想记住的？" rows={3} /></Field>
-          <p className="journal-draft-note">收到的照片原文件完整保留，浏览时使用整理后的预览图。</p>
+
           {conflict && <p className="journal-warning">这篇手记已在其他页面修改，当前草稿未覆盖它。请先保留需要的文字，再取消编辑、刷新后重新整理。</p>}
           {pendingSave && !saving && <p className="journal-warning">保存结果尚未确认。请点击“核对并重试”，核对前暂时不能改稿或关闭面板。</p>}
-          <p className="journal-draft-note">{entry ? '保存后才会更新原记录；取消编辑会放弃本次修改。' : '关闭面板会保留本次草稿；刷新网页后未发布草稿不会保留。'}</p>
+          <p className="journal-draft-note">原文件完整保留；{entry ? '保存后才会更新原记录，取消编辑会放弃本次修改。' : '关闭面板会保留本次草稿，刷新网页后未发布草稿不会保留。'}</p>
         </>}
         {!!rejected.length && <div className="journal-error" role="alert"><strong>这些文件没有加入</strong><ul>{rejected.map((reason, index) => <li key={index}>{reason}</li>)}</ul></div>}
         {error && <p className="journal-error" role="alert">{error}</p>}

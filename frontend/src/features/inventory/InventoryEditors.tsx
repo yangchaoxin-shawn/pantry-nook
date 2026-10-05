@@ -94,6 +94,7 @@ export function IngredientBatchEditor({
   const selectedCount = rows.filter((row) => row.selected).length;
   const habitCount = rows.filter((row) => row.locationSource === "habit").length;
   const guessCount = rows.filter((row) => row.locationSource === "guess").length;
+  const [unitFocusId, setUnitFocusId] = useState<number | null>(null);
   const receiptEmptied = hasRowCategories && rows.length === 0;
   // 小票第二轮的主要缺口是 OCR 漏识别的数量与单位：按钮预告口径必须与
   // 保存校验一致（名称+数量+单位），只数数量会漏掉缺单位的行。
@@ -266,10 +267,10 @@ export function IngredientBatchEditor({
         {!hasRowCategories && <p className="form-hint">{single ? `这一项食材会归到“${batchCategory}”${batchLocation ? `，存放在“${batchLocation}”` : ""}。` : `下面填写的食材都会归到“${batchCategory}”${batchLocation ? `，存放在“${batchLocation}”` : ""}。`}</p>}
       </div>
       {!receiptEmptied && <p className="form-hint">{hasRowCategories
-        ? "这一轮切换数量说法：识别的 0.3kg 可以改成 1 根；数量每次增减 1，也可直接输入 0.5 等小数。"
+        ? "这一轮切换数量说法：识别的 0.3kg 可以改成 1 根。"
         : (single
           ? `${batchCategory}常用单位：${recommendedUnits(batchCategory).join("、")}；也可以填写其他单位。数量每次增减 1，也可直接输入 0.5 等小数。`
-          : `${batchCategory}常用单位：${recommendedUnits(batchCategory).join("、")}；每项可以单独修改，空白行会自动忽略。数量每次增减 1，也可直接输入 0.5 等小数。`)}</p>}
+          : `${batchCategory}常用单位：${recommendedUnits(batchCategory).join("、")}；每项可以单独修改，空白行会自动忽略。`)}</p>}
       {error && <p className="form-error" role="alert">{error}</p>}
       <div className="batch-ingredient-rows">
         {rows.map((row, index) => (
@@ -302,8 +303,17 @@ export function IngredientBatchEditor({
               maxLength={50}
               placeholder="单位"
               value={row.unit}
+              onFocus={() => setUnitFocusId(row.id)}
+              onBlur={() => window.setTimeout(() => setUnitFocusId((current) => current === row.id ? null : current), 120)}
               onChange={(event) => change(row.id, "unit", event.target.value)}
             />
+            {unitFocusId === row.id && <div className="unit-chips" aria-label={`第 ${index + 1} 项常用单位，点击填入`}>
+              {recommendedUnits(rowCategory(row, batchCategory)).slice(0, 5).map((unit) => (
+                <button key={unit} type="button" onMouseDown={(event) => { event.preventDefault(); change(row.id, "unit", unit); setUnitFocusId(null); }}>
+                  {unit}
+                </button>
+              ))}
+            </div>}
             {hasRowCategories && <select
               aria-label={`第 ${index + 1} 项存放位置${row.locationSource === "guess" ? "（推测，请核对）" : row.locationSource === "habit" ? "（按你的习惯）" : ""}`}
               className={row.locationSource === "guess" ? "location-guess" : undefined}

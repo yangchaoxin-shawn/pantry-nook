@@ -105,9 +105,11 @@
 /* 名称限宽省略：长名不再把分类/数量挤没；完整名称见悬浮提示。 */
 .ocr-draft-name { display: flex; align-items: center; gap: 8px; min-width: 0; overflow: hidden; color: var(--ink, #344e40); font-size: 17px; text-align: left; }
 .ocr-draft-name-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.ocr-draft-name small { flex-shrink: 0; margin-left: 8px; padding: 1px 7px; border: 1px solid var(--hairline, #c9c9af); border-radius: 999px; color: var(--ink-muted, #687564); font-size: 12px; }
-.ocr-draft-name small.ocr-uncertain { border-color: color-mix(in srgb, #b0642a 55%, transparent); color: #b0642a; }
-.ocr-draft-name small.ocr-duplicate { border-color: color-mix(in srgb, #b0642a 55%, transparent); color: #b0642a; }
+.ocr-draft-name small { display: inline-flex; align-items: center; gap: 4px; flex-shrink: 0; margin-left: 8px; padding: 1px 7px; border: 1px solid var(--hairline, #c9c9af); border-radius: 999px; color: var(--ink-muted, #687564); font-size: 12px; }
+/* 状态徽章色彩语义：橙=待补、黄褐=需核对、红=冲突，图标先于文字。 */
+.ocr-draft-name small.ocr-flag--todo { border-color: color-mix(in srgb, #b0642a 55%, transparent); color: #b0642a; }
+.ocr-draft-name small.ocr-flag--check { border-color: color-mix(in srgb, #8a6d1f 55%, transparent); color: #8a6d1f; }
+.ocr-draft-name small.ocr-flag--bad { border-color: color-mix(in srgb, var(--danger, #b03a2e) 55%, transparent); color: var(--danger, #b03a2e); }
 .ocr-draft-name-input { min-width: 0; }
 .ocr-draft-category { width: 88px; height: 42px; padding: 8px 10px; border: 1px solid var(--hairline, #c9c9af); border-radius: 6px 10px 7px 9px; background-color: var(--surface, #fcf5e3); color: var(--ink-soft, #526451); font: inherit; font-size: 14px; }
 .ocr-ignored { margin: 10px 0 0; color: var(--ink-muted, #687564); font-size: 13px; }
@@ -162,3 +164,15 @@ li.ocr-draft-group-head { grid-column: 1 / -1; margin: 8px 0 -4px; padding-top: 
   .batch-ingredient-rows .batch-ingredient-row.picker > :nth-child(5) { grid-column: 2; grid-row: 3; }
   .batch-ingredient-rows .batch-ingredient-row.picker > :nth-child(6) { grid-column: 3 / -1; grid-row: 3; }
 }
+
+/* 保存校验失败时滚动定位到第一个问题行并闪烁提示。 */
+.batch-ingredient-row.row-flash { animation: batch-row-flash 1.6s ease; }
+@keyframes batch-row-flash {
+  0% { background-color: color-mix(in srgb, var(--danger, #b03a2e) 16%, transparent); }
+  100% { background-color: transparent; }
+}
+
+/* 单位聚焦时的常用单位建议：按行分类取推荐序，点一下即填入。 */
+.batch-ingredient-row .unit-chips { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 6px; padding: 2px 0 4px; }
+.batch-ingredient-row .unit-chips button { padding: 2px 12px; border: 1px solid var(--hairline, #c9c9af); border-radius: 999px; background: var(--surface, #fcf5e3); color: var(--ink-soft, #526451); font: inherit; font-size: 13px; cursor: pointer; }
+.batch-ingredient-row .unit-chips button:hover { border-color: color-mix(in srgb, var(--ink, #344e40) 45%, transparent); color: var(--ink, #344e40); }
