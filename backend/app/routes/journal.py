@@ -214,7 +214,14 @@ async def list_entries(limit: int = Query(20, ge=1, le=100), offset: int = Query
         where = 'deleted_at IS NULL AND ($1::date IS NULL OR entry_date >= $1) AND ($2::date IS NULL OR entry_date < $2)'
         total = await conn.fetchval('SELECT COUNT(*) FROM journal_entries WHERE ' + where, start, end)
         rows = await conn.fetch('SELECT * FROM journal_entries WHERE ' + where + ' ORDER BY entry_date DESC,id DESC LIMIT $3 OFFSET $4', start, end, limit, offset)
-        return {'data': [await entry(conn, row) for row in rows], 'meta': {'total': total, 'limit': limit, 'offset': offset}}
+        # 一次取整页的全部照片再按篇分组：逐篇查询在 100 篇时是 101 次往返。
+        uploads = await conn.fetch('SELECT * FROM journal_uploads WHERE entry_id = ANY($1) ORDER BY position', [row['id'] for row in rows])
+        by_entry: dict = {}
+        for upload in uploads:
+            by_entry.setdefault(upload['entry_id'], []).append(upload)
+        keys = ('id', 'entry_date', 'caption', 'created_at', 'updated_at', 'cover_upload_id')
+        data = [{**{k: row[k] for k in keys}, 'photos': photos(by_entry.get(row['id'], []))} for row in rows]
+        return {'data': data, 'meta': {'total': total, 'limit': limit, 'offset': offset}}
 
 
 @router.post('/entries', response_model=EntryResponse, status_code=201)

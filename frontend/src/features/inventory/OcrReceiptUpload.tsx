@@ -260,6 +260,7 @@ export function OcrReceiptUpload({
           onDragLeave={() => setDragOver(false)}
           onDrop={onDrop}
         >
+          {phase.busy && <span className="ocr-scan-line" aria-hidden="true" />}
           <Icon name="camera" size={26} />
           <p>把小票照片拖到这里，或</p>
           <button type="button" className="btn-primary" disabled={phase.busy} onClick={() => inputRef.current?.click()}>
@@ -279,7 +280,7 @@ export function OcrReceiptUpload({
           />
           <p className="form-hint">可一次多选已拍好的小票，长票分段拍也行，识别结果自动累加拼接。</p>
         </div>
-        {phase.busy && <p className="form-hint" role="status">正在识别 {phase.current}/{phase.total} 张小票…</p>}
+        {phase.busy && <p className="form-hint" role="status">正在识别第 {phase.current}/{phase.total} 张小票，密集中文约需几十秒…</p>}
         {error && <p className="form-error" role="alert">{error}</p>}
       </div>
     );

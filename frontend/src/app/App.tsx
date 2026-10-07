@@ -155,7 +155,8 @@ export default function App() {
     return () => clearTimeout(timer);
   }, [notice]);
   function reload() {
-    setLoading(true);
+    // 已有数据时走静默后台刷新：操作后列表原地更新，不再整页闪骨架。
+    if (!data) setLoading(true);
     setLoadError("");
     setRevision((v) => v + 1);
   }

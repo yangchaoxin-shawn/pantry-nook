@@ -17,6 +17,7 @@ export function MenuReviewFlow({ item, initialIngredients, dishes, plans, onDish
   onRefresh: (battle: Battle, ingredients?: Ingredient[]) => void;
   onClose: (changed: boolean) => void; onConfirmed: () => void;
 }) {
+  const [filledUsage, setFilledUsage] = useState(false);
   const [step, setStep] = useState<Step>('review');
   const [battle, setBattle] = useState(item);
   const [ingredients, setIngredients] = useState(initialIngredients);
@@ -112,10 +113,14 @@ export function MenuReviewFlow({ item, initialIngredients, dishes, plans, onDish
     } finally { writeLock.current = false; setBusy(false); }
   };
   const title = step === 'restock' ? '为这餐补货' : step === 'edit' ? '补全这餐的库存关联' : '核对这一餐的实际用料';
-  return <Dialog title={title} busy={busy} onClose={step === 'review' ? () => onClose(changed) : returnToReview}>
+  const requestClose = () => {
+    if (filledUsage && !window.confirm("已填写的实际用量还没确认提交，关闭后将丢失。确定关闭吗？")) return;
+    onClose(changed);
+  };
+  return <Dialog title={title} busy={busy} onClose={step === 'review' ? requestClose : returnToReview}>
     {step !== 'review' && <div className="meal-flow-context"><p>{battle.battle_date} · {MEALS[battle.meal_slot]} · {battle.dishes.map(dish => dish.name).join('、')}</p><button type="button" className="text-button" disabled={busy} onClick={returnToReview}>{step === 'restock' ? '取消补货，返回核对' : '返回这餐核对'}</button></div>}
     {error && <p className="form-error" role="alert">{error}</p>}
-    {step === 'review' && <>{flowNotice && <div className="form-notice" role="status"><strong>{flowNotice}</strong><p>{flowNoticeEditable ? '已回到原餐，实际用量仍保留；如匹配不合适，可以修改关联。' : '以下显示这餐的最新状态；这里不会再次提交补货。'}</p>{flowNoticeEditable && <button type="button" className="btn-ghost" onClick={() => { setFlowNotice(''); setStep('edit'); }}>修改关联</button>}</div>}<MenuConfirm battleId={item.id} busy={busy} onPending={setBusy} draft={draft}
+    {step === 'review' && <>{flowNotice && <div className="form-notice" role="status"><strong>{flowNotice}</strong><p>{flowNoticeEditable ? '已回到原餐，实际用量仍保留；如匹配不合适，可以修改关联。' : '以下显示这餐的最新状态；这里不会再次提交补货。'}</p>{flowNoticeEditable && <button type="button" className="btn-ghost" onClick={() => { setFlowNotice(''); setStep('edit'); }}>修改关联</button>}</div>}<MenuConfirm battleId={item.id} busy={busy} onPending={setBusy} draft={draft} onFilledUsageChange={setFilledUsage}
       onEdit={(latest, nextDraft) => { if (latest) setBattle(latest); setDraft(nextDraft); setError(''); setStep('edit'); }}
       onRestock={(suggestedNames, latest, nextDraft, latestIngredients) => { restockedNames.current = []; setNames(suggestedNames); setBattle(latest); setIngredients(latestIngredients); setDraft(nextDraft); setRestockSaved(false); setFlowNotice(''); setFlowNoticeEditable(true); setEditNotice(''); setError(''); setStep('restock'); }}
       save={async payload => { await api.battleAction(item.id, 'confirm', payload); onConfirmed(); }} /></>}

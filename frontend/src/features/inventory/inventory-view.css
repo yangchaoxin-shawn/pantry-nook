@@ -98,6 +98,15 @@
 .ocr-dropzone.dragover { outline: 2px solid var(--primary, #567161); outline-offset: 4px; color: var(--ink, #344e40); }
 .ocr-dropzone svg { color: var(--primary, #567161); }
 .ocr-dropzone p { margin: 0; }
+/* 识别期间的扫描线动画：给几十秒的 CPU 识别一个"在干活"的视觉信号。 */
+.ocr-dropzone { position: relative; overflow: hidden; }
+.ocr-scan-line { position: absolute; left: 10%; right: 10%; height: 2px; border-radius: 2px; background: linear-gradient(90deg, transparent, var(--ink, #344e40), transparent); animation: ocr-scan 1.8s ease-in-out infinite; }
+@keyframes ocr-scan {
+  0% { top: 22%; opacity: 0; }
+  20% { opacity: 0.75; }
+  80% { opacity: 0.75; }
+  100% { top: 78%; opacity: 0; }
+}
 .ocr-draft-rows { list-style: none; margin: 12px 0 0; padding: 0; }
 /* 第一轮固定列网格：行号 | 名称 | 分类 | 数量 | 保留 | 删除，各列钉死不随内容漂移。 */
 .ocr-draft-row { display: grid; grid-template-columns: 20px minmax(0, 1fr) 88px 90px 64px 44px; gap: 10px; align-items: center; min-height: 51px; padding: 9px 2px; border-bottom: 1px dashed color-mix(in srgb, var(--hairline, #c9c9af) 60%, transparent); }

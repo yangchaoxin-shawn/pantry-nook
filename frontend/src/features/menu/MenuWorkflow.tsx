@@ -214,7 +214,7 @@ const stockLabel = (ingredient?: Ingredient) => {
 };
 const quantityLabel = (value: number, unit: string | null | undefined) => `${value}${unit ?? ''}`;
 type ReviewSnapshot = { battle: Battle; ingredients: Ingredient[] };
-export function MenuConfirm({ battleId, busy, save, onPending, onEdit, onRestock, draft }: { battleId: number; busy: boolean; onPending: (pending: boolean) => void; save: (payload: BattleConfirm) => Promise<void>; onEdit: (battle: Battle | null, draft?: ReviewDraft) => void; onRestock: (names: string[], battle: Battle, draft: ReviewDraft, ingredients: Ingredient[]) => void; draft?: ReviewDraft }) {
+export function MenuConfirm({ battleId, busy, save, onPending, onEdit, onRestock, draft, onFilledUsageChange }: { battleId: number; busy: boolean; onPending: (pending: boolean) => void; save: (payload: BattleConfirm) => Promise<void>; onEdit: (battle: Battle | null, draft?: ReviewDraft) => void; onRestock: (names: string[], battle: Battle, draft: ReviewDraft, ingredients: Ingredient[]) => void; draft?: ReviewDraft; onFilledUsageChange?: (filled: boolean) => void }) {
   const [snapshot, setSnapshot] = useState<ReviewSnapshot | null>(null);
   const latest = useRef<ReviewSnapshot | null>(null);
   const [originalMenuVersion, setOriginalMenuVersion] = useState<string | null>(null);
@@ -225,6 +225,10 @@ export function MenuConfirm({ battleId, busy, save, onPending, onEdit, onRestock
   const [retry, setRetry] = useState(0);
   const [rows, setRows] = useState<Usage[]>([]);
   const [without, setWithout] = useState(false);
+  // 关闭保护的数据源：任一行填过实际用量就通知外层，× 关闭前先确认。
+  useEffect(() => {
+    onFilledUsageChange?.(rows.some((row) => row.quantity_used_text.trim() !== ''));
+  }, [rows, onFilledUsageChange]);
   const initialDraft = useRef(draft);
   useEffect(() => {
     const controller = new AbortController();
