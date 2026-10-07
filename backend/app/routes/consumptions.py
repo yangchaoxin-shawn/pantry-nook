@@ -12,7 +12,7 @@ from fastapi import APIRouter, Request
 from ..db import get_pool
 from ..errors import not_found
 from ..responses import ok
-from ..validation import enum_value, optional_date, pagination, parse_id, required_text
+from ..validation import enum_value, like_pattern, optional_date, pagination, parse_id, required_text
 
 router = APIRouter()
 
@@ -43,11 +43,11 @@ async def list_consumptions(request: Request):
         conditions.append(f"c.status = ${len(values)}")
     if q.get("q") is not None:
         query = required_text(q["q"], "q", 100)
-        values.append(f"%{query}%")
+        values.append(like_pattern(query))
         conditions.append(f"""(
-            i.name ILIKE ${len(values)}
-            OR c.quantity_used_text ILIKE ${len(values)}
-            OR COALESCE(c.note, '') ILIKE ${len(values)}
+            i.name ILIKE ${len(values)} ESCAPE '{chr(92)}'
+            OR c.quantity_used_text ILIKE ${len(values)} ESCAPE '{chr(92)}'
+            OR COALESCE(c.note, '') ILIKE ${len(values)} ESCAPE '{chr(92)}'
         )""")
 
     where = f"WHERE {' AND '.join(conditions)}" if conditions else ""

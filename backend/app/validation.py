@@ -158,3 +158,9 @@ def dishes_array(value: Any) -> list[str]:
     if len(dishes) > 50:
         raise _validation_error("一条做菜记录最多包含 50 个菜品")
     return dishes
+
+
+def like_pattern(text: str) -> str:
+    """把用户搜索词转成安全的 LIKE 模式：转义 %、_ 与转义符本身。"""
+    backslash = chr(92)
+    return "%" + text.replace(backslash, backslash + backslash).replace("%", backslash + "%").replace("_", backslash + "_") + "%"

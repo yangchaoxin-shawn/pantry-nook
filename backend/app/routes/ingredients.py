@@ -5,7 +5,7 @@ from fastapi import APIRouter, Request
 from ..db import get_pool, lock_inventory_workflow, assert_stock_name_available
 from ..errors import conflict, not_found, validation_error
 from ..responses import created, ok
-from ..validation import enum_value, ensure_object_body, optional_number, optional_text, pagination, parse_id, read_json_object, required_text
+from ..validation import enum_value, ensure_object_body, like_pattern, optional_number, optional_text, pagination, parse_id, read_json_object, required_text
 from ..menu_workflow import assert_version
 from ..quantity import normalize_stock, parse_planned_quantity, render_stock
 router=APIRouter()
@@ -65,7 +65,7 @@ async def listed(request:Request):
  q=dict(request.query_params);limit,offset=pagination(q).values();where=["i.status='active'"];vals=[]
  if "category" in q:vals.append(enum_value(q["category"],"category",CATEGORIES));where.append("i.category=$"+str(len(vals)))
  if "location" in q:vals.append(enum_value(q["location"],"location",LOCATIONS));where.append("i.location=$"+str(len(vals)))
- if "q" in q:vals.append("%"+required_text(q["q"],"q",100)+"%");where.append("(i.name ILIKE $"+str(len(vals))+" OR COALESCE(i.note,'') ILIKE $"+str(len(vals))+")")
+ if "q" in q:vals.append(like_pattern(required_text(q["q"],"q",100)));where.append("(i.name ILIKE $"+str(len(vals))+" ESCAPE '\' OR COALESCE(i.note,'') ILIKE $"+str(len(vals))+" ESCAPE '\')")
  clause="WHERE "+" AND ".join(where);vals.extend([limit,offset]);pool=await get_pool()
  rows=await pool.fetch("SELECT i.*,COUNT(*) OVER()::int total FROM ingredients i "+clause+" ORDER BY i.category,LOWER(i.name) LIMIT $"+str(len(vals)-1)+" OFFSET $"+str(len(vals)),*vals)
  total=rows[0]["total"] if rows else 0

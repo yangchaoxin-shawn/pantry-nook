@@ -3,10 +3,15 @@ import { convertUnitValue } from '../inventory/batch-ingredient-logic';
 
 const USAGE = /^(?:(?:0|[1-9]\d*)(?:\.\d+)?|\.\d+|(?:0|[1-9]\d*)\/[1-9]\d*)$/;
 
+// 分子/分母上限与后端 quantity.py 对齐：超限由前端先行拦下，避免到后端才 400。
+const MAX_NUMERATOR = 999_999_999;
+const MAX_DENOMINATOR = 1_000_000;
+
 export function usageValue(text: string): number | null {
   const value = text.trim();
   if (!USAGE.test(value)) return null;
   const [numerator, denominator] = value.split('/');
+  if (denominator !== undefined && (Number(numerator) > MAX_NUMERATOR || Number(denominator) > MAX_DENOMINATOR)) return null;
   const number = denominator === undefined ? Number(numerator) : Number(numerator) / Number(denominator);
   return Number.isFinite(number) && number >= 0 ? number : null;
 }

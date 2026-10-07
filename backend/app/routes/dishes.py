@@ -12,7 +12,7 @@ from ..db import get_pool, lock_catalog_workflow
 from ..menu_workflow import assert_version
 from ..errors import conflict, not_found, validation_error
 from ..responses import created, ok
-from ..validation import pagination, parse_id, read_json_object, required_text
+from ..validation import like_pattern, pagination, parse_id, read_json_object, required_text
 
 router = APIRouter()
 
@@ -40,8 +40,8 @@ async def list_dishes(request: Request):
 
     if q.get("q") is not None:
         query = required_text(q["q"], "q", 100)
-        values.append(f"%{query}%")
-        conditions.append(f"name ILIKE ${len(values)}")
+        values.append(like_pattern(query))
+        conditions.append(f"name ILIKE ${len(values)} ESCAPE '{chr(92)}'")
 
     where = f"WHERE {' AND '.join(conditions)}"
     values.extend([limit, offset])

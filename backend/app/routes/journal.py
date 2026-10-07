@@ -145,10 +145,16 @@ async def upload(response: Response, file: UploadFile = File(...), x_upload_id: 
                         raise conflict('上传已取消，请重新选择文件')
                 return {'data': asset(row)}
             finally:
-                await conn.execute('SELECT pg_advisory_unlock($1)', PROCESS_LOCK)
+                try:
+                    await conn.execute('SELECT pg_advisory_unlock($1)', PROCESS_LOCK)
+                except Exception:
+                    pass  # 清理失败不掩盖业务异常；连接池会回收失效连接。
     except BaseException as exc:
         if claimed:
-            await pool.execute("UPDATE journal_uploads SET status='failed',updated_at=clock_timestamp() WHERE id=$1 AND status='processing'", x_upload_id)
+            try:
+                await pool.execute("UPDATE journal_uploads SET status='failed',updated_at=clock_timestamp() WHERE id=$1 AND status='processing'", x_upload_id)
+            except Exception:
+                pass  # 状态回写失败不掩盖原始异常；孤儿 processing 行由人工核对。
         if isinstance(exc, OSError) and exc.errno in (errno.ENOSPC, errno.EDQUOT):
             raise AppError(507, 'MEDIA_STORAGE_FULL', '图片存储空间不足，请稍后再试') from exc
         raise

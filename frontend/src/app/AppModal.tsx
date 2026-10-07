@@ -101,6 +101,6 @@ export function AppModal(props: Props) {
     {modal.kind === "battle" && <FreshMenuEditor key={modal.item?.id ?? 'new'} item={modal.item} copyFrom={modal.copyFrom} initialPlan={modal.plan} notice={modal.notice} sourceDishes={data.dishes} plans={data.plans} ingredients={data.ingredients} busy={busy}
       onDishAdded={(dish) => setData((current) => current ? { ...current, dishes: current.dishes.some((item) => item.id === dish.id) ? current.dishes : [...current.dishes, dish] } : current)}
       save={(payload) => mutate(async () => { const result = await api.saveBattle(modal.item?.id, payload); setDate(result.data.battle_date); navigate("battles"); return result; }, "菜单已保存，备餐不会扣库存")} />}
-    {modal.kind === "action" && <><p className="dialog-description">{modal.message}</p><div className="actions"><button className="btn-ghost" disabled={busy} onClick={() => setModal(null)}>返回</button><button className="btn-primary" disabled={busy} onClick={() => void mutate(modal.run, "操作已保存")}>{busy ? "处理中…" : "确认操作"}</button></div></>}
+    {modal.kind === "action" && <><p className="dialog-description">{modal.message}</p><div className="actions"><button className="btn-ghost" disabled={busy} onClick={() => setModal(null)}>返回</button><button className="btn-danger" disabled={busy} onClick={() => void mutate(modal.run, "操作已保存")}>{busy ? "处理中…" : "确认操作"}</button></div></>}
   </Dialog>;
 }
