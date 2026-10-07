@@ -7,10 +7,9 @@ from ..errors import conflict, not_found, validation_error
 from ..responses import created, ok
 from ..validation import enum_value, ensure_object_body, like_pattern, optional_number, optional_text, pagination, parse_id, read_json_object, required_text
 from ..menu_workflow import assert_version
-from ..quantity import normalize_stock, parse_planned_quantity, render_stock
+from ..quantity import convert_unit, normalize_stock, parse_planned_quantity, render_stock
 router=APIRouter()
 CATEGORIES=["碳水","蔬菜","蛋白质","水果","汤料","其他"]; LOCATIONS=["冰箱冷藏","冰箱冷冻","室温","其他"]; WASTE_REASONS=["spoiled","damaged","other"]
-FACTORS={"g":("m",Decimal(1)),"kg":("m",Decimal(1000)),"斤":("m",Decimal(500)),"ml":("v",Decimal(1)),"L":("v",Decimal(1000))}
 def dto(x):
  return {k:x[k] for k in ("id","name","category","stock_text","stock_value","stock_unit","location","note","created_at","updated_at")}
 def assert_stock_fields(r,partial=False):
@@ -36,9 +35,7 @@ def payload(b,partial=False):
  return r
 def render(v):return render_stock(v)
 def convert(v,a,b):
- if a==b:return v
- x,y=FACTORS.get(a),FACTORS.get(b)
- return v*x[1]/y[1] if x and y and x[0]==y[0] else None
+ return convert_unit(v,a,b)
 async def apply_adjustment(c,old,used,reason,note,depleted_status,client_request_id=None):
  before=Decimal(old["stock_value"])
  if used>before:raise conflict(("用掉" if reason=="used" else "处理")+"数量不能超过当前库存")

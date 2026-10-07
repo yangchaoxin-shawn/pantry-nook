@@ -24,7 +24,7 @@ export function IngredientDetail({ item, busy, edit, use, waste }: { item: Ingre
       <div><dt>存放位置</dt><dd>{item.location || <>未填写 <button type="button" className="text-button" onClick={edit} disabled={busy}>补充位置</button></>}</dd></div>
     </dl>
     {item.note && <div className="detail-note"><h4>备注</h4><p>{item.note}</p></div>}
-    <div className="actions ingredient-detail-actions"><button className="btn-primary" onClick={use} disabled={busy}>用掉了</button><button className="btn-ghost" onClick={edit} disabled={busy}>编辑</button><button className="text-button danger" onClick={waste} disabled={busy}>处理变质/损坏</button></div>
+    <div className="actions ingredient-detail-actions"><button className="btn-primary" onClick={use} disabled={busy}>用掉了</button><button className="btn-ghost" onClick={edit} disabled={busy}>编辑</button><button className="btn-ghost" onClick={waste} disabled={busy}>处理变质/损坏</button></div>
   </div>;
 }
 

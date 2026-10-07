@@ -598,10 +598,10 @@ async def confirm_battle(battle_id: int, request: Request):
                 pid,
             )
 
-            for item in prepared:
-                inp = item["input"]
-                await conn.execute(
-                    """INSERT INTO consumptions (
+            # 批量写入消耗记录：大餐（最多 500 行）由逐条往返改为一次 executemany，
+            # 仍在同一事务内，失败整体回滚。
+            await conn.executemany(
+                """INSERT INTO consumptions (
                          daily_battle_id, daily_battle_dish_id, ingredient_id,
                          quantity_used_text, quantity_value, quantity_unit, note,
                          remaining_before_text, remaining_before_value,
@@ -612,13 +612,16 @@ async def confirm_battle(battle_id: int, request: Request):
                          $1, $2, $3, $4, $5, $6, $7,
                          $8, $9, $10, $11, $12, $13, $14, $15
                        )""",
-                    pid, inp.get("daily_battle_dish_id"), item["ingredient_id"],
-                    inp["quantity_used_text"], inp.get("quantity_value"), inp["quantity_unit"], inp.get("note"),
-                    item["remaining_before_text"], item["remaining_before_value"],
-                    item["remaining_after_text"], item["remaining_after_value"],
-                    item["ingredient_status_before"], item["ingredient_ended_at_before"],
-                    item["ingredient_status_after"], item["ingredient_ended_at_after"],
-                )
+                [
+                    (pid, item["input"].get("daily_battle_dish_id"), item["ingredient_id"],
+                     item["input"]["quantity_used_text"], item["input"].get("quantity_value"), item["input"]["quantity_unit"], item["input"].get("note"),
+                     item["remaining_before_text"], item["remaining_before_value"],
+                     item["remaining_after_text"], item["remaining_after_value"],
+                     item["ingredient_status_before"], item["ingredient_ended_at_before"],
+                     item["ingredient_status_after"], item["ingredient_ended_at_after"])
+                    for item in prepared
+                ],
+            )
 
             result = await _get_battle(conn, pid)
             result["consumptions"] = await _get_battle_consumptions(conn, pid)

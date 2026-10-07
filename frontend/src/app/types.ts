@@ -14,7 +14,7 @@ export type Modal =
   | { kind: "ingredientWaste"; item: Ingredient }
   | { kind: "dish"; item?: Dish }
   | { kind: "dishInPlans"; item: Dish; planNames: string[] }
-  | { kind: "dishInMenus"; item: Dish; menuNames: string[] }
+  | { kind: "dishInMenus"; item: Dish; menuNames: string[]; battles: Battle[] }
   | { kind: "plan"; item?: MealPlan }
   | { kind: "battle"; item?: Battle; plan?: MealPlan; copyFrom?: Battle; notice?: string }
   | { kind: "confirm"; item: Battle }

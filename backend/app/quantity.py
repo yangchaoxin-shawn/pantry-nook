@@ -64,3 +64,23 @@ def render_stock(value: Decimal) -> str:
     """Render a normalized number without artificial trailing zeroes."""
     normalized = normalize_stock(value)
     return format(normalized, "f").rstrip("0").rstrip(".") or "0"
+
+
+# 单位换算单一来源：批量入库、日常消耗、撤销恢复共用。
+# 新增可换算单位只改这里；前端展示清单（inventory-units.ts）与
+# 解析词表（receipt_parse.KNOWN_UNITS）需人工同步。
+UNIT_FACTORS: dict[str, tuple[str, Decimal]] = {
+    "g": ("mass", Decimal(1)),
+    "kg": ("mass", Decimal(1000)),
+    "斤": ("mass", Decimal(500)),
+    "ml": ("volume", Decimal(1)),
+    "L": ("volume", Decimal(1000)),
+}
+
+
+def convert_unit(value: Decimal, source: str, target: str) -> Decimal | None:
+    """同量纲换算；不同量纲或未知单位返回 None，由调用方决定交互。"""
+    if source == target:
+        return value
+    a, b = UNIT_FACTORS.get(source), UNIT_FACTORS.get(target)
+    return value * a[1] / b[1] if a and b and a[0] == b[0] else None

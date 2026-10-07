@@ -191,6 +191,7 @@ export default function App() {
         kind: "dishInMenus",
         item,
         menuNames: pendingMenus.map((battle) => `${battle.battle_date} ${mealLabels[battle.meal_slot]}`),
+        battles: pendingMenus,
       });
       return;
     }

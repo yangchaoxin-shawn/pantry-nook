@@ -3,18 +3,11 @@ from collections import defaultdict
 from decimal import Decimal
 from .errors import AppError, conflict, not_found, validation_error
 from .menu_workflow import assert_version
-from .quantity import render_stock
+from .quantity import convert_unit, render_stock
 from .validation import ensure_object_body, optional_number, parse_id, required_text
 
-FACTORS = {'g': ('mass', Decimal(1)), 'kg': ('mass', Decimal(1000)), '斤': ('mass', Decimal(500)),
-           'ml': ('volume', Decimal(1)), 'L': ('volume', Decimal(1000))}
-
-
 def convert(value, source, target):
-    if source == target:
-        return Decimal(value)
-    a, b = FACTORS.get(source), FACTORS.get(target)
-    return Decimal(value) * a[1] / b[1] if a and b and a[0] == b[0] else None
+    return convert_unit(Decimal(value), source, target)
 
 
 def changed():
