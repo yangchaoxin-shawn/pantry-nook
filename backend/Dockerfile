@@ -1,6 +1,8 @@
 FROM python:3.13-slim
 
-COPY --from=ghcr.io/astral-sh/uv:0.12.10 /uv /uvx /bin/
+# uv 经清华 pypi 源安装：ghcr.io 直连国内不可达，不使用 COPY --from 镜像方式。
+# 版本锁定 0.12.10 与 uv.lock 格式兼容。
+RUN pip install --no-cache-dir -i https://pypi.tuna.tsinghua.edu.cn/simple uv==0.12.10
 
 WORKDIR /app
 ENV PYTHONDONTWRITEBYTECODE=1 \
