@@ -28,10 +28,12 @@ npm-debug.log*
 .DS_Store
 Thumbs.db
 
-# Claude 个人本地配置与隔离工作树（不共享）
+# Claude 个人本地配置、会话工具与隔离工作树（不共享）
 CLAUDE.local.md
-.claude/settings.local.json
-.claude/worktrees/
+.claude/*
+
+# Vite 本地缓存
+.vite/
 
 # 本地 UI 评审环境进程记录与日志
 .review/
