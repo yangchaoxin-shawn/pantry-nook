@@ -6,7 +6,7 @@
 
 | 项目 | 当前依据 |
 |---|---|
-| 线上发布 | `v1.4.0`（tag 绑定部署提交 `33accd0fc33ca176f440d6e3e0c47f67fed35076`），RELEASE_ID `1.4.0-20261001T051302Z-33accd0fc33c`，运行于 `123.56.128.73`，[发布记录](deployment-v1.4.0-2026-10-01.md) |
+| 线上发布 | `1.5.0`（提示体验与 OCR 升级），RELEASE_ID `1.5.0-20261010T055502Z-7972628eccd1`，部署提交 `7972628eccd10240bf42c9481c3fbc6384917d09`，运行于 `123.56.128.73`，[发布记录](deployment-v1.5.0-2026-10-10.md)；状态 deploying，用户转日常使用验收，确认后标 verified 并打 v1.5.0 tag |
 | 后续开发 | 桌面 `C:/Users/yangchaoxin/Desktop/pantry-nook`，唯一开发主线 `main`；开发基线随 main 前进（部署提交即候选 `33accd0`）；新会话核对交付给出的准确 SHA |
 | 用户体验入口 | `https://system.aihuashen.com/pantry-nook/`（Basic Auth 口令不变）；v1.4.0 已于 2026-10-01 经用户线上验收（真实小票入库 + 基础抽查） |
 
