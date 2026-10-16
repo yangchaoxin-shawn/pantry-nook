@@ -4444,6 +4444,19 @@
           "original_url": {
             "type": "string",
             "title": "Original Url"
+          },
+          "taken_on": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Taken On",
+            "description": "照片自带的拍摄日期；没有记录时为空"
           }
         },
         "type": "object",

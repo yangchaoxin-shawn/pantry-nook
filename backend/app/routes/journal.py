@@ -68,7 +68,7 @@ def asset(row) -> dict:
     return {**{k: details[k] for k in ('kind', 'width', 'height', 'preview_width', 'preview_height')},
             **{k: row[k] for k in ('id', 'sha256', 'original_name', 'original_size')},
             'original_url': base + '/original', 'preview_url': base + '/preview',
-            'thumbnail_url': base + '/thumbnail'}
+            'thumbnail_url': base + '/thumbnail', 'taken_on': details.get('taken_on')}
 
 
 def photos(rows) -> list[dict]:

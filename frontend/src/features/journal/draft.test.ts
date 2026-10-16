@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import Uppy from '@uppy/core';
-import { coverFirst, PHOTO_ACCEPT, restoreRemoval, validateSource, type Removal } from './draft';
+import { coverFirst, PHOTO_ACCEPT, pickEntryDate, restoreRemoval, validateSource, type Removal } from './draft';
 import type { JournalEntry, JournalPhoto } from './api';
 
 const jpeg = new Uint8Array([255, 216, 255, 224, 0, 16, 74, 70, 73, 70]);
@@ -57,5 +57,19 @@ describe('封面和撤销保持用户后续选择', () => {
     const entry = { cover_upload_id: 'c', photos } as JournalEntry;
     expect(coverFirst(entry).map(photo => photo.id)).toEqual(['c', 'a', 'b', 'd']);
     expect(photos.map(photo => photo.id)).toEqual(['a', 'b', 'c', 'd']);
+  });
+});
+describe('这一顿归到哪天', () => {
+  const today = '2026-10-16';
+  it('没手动选时取照片里最早的拍摄日', () => {
+    expect(pickEntryDate(null, ['2026-10-11', '2026-10-09', null], today)).toEqual({ date: '2026-10-09', fromPhoto: '2026-10-09' });
+  });
+  it('手动选的日期优先，且不再标注按照片', () => {
+    expect(pickEntryDate('2026-10-01', ['2026-10-11'], today)).toEqual({ date: '2026-10-01', fromPhoto: null });
+  });
+  it('照片没有拍摄日、或拍摄日晚于今天，就用今天', () => {
+    expect(pickEntryDate(null, [null, undefined], today)).toEqual({ date: today, fromPhoto: null });
+    expect(pickEntryDate(null, ['2027-01-01'], today)).toEqual({ date: today, fromPhoto: null });
+    expect(pickEntryDate(null, ['2027-01-01', '2026-10-15'], today).date).toBe('2026-10-15');
   });
 });

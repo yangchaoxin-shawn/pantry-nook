@@ -8,6 +8,11 @@ export type Removal = { keys: string[]; cover: string | null; coverRevision: num
 export function coverFirst(entry: JournalEntry) {
   return [...entry.photos].sort((a, b) => Number(b.image.id === entry.cover_upload_id) - Number(a.image.id === entry.cover_upload_id));
 }
+/** 手动选的日期优先；否则取照片里最早的拍摄日，晚于今天的视为相机时钟不准而忽略；都没有才用今天。 */
+export function pickEntryDate(manual: string | null, taken: (string | null | undefined)[], today: string) {
+  const fromPhoto = taken.filter((value): value is string => !!value && value <= today).sort()[0] || null;
+  return { date: manual || fromPhoto || today, fromPhoto: manual ? null : fromPhoto };
+}
 export function restoreRemoval(removed: Set<string>, undo: Removal, cover: string | null, coverRevision: number, currentCount: number) {
   if (currentCount + undo.keys.filter(key => removed.has(key)).length > MAX_PHOTOS) return null;
   return { removed: new Set([...removed].filter(key => !undo.keys.includes(key))), cover: !cover && coverRevision === undo.coverRevision ? undo.cover : cover };

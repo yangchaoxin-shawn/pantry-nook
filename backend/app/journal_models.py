@@ -45,6 +45,7 @@ class UploadedAsset(BaseModel):
     preview_url: str
     thumbnail_url: str
     original_url: str
+    taken_on: date | None = Field(default=None, description='照片自带的拍摄日期；没有记录时为空')
 
 
 class JournalPhoto(BaseModel):

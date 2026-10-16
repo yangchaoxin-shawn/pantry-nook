@@ -731,6 +731,11 @@ export interface components {
             thumbnail_url: string;
             /** Original Url */
             original_url: string;
+            /**
+             * Taken On
+             * @description 照片自带的拍摄日期；没有记录时为空
+             */
+            taken_on?: string | null;
         };
         /** ValidationError */
         ValidationError: {

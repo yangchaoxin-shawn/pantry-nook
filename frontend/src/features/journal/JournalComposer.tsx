@@ -1,11 +1,11 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type MutableRefObject } from 'react';
 import { createUploadId } from './uploadId';
 import Uppy, { type UppyFile } from '@uppy/core';
 import XHRUpload from '@uppy/xhr-upload';
 import { Dialog, Field } from '../../shared/ui/Primitives';
 import { localDate } from '../../shared/api/client';
 import { journalApi, JournalError, mediaUrl, type UploadedAsset, type JournalEntry, type EntryPayload, type EditPayload } from './api';
-import { PHOTO_ACCEPT, MAX_PHOTOS, validateSource, restoreRemoval, type DraftSource, type Removal } from './draft';
+import { PHOTO_ACCEPT, MAX_PHOTOS, validateSource, restoreRemoval, pickEntryDate, type DraftSource, type Removal } from './draft';
 
 type UploadMeta = { uploadId: string; [key: string]: unknown };
 type UploadBody = { data: UploadedAsset; [key: string]: unknown };
@@ -16,7 +16,7 @@ function PhotoPreview({ src, label, fallbackName }: { src?: string; label: strin
   const [failed, setFailed] = useState(false);
   return src && !failed ? <img src={src} alt={label} onError={() => setFailed(true)} /> : <span className="journal-photo-placeholder">▧<small>{fallbackName || '原片预览将在整理后显示'}</small>{fallbackName && <small>当前浏览器无法预览，整理后可查看</small>}</span>;
 }
-export default function JournalComposer({ active, open, setOpen, onSaved, entry }: { active: boolean; open: boolean; setOpen: (open: boolean) => void; onSaved: () => void; entry?: JournalEntry }) {
+export default function JournalComposer({ active, open, setOpen, onSaved, entry, startRef }: { active: boolean; open: boolean; setOpen: (open: boolean) => void; onSaved: (saved?: JournalEntry) => void; entry?: JournalEntry; startRef?: MutableRefObject<(() => void) | null> }) {
   const [uppy, setUppy] = useState<Uppy<UploadMeta, UploadBody> | null>(null);
   const [files, setFiles] = useState<QueueFile[]>([]);
   const [sources, setSources] = useState<DraftSource[]>(() => entry ? entry.photos.map(photo => ({ key: photo.image.id, asset: photo.image })) : []);
@@ -27,7 +27,7 @@ export default function JournalComposer({ active, open, setOpen, onSaved, entry 
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [rejected, setRejected] = useState<string[]>([]);
   const [reading, setReading] = useState(false);
-  const [entryDate, setEntryDate] = useState(entry?.entry_date || localDate());
+  const [manualDate, setManualDate] = useState<string | null>(entry?.entry_date || null);
   const [caption, setCaption] = useState(entry?.caption || '');
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
@@ -52,6 +52,7 @@ export default function JournalComposer({ active, open, setOpen, onSaved, entry 
   const images = sources.filter(source => !removed.has(source.key));
   const assets = images.flatMap(source => { const asset = assetFor(source); return asset ? [asset] : []; });
   const complete = (source: DraftSource) => !!source.asset || !!fileByKey.get(source.key)?.progress.uploadComplete;
+  const { date: entryDate, fromPhoto: shotDate } = pickEntryDate(manualDate, assets.map(asset => asset.taken_on), localDate());
   const canSave = images.length > 0 && images.length <= MAX_PHOTOS && images.every(complete) && !!cover && images.some(source => source.key === cover) && !replacement && !reading && !candidates.length;
   useEffect(() => {
     alive.current = true;
@@ -152,6 +153,13 @@ export default function JournalComposer({ active, open, setOpen, onSaved, entry 
     } finally { readLock.current = false; if (alive.current) setReading(false); }
   };
   const addRef = useRef(addFiles); useEffect(() => { addRef.current = addFiles; });
+  // 有未保存的草稿就回到草稿；否则直接弹出相册（必须在点击事件里同步调用）。
+  const hasDraft = images.length > 0 || candidates.length > 0;
+  useEffect(() => {
+    if (!startRef) return;
+    startRef.current = () => { if (hasDraft || busyInput || !uppy) setOpen(true); else picker.current?.click(); };
+    return () => { startRef.current = null; };
+  });
   useEffect(() => {
     if (!active) return;
     let depth = 0;
@@ -187,10 +195,10 @@ export default function JournalComposer({ active, open, setOpen, onSaved, entry 
     pendingPayload.current ??= { entry_date: entryDate, caption: caption.trim(), upload_ids: assets.map(asset => asset.id), cover_upload_id: assetFor(images.find(source => source.key === cover)!)!.id, client_request_id: requestId.current, ...(entry ? { expected_updated_at: entry.updated_at } : {}) };
     setPendingSave(true);
     try {
-      if (entry) await journalApi.edit(entry.id, pendingPayload.current as EditPayload); else await journalApi.create(pendingPayload.current);
-      uppy?.clear(); setFiles([]); setSources([]); setRemoved(new Set()); setUndos([]); setCover(null); setCaption(''); setEntryDate(localDate()); hasAdded.current = false;
+      const result = entry ? await journalApi.edit(entry.id, pendingPayload.current as EditPayload) : await journalApi.create(pendingPayload.current);
+      uppy?.clear(); setFiles([]); setSources([]); setRemoved(new Set()); setUndos([]); setCover(null); setCaption(''); setManualDate(null); hasAdded.current = false;
       for (const url of urls.current) URL.revokeObjectURL(url); urls.current.clear();
-      requestId.current = createUploadId(); pendingPayload.current = null; setPendingSave(false); setOpen(false); onSaved();
+      requestId.current = createUploadId(); pendingPayload.current = null; setPendingSave(false); setOpen(false); onSaved(result.data);
     } catch (err) {
       if (err instanceof JournalError && err.status >= 400 && err.status < 500) {
         pendingPayload.current = null; setPendingSave(false);
@@ -207,10 +215,17 @@ export default function JournalComposer({ active, open, setOpen, onSaved, entry 
     if (!complete(source)) return `${file?.progress.percentage || 0}% · 上传与整理中`;
     return '';
   };
+  // 模态弹窗打开时外部页面是 inert 的，选图控件要跟着进弹窗；关着时留在外面给首页按钮用。
+  const pickers = <>
+    <input ref={picker} type="file" hidden multiple accept={PHOTO_ACCEPT} onChange={event => { if (event.target.files?.length) void addFiles(Array.from(event.target.files)); event.target.value = ''; }} aria-label="选择照片" />
+    <input ref={replacePicker} type="file" hidden accept={PHOTO_ACCEPT} onChange={event => { if (event.target.files?.length) void addFiles(Array.from(event.target.files), replaceTarget.current); event.target.value = ''; }} aria-label="选择替换照片" />
+  </>;
   return <>
-    {open && <Dialog className="journal-composer-dialog" title={entry ? '改一改这篇手记' : '记下这一餐'} onClose={() => setOpen(false)} busy={saving || pendingSave}>
+    {!open && pickers}
+    {open && <Dialog className="journal-composer-dialog" title={entry ? '改一改这一顿' : '记一顿'} onClose={() => setOpen(false)} busy={saving || pendingSave}>
       <form className={`journal-composer ${dragging ? 'is-dragging' : ''}`} onSubmit={event => { event.preventDefault(); void save(); }}>
         <div className="journal-composer-scroll">
+        {pickers}
         {candidates.length > 0 ? <section className="journal-candidates" aria-label="挑选本次照片">
           <h3>留哪几张，慢慢选。</h3><p>已有 {images.length} 张，还可加入 {9 - images.length} 张。已选 {selectedImages} 张照片。</p>
           <p className="journal-draft-note">确认前不会上传，最多留下 9 张照片。</p>
@@ -223,10 +238,8 @@ export default function JournalComposer({ active, open, setOpen, onSaved, entry 
           })}</div>
           {!selectedImages && <p className="journal-draft-note">点选想留下的照片。未选照片会留在你的设备上。</p>}
         </section> : <>
-          <div className="journal-dropzone"><button type="button" className="btn-primary" disabled={!uppy || busyInput} onClick={() => picker.current?.click()}>＋ 从相册选照片</button><p>也可以直接拖进来 · 最多 9 张<br />JPG / PNG / WebP / HEIC / HEIF · 每张不超过 50 MiB</p></div>
-          <input ref={picker} type="file" hidden multiple accept={PHOTO_ACCEPT} onChange={event => { if (event.target.files) void addFiles(Array.from(event.target.files)); event.target.value = ''; }} aria-label="选择照片" />
-          <input ref={replacePicker} type="file" hidden accept={PHOTO_ACCEPT} onChange={event => { if (event.target.files) void addFiles(Array.from(event.target.files), replaceTarget.current); event.target.value = ''; }} aria-label="选择替换照片" />
-          <p className="journal-selection-count">已选 {images.length} / 9 张 · 点照片选封面</p>
+          <div className="journal-dropzone"><button type="button" className="btn-primary" disabled={!uppy || busyInput} onClick={() => picker.current?.click()}>{images.length ? '＋ 再加几张' : '＋ 从相册选照片'}</button><p>一次最多 9 张，原片完整保留</p></div>
+          {images.length > 1 && <p className="journal-selection-count">{images.length} 张 · 点一张设为封面</p>}
           {reading && <p role="status">正在读取文件格式…</p>}
           <div className="journal-draft-grid">{images.map((source, index) => {
             const asset = assetFor(source); const file = fileByKey.get(source.key); const status = sourceStatus(source);
@@ -245,25 +258,25 @@ export default function JournalComposer({ active, open, setOpen, onSaved, entry 
           })}</div>
           {!!undos.length && <div className="journal-undo" role="status">已从草稿移除<button type="button" disabled={blocked || !!replacement} onClick={undoRemove}>撤销</button><small>8 秒内可恢复</small></div>}
           {images.length > 0 && !cover && <p className="journal-warning" role="status">请选择新的封面，再保存这一餐。</p>}
-          {images.length === 0 && <p className="journal-draft-note">至少留一张照片，记住这一餐。</p>}
-          <Field label="这一天"><input type="date" required value={entryDate} disabled={blocked} onChange={event => setEntryDate(event.target.value)} /></Field>
-          <Field label="留一句话 · 不写也可以"><textarea maxLength={2000} value={caption} disabled={blocked} onChange={event => setCaption(event.target.value)} placeholder="今天的饭，有什么想记住的？" rows={3} /></Field>
+          {images.length > 0 && <>
+            <Field label={`哪一天${!manualDate && shotDate ? ' · 按照片拍摄日' : ''}`}><input type="date" required value={entryDate} disabled={blocked} onChange={event => setManualDate(event.target.value || null)} /></Field>
+            <Field label="说两句 · 不写也行"><textarea maxLength={2000} value={caption} disabled={blocked} onChange={event => setCaption(event.target.value)} placeholder="吃了什么、谁做的、味道怎么样……可以点键盘上的话筒直接说" rows={3} /></Field>
+          </>}
 
           {conflict && <p className="journal-warning">这篇手记已在其他页面修改，当前草稿未覆盖它。请先保留需要的文字，再取消编辑、刷新后重新整理。</p>}
           {pendingSave && !saving && <p className="journal-warning">保存结果尚未确认。请点击“核对并重试”，核对前暂时不能改稿或关闭面板。</p>}
-          <p className="journal-draft-note">原文件完整保留；{entry ? '保存后才会更新原记录，取消编辑会放弃本次修改。' : '关闭面板会保留本次草稿，刷新网页后未发布草稿不会保留。'}</p>
         </>}
         {!!rejected.length && <div className="journal-error" role="alert"><strong>这些文件没有加入</strong><ul>{rejected.map((reason, index) => <li key={index}>{reason}</li>)}</ul></div>}
         {error && <p className="journal-error" role="alert">{error}</p>}
         </div>
         <div className="journal-composer-footer">
-          <span>{candidates.length ? `已选 ${selectedImages} / ${MAX_PHOTOS - images.length} 张 · 加入后继续整理` : '选好照片，留住这一餐。'}</span>
+          <span>{candidates.length ? `已选 ${selectedImages} / ${MAX_PHOTOS - images.length} 张` : ''}</span>
           <div className="journal-form-footer">{candidates.length ? <>
             <button type="button" className="btn-ghost" onClick={() => setCandidates([])}>返回整理</button>
             <button type="button" className="btn-primary" disabled={!selectedImages} onClick={() => { append(candidates.filter(item => item.selected).map(item => item.file)); setCandidates([]); }}>加入所选 {selectedImages} 张</button>
           </> : <>
             <button type="button" className="btn-ghost" disabled={saving || pendingSave} onClick={() => setOpen(false)}>{entry ? '取消编辑' : '稍后再记'}</button>
-            <button className="btn-primary" disabled={saving || conflict || (!canSave && !pendingSave)}>{saving ? '正在保存…' : pendingSave ? '核对并重试' : entry ? '保存修改' : '保存这一餐'}</button>
+            <button className="btn-primary" disabled={saving || conflict || (!canSave && !pendingSave)}>{saving ? '正在保存…' : pendingSave ? '核对并重试' : entry ? '保存修改' : images.length && !canSave ? '照片还在上传…' : '好了，记下'}</button>
           </>}</div>
         </div>
       </form>

@@ -1,0 +1,59 @@
+.album-app .main { max-width: 1080px; padding-top: 18px; }
+.album-header { padding-top: env(safe-area-inset-top); height: calc(var(--header-height-mobile) + env(safe-area-inset-top)); }
+.album-header .theme-toggle { width: 44px; padding: 0; }
+
+.album-hero { display: grid; justify-items: center; gap: 14px; text-align: center; padding: 34px 16px 30px; margin-bottom: 8px; border-bottom: 1px solid var(--hairline); }
+.album-count { display: flex; align-items: baseline; justify-content: center; gap: 10px; min-height: 92px; color: var(--ink-soft); font-size: 18px; }
+.album-count strong { font: italic 400 84px/1 Georgia, serif; letter-spacing: -3px; color: var(--primary); }
+.album-count p { align-self: center; font-size: 22px; }
+.album-capture { display: inline-flex; align-items: center; justify-content: center; gap: 10px; width: min(100%, 360px); min-height: 68px; border: 0; border-radius: 999px; background: var(--primary); color: #fffbed; font-size: 24px; letter-spacing: .12em; box-shadow: 0 10px 24px #3d5b4933, inset 0 1px 0 #ffffff30; transition: transform .15s ease, box-shadow .15s ease; }
+.album-capture span { font-size: 30px; line-height: 1; letter-spacing: 0; }
+.album-capture:hover { background: var(--primary-strong); }
+.album-capture:active { transform: scale(.97); box-shadow: 0 4px 12px #3d5b4933; }
+.album-hint { color: var(--ink-muted); font-size: 14px; }
+
+.album-views { display: flex; justify-content: center; gap: 6px; margin: 22px 0 6px; }
+.album-views button { min-height: 44px; padding: 8px 20px; border: 1px solid var(--hairline); border-radius: 999px; background: transparent; color: var(--ink-soft); font-size: 15px; }
+.album-views button.is-active { background: var(--primary-50); border-color: var(--primary-100); color: var(--primary-strong); font-weight: 600; }
+
+.calendar-wall { margin: 18px auto 40px; max-width: 760px; }
+.calendar-head { display: flex; align-items: center; justify-content: center; gap: 22px; }
+.calendar-head h2 { font-size: 26px; font-weight: 400; min-width: 170px; text-align: center; }
+.calendar-head button { width: 44px; height: 44px; border: 1px solid var(--hairline); border-radius: 50%; background: var(--surface); color: var(--ink); font-size: 24px; line-height: 1; }
+.calendar-head button:disabled { opacity: .35; }
+.calendar-summary { text-align: center; color: var(--ink-muted); margin: 8px 0 18px; font-size: 14px; }
+.calendar-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; }
+.calendar-week { text-align: center; font-size: 12px; color: var(--ink-muted); padding-bottom: 2px; }
+.calendar-cell { position: relative; aspect-ratio: 1; min-width: 0; border-radius: 8px; background: color-mix(in srgb, var(--surface) 60%, transparent); border: 1px dashed color-mix(in srgb, var(--hairline) 80%, transparent); overflow: hidden; padding: 0; }
+.calendar-cell.is-lead { background: none; border: 0; }
+.calendar-cell.is-future { opacity: .45; }
+.calendar-cell i { position: absolute; left: 6px; top: 4px; font: italic 13px/1.2 Georgia, serif; color: var(--ink-muted); }
+.calendar-cell.is-today { border: 2px solid var(--primary); }
+.calendar-cell.has-meal { border: 0; background: var(--surface-warm); box-shadow: 0 2px 6px #4d513b26; cursor: pointer; }
+.calendar-cell.has-meal img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform .25s ease; }
+.calendar-cell.has-meal:hover img { transform: scale(1.06); }
+.calendar-cell.has-meal i { color: #fffbed; text-shadow: 0 1px 3px #0009; }
+.calendar-cell.has-meal b { position: absolute; right: 5px; bottom: 4px; font-size: 11px; color: #fffbed; background: #26372ecc; border-radius: 9px; padding: 0 6px; }
+
+/* 只是一闪而过的庆祝，不拦截点击。 */
+.album-celebrate { position: fixed; inset: 0; z-index: 120; pointer-events: none; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; background: color-mix(in srgb, var(--canvas) 88%, transparent); backdrop-filter: blur(4px); color: var(--ink-soft); font-size: 22px; animation: album-pop 2.6s ease forwards; }
+.album-celebrate p { display: flex; align-items: center; gap: 14px; }
+.album-celebrate small { font-size: 16px; color: var(--ink-muted); }
+.album-celebrate strong { font: italic 400 120px/1 Georgia, serif; color: var(--primary); letter-spacing: -4px; animation: album-number .7s cubic-bezier(.2,1.4,.4,1) both; }
+@keyframes album-pop { 0% { opacity: 0; } 10%, 80% { opacity: 1; } 100% { opacity: 0; visibility: hidden; } }
+@keyframes album-number { from { transform: scale(.4) rotate(-8deg); opacity: 0; } to { transform: none; opacity: 1; } }
+
+@media (max-width: 640px) {
+  .album-app .main { padding-top: 6px; }
+  .album-hero { padding: 22px 6px 24px; }
+  .album-count strong { font-size: 72px; }
+  .album-capture { min-height: 64px; font-size: 22px; }
+  .calendar-grid { gap: 4px; }
+  .calendar-cell { border-radius: 6px; }
+  .calendar-cell i { left: 4px; top: 2px; font-size: 11px; }
+  .album-celebrate strong { font-size: 96px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .album-celebrate, .album-celebrate strong { animation: none; }
+  .album-capture, .calendar-cell.has-meal img { transition: none; }
+}

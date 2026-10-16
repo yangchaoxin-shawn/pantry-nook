@@ -85,6 +85,24 @@ class JournalTests(unittest.TestCase):
                 self.assertEqual(image.size, (80, 120))
                 self.assertFalse(image.getexif())
 
+    def test_taken_on_read_from_exif_and_absent_when_missing(self):
+        with tempfile.TemporaryDirectory() as temp:
+            folder = Path(temp)
+            exif = Image.Exif()
+            exif.get_ifd(0x8769)[36867] = '2026:10:11 19:42:05'
+            Image.new('RGB', (20, 20)).save(folder / 'original', format='JPEG', exif=exif)
+            self.assertEqual(process(folder)['taken_on'], '2026-10-11')
+        for raw, tag in ((None, None), ('0000:00:00 00:00:00', 36867), ('garbage', 36867), ('2026:10:11 08:00:00', 306), ('2099:01:01 08:00:00', 36867)):
+            with tempfile.TemporaryDirectory() as temp:
+                folder = Path(temp)
+                exif = Image.Exif()
+                if tag == 306:
+                    exif[306] = raw  # 只有文件修改时间，不当作拍摄日
+                elif raw:
+                    exif.get_ifd(0x8769)[tag] = raw
+                Image.new('RGB', (20, 20)).save(folder / 'original', format='PNG' if raw is None else 'JPEG', **({} if raw is None else {'exif': exif}))
+                self.assertIsNone(process(folder)['taken_on'], raw)
+
     def test_trailing_video_bytes_preserved_without_external_tools(self):
         with tempfile.TemporaryDirectory() as temp:
             folder = Path(temp)

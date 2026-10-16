@@ -25,7 +25,7 @@ async function request<T>(path: string, method = 'GET', payload?: unknown, signa
   return body;
 }
 export const journalApi = {
-  list: (month: string, offset = 0, signal?: AbortSignal) => request<JournalEntry[]>(`/entries?limit=20&offset=${offset}${month ? `&month=${encodeURIComponent(month)}` : ''}`, 'GET', undefined, signal),
+  list: (month: string, offset = 0, signal?: AbortSignal, limit = 20) => request<JournalEntry[]>(`/entries?limit=${limit}&offset=${offset}${month ? `&month=${encodeURIComponent(month)}` : ''}`, 'GET', undefined, signal),
   create: (payload: EntryPayload) => request<JournalEntry>('/entries', 'POST', payload),
   edit: (id: number, payload: EditPayload) => request<JournalEntry>(`/entries/${id}`, 'PATCH', payload),
   remove: (id: number) => request<unknown>(`/entries/${id}`, 'DELETE'),
