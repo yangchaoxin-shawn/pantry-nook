@@ -82,7 +82,7 @@ export default function JournalPage({ active }: { active: boolean }) {
   const ready = !loading || entries.length > 0;
   const heroTitle = !ready ? <>翻开相册，<span>稍等一下。</span></> : total ? <>我们一起，<span>吃了 <b className="album-hero-count">{total}</b> 顿饭。</span></> : <>把这一顿，<span>留在日子里。</span></>;
   return <section className="photo-journal" aria-label="厨房相册">
-    <JournalSceneHero kind="journal" eyebrow="OUR KITCHEN ALBUM" title={heroTitle} description="拍了就传，日期按照片自动归档。" page="01 / 厨房相册"
+    <JournalSceneHero kind="journal" eyebrow="OUR TABLE, OUR LITTLE DAYS" title={heroTitle} description="拍了就传，日期按照片自动归档。" page="01 / 厨房相册"
       actions={<button type="button" className="album-capture" onClick={begin}><span aria-hidden="true">＋</span>记一顿</button>} />
     {total > 0 && <div className="album-views" role="group" aria-label="查看方式">
       {([['timeline', '一顿一顿翻'], ['calendar', '日历墙']] as const).map(([key, label]) => <button key={key} type="button" aria-pressed={view === key} className={view === key ? 'is-active' : ''} onClick={() => setView(key)}>{label}</button>)}

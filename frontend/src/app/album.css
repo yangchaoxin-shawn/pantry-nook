@@ -65,7 +65,7 @@
 .meal-stroke-1 .meal-person { transform: rotate(2deg); margin-left: -6px; }
 .meal-stroke-2 .meal-person { width: 106px; height: 78px; transform: rotate(-2deg); }
 .meal-stroke-3 .meal-person { width: 124px; height: 88px; transform: rotate(-1deg); }
-.meal-caption { position: relative; margin-top: 8px; font-size: 18px; line-height: 1.8; color: var(--ink); white-space: pre-wrap; overflow-wrap: anywhere; }
+.meal-caption { position: relative; width: fit-content; max-width: 100%; margin-top: 8px; font-size: 18px; line-height: 1.8; color: var(--ink); white-space: pre-wrap; overflow-wrap: anywhere; }
 .meal-caption > span { position: relative; z-index: 1; }
 /* 手写下划线四种笔迹，和菜品簿一致。 */
 .meal-caption::after { content: ''; position: absolute; inset: auto 0 -3px 0; border-bottom: 1px solid var(--hairline); transform: rotate(-1.6deg); }
@@ -138,6 +138,8 @@
   .meal-person { width: 100px; height: 72px; }
 }
 @media (max-width: 600px) {
+  /* 手机上标题分两行断在逗号后，不把词拆开。 */
+  .photo-journal .journal-page-hero h1 span { display: block; }
   .photo-journal .journal-page-hero .journal-page-actions { display: flex; align-self: stretch; }
   .album-capture { width: 100%; min-height: 62px; font-size: 22px; }
   .album-views { width: 100%; }
