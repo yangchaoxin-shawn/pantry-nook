@@ -29,6 +29,7 @@ export default function CalendarWall({ revision, openDay }: { revision: number; 
   const days = entriesByDay(ready ? state.entries : []);
   const isCurrent = month === today.slice(0, 7);
   return <section className="calendar-wall" aria-label="日历墙">
+    <span className="calendar-tape" aria-hidden="true" />
     <div className="calendar-head">
       <button type="button" onClick={() => setMonth(value => shiftMonth(value, -1))} aria-label="上个月">‹</button>
       <h2>{monthLabel(month)}</h2>
@@ -42,15 +43,18 @@ export default function CalendarWall({ revision, openDay }: { revision: number; 
         const list = days.get(day);
         const date = `${month}-${String(day).padStart(2, '0')}`;
         const isToday = date === today;
-        if (!list) return <span key={day} className={`calendar-cell${isToday ? ' is-today' : ''}${date > today ? ' is-future' : ''}`}><i>{day}</i></span>;
+        const ring = isToday && <svg className="calendar-today-ring" viewBox="0 0 60 60" aria-hidden="true"><path d="M31 5c15 0 25 11 24 26-1 14-12 24-26 23C15 53 5 43 6 29 7 16 17 6 33 7" /></svg>;
+        if (!list) return <span key={day} className={`calendar-cell${isToday ? ' is-today' : ''}${date > today ? ' is-future' : ''}`}><i>{day}</i>{isToday && <span className="visually-hidden">今天，还没记</span>}{ring}</span>;
         const cover = list[0].photos.find(photo => photo.image.id === list[0].cover_upload_id) ?? list[0].photos[0];
         const count = list.reduce((sum, entry) => sum + entry.photos.length, 0);
-        return <button key={day} type="button" className={`calendar-cell has-meal${isToday ? ' is-today' : ''}`} onClick={() => openDay(mergeDay(list))} aria-label={`${Number(month.slice(5))} 月 ${day} 日，${list.length} 顿，${count} 张照片`}>
-          <img src={mediaUrl(cover.image.thumbnail_url)} alt="" loading="lazy" />
+        return <button key={day} type="button" className={`calendar-cell has-meal${isToday ? ' is-today' : ''}`} onClick={() => openDay(mergeDay(list))} aria-label={`${isToday ? '今天，' : ''}${Number(month.slice(5))} 月 ${day} 日，${list.length} 顿，${count} 张照片`}>
+          <span className="calendar-print"><img src={mediaUrl(cover.image.thumbnail_url)} alt="" loading="lazy" /></span>
           <i>{day}</i>
           {list.length > 1 && <b>×{list.length}</b>}
+          {ring}
         </button>;
       })}
     </div>
+    <footer className="calendar-foot" aria-hidden="true"><span>空着的格子，留给下一顿</span><i>∿</i></footer>
   </section>;
 }

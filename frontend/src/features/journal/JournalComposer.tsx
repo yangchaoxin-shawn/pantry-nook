@@ -3,6 +3,7 @@ import { createUploadId } from './uploadId';
 import Uppy, { type UppyFile } from '@uppy/core';
 import XHRUpload from '@uppy/xhr-upload';
 import { Dialog, Field } from '../../shared/ui/Primitives';
+import { KitchenSketch } from '../../shared/ui/JournalArt';
 import { localDate } from '../../shared/api/client';
 import { journalApi, JournalError, mediaUrl, type UploadedAsset, type JournalEntry, type EntryPayload, type EditPayload } from './api';
 import { PHOTO_ACCEPT, MAX_PHOTOS, validateSource, restoreRemoval, pickEntryDate, type DraftSource, type Removal } from './draft';
@@ -238,9 +239,9 @@ export default function JournalComposer({ active, open, setOpen, onSaved, entry,
           })}</div>
           {!selectedImages && <p className="journal-draft-note">点选想留下的照片。未选照片会留在你的设备上。</p>}
         </section> : <>
-          <div className="journal-dropzone"><button type="button" className="btn-primary" disabled={!uppy || busyInput} onClick={() => picker.current?.click()}>{images.length ? '＋ 再加几张' : '＋ 从相册选照片'}</button><p>一次最多 9 张，原片完整保留</p></div>
+          <div className={`journal-dropzone${images.length ? ' has-photos' : ''}`}>{!images.length && <KitchenSketch kind="empty" />}<button type="button" className={images.length ? 'btn-ghost' : 'btn-primary'} disabled={!uppy || busyInput} onClick={() => picker.current?.click()}>{images.length ? '＋ 再加几张' : '＋ 从相册选照片'}</button><p>一次最多 9 张，原片完整保留</p></div>
           {images.length > 1 && <p className="journal-selection-count">{images.length} 张 · 点一张设为封面</p>}
-          {reading && <p role="status">正在读取文件格式…</p>}
+          {(reading || (images.length > 0 && images.some(source => !complete(source) && !fileByKey.get(source.key)?.error))) && <div className="journal-uploading" role="status"><KitchenSketch kind="loading" /><span>{reading ? '正在看看是不是照片…' : '照片正在送进相册…'}</span></div>}
           <div className="journal-draft-grid">{images.map((source, index) => {
             const asset = assetFor(source); const file = fileByKey.get(source.key); const status = sourceStatus(source);
             const src = asset?.preview_url ? mediaUrl(asset.preview_url) : source.preview;

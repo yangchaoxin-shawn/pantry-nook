@@ -1,59 +1,180 @@
-.album-app .main { max-width: 1080px; padding-top: 18px; }
-.album-header { padding-top: env(safe-area-inset-top); height: calc(var(--header-height-mobile) + env(safe-area-inset-top)); }
-.album-header .theme-toggle { width: 44px; padding: 0; }
+/* 厨房相册：沿用 V6 + 50% 纹理基线（journal.css），把各模块已确认的版式收进一本手记。 */
+.album-app .main { padding-top: 0; }
+.album-header { padding-top: env(safe-area-inset-top); }
+.album-header .brand { cursor: default; }
+.album-header .brand-mark { animation: album-mark-in 600ms ease-out both; }
 
-.album-hero { display: grid; justify-items: center; gap: 14px; text-align: center; padding: 34px 16px 30px; margin-bottom: 8px; border-bottom: 1px solid var(--hairline); }
-.album-count { display: flex; align-items: baseline; justify-content: center; gap: 10px; min-height: 92px; color: var(--ink-soft); font-size: 18px; }
-.album-count strong { font: italic 400 84px/1 Georgia, serif; letter-spacing: -3px; color: var(--primary); }
-.album-count p { align-self: center; font-size: 22px; }
-.album-capture { display: inline-flex; align-items: center; justify-content: center; gap: 10px; width: min(100%, 360px); min-height: 68px; border: 0; border-radius: 999px; background: var(--primary); color: #fffbed; font-size: 24px; letter-spacing: .12em; box-shadow: 0 10px 24px #3d5b4933, inset 0 1px 0 #ffffff30; transition: transform .15s ease, box-shadow .15s ease; }
-.album-capture span { font-size: 30px; line-height: 1; letter-spacing: 0; }
-.album-capture:hover { background: var(--primary-strong); }
-.album-capture:active { transform: scale(.97); box-shadow: 0 4px 12px #3d5b4933; }
-.album-hint { color: var(--ink-muted); font-size: 14px; }
+/* 首页页头：饭桌插画 + “我们一起吃了 N 顿饭” + 唯一主动作。 */
+.photo-journal .journal-page-hero { margin-bottom: 18px; }
+.album-hero-count { font: italic 400 1.5em/1 Georgia, serif; color: var(--primary); letter-spacing: -.04em; padding-inline: .06em; }
+.album-capture { display: inline-flex; align-items: center; justify-content: center; gap: 10px; min-width: 210px; min-height: 60px; padding: 10px 30px; border: 1px solid var(--primary); border-radius: 34px 30px 36px 28px; background: var(--primary); color: var(--surface); font-size: 23px; letter-spacing: .12em; box-shadow: inset 0 1px 1px #fff5ce60, 0 4px 0 #6c785230, 0 10px 22px #3d5b4926; }
+.album-capture span { font-size: 28px; line-height: 1; letter-spacing: 0; transition: transform 200ms ease; }
+.album-capture:hover { background: var(--primary-strong); border-color: var(--primary-strong); }
+.album-capture:hover span { transform: rotate(90deg); }
+.album-capture:active { transform: translateY(2px); box-shadow: inset 0 1px 1px #fff5ce60, 0 1px 0 #6c785230; }
 
-.album-views { display: flex; justify-content: center; gap: 6px; margin: 22px 0 6px; }
-.album-views button { min-height: 44px; padding: 8px 20px; border: 1px solid var(--hairline); border-radius: 999px; background: transparent; color: var(--ink-soft); font-size: 15px; }
-.album-views button.is-active { background: var(--primary-50); border-color: var(--primary-100); color: var(--primary-strong); font-weight: 600; }
+.album-views { display: flex; justify-content: center; gap: 4px; width: fit-content; margin: 0 auto 8px; padding: 5px; border: 1px solid var(--hairline); border-radius: 32px; background: var(--surface); box-shadow: 0 3px 0 #6c785215; }
+.album-views button { min-width: 116px; min-height: 44px; padding: 8px 18px; border: 0; border-radius: 26px; background: transparent; color: var(--ink); font-size: 16px; }
+.album-views button.is-active { background: var(--primary); color: var(--surface); box-shadow: inset 0 1px 1px #fff5ce60; }
 
-.calendar-wall { margin: 18px auto 40px; max-width: 760px; }
-.calendar-head { display: flex; align-items: center; justify-content: center; gap: 22px; }
-.calendar-head h2 { font-size: 26px; font-weight: 400; min-width: 170px; text-align: center; }
-.calendar-head button { width: 44px; height: 44px; border: 1px solid var(--hairline); border-radius: 50%; background: var(--surface); color: var(--ink); font-size: 24px; line-height: 1; }
+/* 状态页：沿用手绘小场景。 */
+.album-state { text-align: center; padding: 40px 15px 56px; }
+.album-state .kitchen-sketch { width: 150px; height: 100px; }
+.album-state h2 { font-size: 27px; margin-top: 8px; }
+.album-state p { color: var(--ink-soft); margin: 10px 0 22px; }
+.album-first .album-first-scene { width: min(100%, 420px); height: auto; margin: 0 auto 6px; }
+.album-first .album-first-scene img { height: auto; max-height: 170px; }
+
+/* 可点插画：与各页页头同一套透明素材与轻动作。 */
+.album-scene { position: relative; display: block; padding: 0 0 22px; border: 0; background: none; color: #89664b; transform-origin: 50% 90%; }
+.album-scene img { display: block; width: 100%; object-fit: contain; }
+.album-scene > span { position: absolute; inset: auto 0 0; display: flex; justify-content: center; align-items: center; gap: 12px; font-size: 13px; transform: rotate(-3deg); }
+.album-scene i { font: 19px Georgia, serif; }
+.album-scene:hover { transform: rotate(-1deg); }
+.album-scene.is-playing { animation: journal-page-scene-pulse 1.05s ease-in-out; }
+:root[data-theme='dark'] .album-scene img { filter: drop-shadow(.55px 0 .25px #f8f2dce6) drop-shadow(-.55px 0 .25px #f8f2dce6); }
+:root[data-theme='dark'] .album-scene > span { color: #d5b898; }
+
+/* 月份章节页：像手记的扉页，插画按月份轮换。 */
+.album-month { margin-top: 26px; }
+.album-chapter { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) minmax(220px, 38%); align-items: center; gap: 20px; margin: 10px 0 26px; padding: 18px 26px 16px; border: 1px solid var(--hairline); border-radius: 4px 22px 6px 15px; background-color: var(--surface); background-image: var(--fiber); background-size: 640px; box-shadow: 3px 4px 0 color-mix(in srgb, var(--hairline) 24%, transparent); }
+.album-chapter::before { content: ''; position: absolute; inset: 8px; border: 1px solid color-mix(in srgb, var(--hairline) 45%, transparent); border-radius: 2px 18px 3px 10px; pointer-events: none; }
+.album-chapter::after { content: ''; position: absolute; top: -10px; left: 30%; width: 82px; height: 22px; background: #c5c69785; transform: rotate(-4deg); clip-path: polygon(2% 0,98% 5%,100% 93%,0 100%); }
+.album-chapter-copy { position: relative; z-index: 1; }
+.album-chapter-kicker { display: flex; align-items: center; gap: 8px; color: var(--ink-muted); font: 9px var(--data-font); letter-spacing: .15em; }
+.album-chapter-kicker i { color: #956f50; font: normal 18px Georgia, serif; transform: rotate(13deg); }
+.album-chapter h2 { font-size: 34px; line-height: 1.35; margin-top: 6px; }
+.album-chapter p { color: var(--ink-soft); font-size: 16px; }
+.album-chapter-count { display: inline-block; margin-top: 10px; padding-bottom: 4px; border-bottom: 1px solid var(--hairline); color: var(--ink-muted); font-size: 14px; }
+.album-chapter-count b { font: 22px var(--data-font); color: var(--ink); padding-right: 4px; font-variant-numeric: tabular-nums; }
+.album-chapter-scene img { height: 150px; }
+:root[data-theme='dark'] .album-chapter { background-image: var(--fiber); background-blend-mode: multiply; }
+
+/* 一顿：左边是日期印章（餐安排时间线）+ 固定小人（菜品簿），右边是拍立得。 */
+.meal-sheet { position: relative; display: grid; grid-template-columns: 150px minmax(0, 1fr); column-gap: 30px; margin: 0 0 40px; padding-bottom: 32px; border-bottom: 1px solid var(--hairline); }
+.meal-sheet::before { content: ''; position: absolute; left: 150px; top: 6px; bottom: 32px; border-left: 1px solid color-mix(in srgb, var(--hairline) 65%, transparent); transform: translateX(15px) rotate(.2deg); }
+.meal-margin { position: relative; padding-top: 18px; }
+.meal-stamp time { display: flex; flex-direction: column; font-family: var(--data-font); font-variant-numeric: tabular-nums; color: var(--ink); }
+.meal-stamp-year { font-size: 11px; letter-spacing: .13em; color: var(--ink-muted); }
+.meal-stamp-day { display: flex; align-items: baseline; gap: 5px; font-size: 34px; line-height: 1.5; letter-spacing: -.04em; }
+.meal-stamp-day i { font: 22px var(--hand); color: var(--ink-muted); }
+.meal-stamp-weekday { display: inline-block; font-size: 13px; color: var(--ink-muted); padding-bottom: 6px; border-bottom: 1px solid var(--hairline); }
+.meal-no { display: inline-flex; align-items: baseline; gap: 3px; margin-bottom: 8px; padding: 1px 9px 2px; border: 1px solid var(--primary); border-radius: 45% 55% 40% 60% / 60% 45% 55% 40%; color: var(--primary); font: 15px var(--data-font); font-variant-numeric: tabular-nums; transform: rotate(-4deg); }
+.meal-no small { font-size: 9px; letter-spacing: .1em; }
+.meal-person { display: block; width: 118px; height: 84px; margin: 10px 0 0 -4px; }
+.meal-stroke-1 .meal-person { transform: rotate(2deg); margin-left: -6px; }
+.meal-stroke-2 .meal-person { width: 106px; height: 78px; transform: rotate(-2deg); }
+.meal-stroke-3 .meal-person { width: 124px; height: 88px; transform: rotate(-1deg); }
+.meal-caption { position: relative; margin-top: 8px; font-size: 18px; line-height: 1.8; color: var(--ink); white-space: pre-wrap; overflow-wrap: anywhere; }
+.meal-caption > span { position: relative; z-index: 1; }
+/* 手写下划线四种笔迹，和菜品簿一致。 */
+.meal-caption::after { content: ''; position: absolute; inset: auto 0 -3px 0; border-bottom: 1px solid var(--hairline); transform: rotate(-1.6deg); }
+.meal-stroke-1 .meal-caption::after { inset: auto 6% 3px -2px; height: 9px; border: 0; border-radius: 35% 60% 30% 55%; background: color-mix(in srgb, var(--primary-100) 30%, transparent); transform: rotate(-2deg); }
+.meal-stroke-2 .meal-caption { padding-left: 13px; }
+.meal-stroke-2 .meal-caption::before { content: ''; position: absolute; left: 0; top: 6px; bottom: 4px; width: 5px; border: 1px solid var(--primary); border-right: 0; border-radius: 45% 0 0 20%; transform: rotate(3deg); }
+.meal-stroke-2 .meal-caption::after { border-style: dashed; transform: rotate(.7deg); }
+.meal-stroke-3 .meal-caption::after { left: 8%; right: 10%; height: 4px; border-top: 1px solid var(--hairline); border-radius: 30%; transform: rotate(1deg); }
+.meal-sheet .journal-photo-story { padding-top: 14px; }
+.meal-single { grid-template-columns: 150px minmax(0, 560px); }
+.meal-sheet .journal-entry-foot { grid-column: 2; }
+.meal-sheet .journal-entry-foot > span { margin-right: auto; }
+.meal-sheet .journal-entry-foot .meal-delete { color: var(--danger); }
+
+/* 日历墙：一张贴了胶带的月历纸，每个有饭的日子是一张小拍立得。 */
+.calendar-wall { position: relative; max-width: 780px; margin: 22px auto 40px; padding: 24px 24px 14px; border: 1px solid var(--hairline); border-radius: 3px 24px 5px 15px; background-color: var(--surface); background-image: var(--fiber); background-size: 640px; box-shadow: 3px 4px 0 color-mix(in srgb, var(--hairline) 24%, transparent); }
+.calendar-wall::before { content: ''; position: absolute; inset: 8px; border: 1px solid color-mix(in srgb, var(--hairline) 45%, transparent); border-radius: 2px 19px 3px 10px; pointer-events: none; }
+.calendar-tape { position: absolute; top: -11px; left: 50%; width: 96px; height: 24px; background: #c5c69785; transform: translateX(-50%) rotate(-3deg); clip-path: polygon(2% 0,98% 5%,100% 93%,0 100%); }
+:root[data-theme='dark'] .calendar-wall { background-image: var(--fiber); background-blend-mode: multiply; }
+.calendar-head { position: relative; display: flex; align-items: center; justify-content: center; gap: 22px; }
+.calendar-head h2 { font-size: 28px; min-width: 170px; text-align: center; }
+.calendar-head button { width: 44px; height: 44px; border: 1px solid var(--hairline); border-radius: 47% 53% 44% 55%; background: var(--surface-warm); color: var(--ink); font-size: 24px; line-height: 1; box-shadow: 0 2px 0 #6e735218; }
 .calendar-head button:disabled { opacity: .35; }
-.calendar-summary { text-align: center; color: var(--ink-muted); margin: 8px 0 18px; font-size: 14px; }
-.calendar-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; }
-.calendar-week { text-align: center; font-size: 12px; color: var(--ink-muted); padding-bottom: 2px; }
-.calendar-cell { position: relative; aspect-ratio: 1; min-width: 0; border-radius: 8px; background: color-mix(in srgb, var(--surface) 60%, transparent); border: 1px dashed color-mix(in srgb, var(--hairline) 80%, transparent); overflow: hidden; padding: 0; }
-.calendar-cell.is-lead { background: none; border: 0; }
-.calendar-cell.is-future { opacity: .45; }
-.calendar-cell i { position: absolute; left: 6px; top: 4px; font: italic 13px/1.2 Georgia, serif; color: var(--ink-muted); }
-.calendar-cell.is-today { border: 2px solid var(--primary); }
-.calendar-cell.has-meal { border: 0; background: var(--surface-warm); box-shadow: 0 2px 6px #4d513b26; cursor: pointer; }
-.calendar-cell.has-meal img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform .25s ease; }
-.calendar-cell.has-meal:hover img { transform: scale(1.06); }
-.calendar-cell.has-meal i { color: #fffbed; text-shadow: 0 1px 3px #0009; }
-.calendar-cell.has-meal b { position: absolute; right: 5px; bottom: 4px; font-size: 11px; color: #fffbed; background: #26372ecc; border-radius: 9px; padding: 0 6px; }
+.calendar-summary { text-align: center; color: var(--ink-muted); margin: 6px 0 16px; font-size: 14px; }
+.calendar-grid { position: relative; display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 8px; }
+.calendar-week { text-align: center; font-size: 13px; color: var(--ink-muted); padding-bottom: 2px; }
+.calendar-cell { position: relative; aspect-ratio: 1; min-width: 0; padding: 0; border-radius: 6px 12px 5px 10px; border: 1px dashed color-mix(in srgb, var(--hairline) 85%, transparent); background: transparent; color: var(--ink); }
+.calendar-cell.is-lead { border: 0; }
+.calendar-cell.is-future { opacity: .4; }
+.calendar-cell i { position: absolute; left: 6px; top: 4px; font: 13px/1.2 var(--data-font); font-style: normal; color: var(--ink-muted); font-variant-numeric: tabular-nums; z-index: 2; }
+.calendar-cell.has-meal { border: 0; background: none; cursor: pointer; z-index: 1; }
+.calendar-print { position: absolute; inset: 0; padding: 3px 3px 9px; background: var(--surface-warm); box-shadow: 1px 3px 7px #4d513b2e, 0 0 0 1px #b7b79b40; transform: rotate(-2deg); transition: transform 220ms ease; }
+.calendar-cell.has-meal:nth-child(3n) .calendar-print { transform: rotate(2.5deg); }
+.calendar-cell.has-meal:nth-child(4n+1) .calendar-print { transform: rotate(-.6deg); }
+.calendar-print img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.calendar-cell.has-meal:hover, .calendar-cell.has-meal:focus-visible { z-index: 5; }
+.calendar-cell.has-meal:hover .calendar-print, .calendar-cell.has-meal:focus-visible .calendar-print { transform: rotate(0) scale(1.08); }
+.calendar-cell.has-meal i { left: 7px; top: 5px; color: #fffbed; text-shadow: 0 1px 3px #000a; }
+.calendar-cell.has-meal b { position: absolute; right: 4px; bottom: 11px; z-index: 2; font: 11px var(--data-font); color: #fffbed; background: #26372ecc; border-radius: 9px; padding: 0 6px; }
+.calendar-today-ring { position: absolute; inset: -6px; width: calc(100% + 12px); height: calc(100% + 12px); fill: none; stroke: var(--journal-accent, #ad6545); stroke-width: 2; stroke-linecap: round; pointer-events: none; z-index: 4; transform: rotate(-6deg); }
+.calendar-cell.is-today { border-color: transparent; }
+.calendar-cell.is-today:not(.has-meal) i { color: #8f4f35; font-weight: 600; }
+:root[data-theme='dark'] .calendar-cell.is-today:not(.has-meal) i { color: #e3b38c; }
+.visually-hidden { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+.calendar-foot { display: flex; align-items: center; justify-content: space-between; margin-top: 14px; padding-top: 10px; border-top: 1px solid var(--hairline); color: var(--ink-muted); font-size: 12px; }
+.calendar-foot i { font: normal 30px Georgia, serif; line-height: 1; transform: rotate(-8deg); padding-right: 10px; }
 
-/* 只是一闪而过的庆祝，不拦截点击。 */
-.album-celebrate { position: fixed; inset: 0; z-index: 120; pointer-events: none; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; background: color-mix(in srgb, var(--canvas) 88%, transparent); backdrop-filter: blur(4px); color: var(--ink-soft); font-size: 22px; animation: album-pop 2.6s ease forwards; }
+/* 上传面板：用手绘小场景表示正在处理。 */
+.journal-dropzone .kitchen-sketch { width: 120px; height: 79px; margin-bottom: 4px; }
+.journal-dropzone.has-photos { padding: 14px; border-style: dashed; }
+.journal-uploading { display: flex; align-items: center; gap: 12px; margin: 14px 0 4px; padding: 8px 12px; border-radius: 6px 14px 5px 10px; background: var(--primary-50); color: var(--ink-soft); font-size: 14px; }
+.journal-uploading .kitchen-sketch { width: 72px; height: 48px; margin: 0; }
+
+/* 保存后：这一顿的小人出场，大数字弹出。只是一闪而过，不拦截点击。 */
+.album-celebrate { position: fixed; inset: 0; z-index: 120; pointer-events: none; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; background: color-mix(in srgb, var(--canvas) 90%, transparent); backdrop-filter: blur(4px); color: var(--ink-soft); font-size: 22px; animation: album-pop 3.2s ease forwards; }
 .album-celebrate p { display: flex; align-items: center; gap: 14px; }
+.album-celebrate strong { font: italic 400 120px/1 Georgia, serif; color: var(--primary); letter-spacing: -4px; animation: album-number .7s .2s cubic-bezier(.2,1.4,.4,1) both; }
 .album-celebrate small { font-size: 16px; color: var(--ink-muted); }
-.album-celebrate strong { font: italic 400 120px/1 Georgia, serif; color: var(--primary); letter-spacing: -4px; animation: album-number .7s cubic-bezier(.2,1.4,.4,1) both; }
-@keyframes album-pop { 0% { opacity: 0; } 10%, 80% { opacity: 1; } 100% { opacity: 0; visibility: hidden; } }
+.album-celebrate-person { width: 200px; height: 140px; animation: album-person 3.2s ease both; }
+@keyframes album-pop { 0% { opacity: 0; } 8%, 82% { opacity: 1; } 100% { opacity: 0; visibility: hidden; } }
 @keyframes album-number { from { transform: scale(.4) rotate(-8deg); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes album-person { 0% { transform: translateY(26px); opacity: 0; } 14% { transform: translateY(-6px); opacity: 1; } 22%, 100% { transform: none; } }
+@keyframes album-mark-in { from { transform: rotate(-30deg) scale(.7); opacity: 0; } to { transform: rotate(-7deg); opacity: 1; } }
 
-@media (max-width: 640px) {
-  .album-app .main { padding-top: 6px; }
-  .album-hero { padding: 22px 6px 24px; }
-  .album-count strong { font-size: 72px; }
-  .album-capture { min-height: 64px; font-size: 22px; }
-  .calendar-grid { gap: 4px; }
-  .calendar-cell { border-radius: 6px; }
+@media (max-width: 768px) {
+  .album-app .main { padding-bottom: calc(40px + env(safe-area-inset-bottom)); }
+  .meal-sheet { grid-template-columns: 112px minmax(0, 1fr); column-gap: 18px; }
+  .meal-sheet::before { left: 112px; transform: translateX(9px); }
+  .meal-single { grid-template-columns: 112px minmax(0, 1fr); }
+  .meal-person { width: 100px; height: 72px; }
+}
+@media (max-width: 600px) {
+  .photo-journal .journal-page-hero .journal-page-actions { display: flex; align-self: stretch; }
+  .album-capture { width: 100%; min-height: 62px; font-size: 22px; }
+  .album-views { width: 100%; }
+  .album-views button { flex: 1; min-width: 0; }
+  .album-chapter { grid-template-columns: minmax(0, 1fr) 46%; gap: 6px; padding: 16px 16px 12px; }
+  .album-chapter h2 { font-size: 26px; }
+  .album-chapter p { font-size: 14px; }
+  .album-chapter-scene { padding-bottom: 18px; }
+  .album-chapter-scene img { height: 92px; }
+  .album-chapter-scene > span { font-size: 10px; gap: 6px; }
+  /* 手机：印章、编号、小人排成一行放在照片上方，像餐安排时间线的手机版。 */
+  .meal-sheet { display: block; margin-bottom: 30px; padding-bottom: 22px; }
+  .meal-sheet::before { display: none; }
+  /* 第 1 行编号，第 2 行日期 + 星期；小人占右侧两行。每格显式定位，避免自动排布把小人挤到最上面。 */
+  .meal-margin { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; grid-template-rows: auto auto; align-items: end; column-gap: 12px; padding-top: 4px; }
+  .meal-stamp { display: contents; }
+  .meal-no { grid-column: 1 / 3; grid-row: 1; justify-self: start; margin-bottom: 4px; }
+  .meal-stamp time { grid-column: 1; grid-row: 2; flex-direction: row; align-items: baseline; gap: 8px; }
+  .meal-stamp-day { font-size: 30px; }
+  .meal-stamp-weekday { grid-column: 2; grid-row: 2; align-self: end; justify-self: start; margin-bottom: 9px; }
+  .meal-person, .meal-stroke-1 .meal-person, .meal-stroke-2 .meal-person, .meal-stroke-3 .meal-person { grid-column: 3; grid-row: 1 / 3; width: 92px; height: 66px; margin: 0 -8px 0 0; }
+  .meal-caption { grid-column: 1 / -1; grid-row: 3; margin-top: 10px; font-size: 17px; }
+  .meal-sheet .journal-photo-story { padding-top: 16px; }
+  .meal-sheet .journal-entry-foot { gap: 10px; }
+  .calendar-wall { padding: 20px 10px 10px; }
+  .calendar-wall::before { inset: 5px; }
+  .calendar-head { gap: 12px; }
+  .calendar-head h2 { font-size: 23px; min-width: 140px; }
+  .calendar-grid { gap: 5px; }
+  .calendar-print { padding: 2px 2px 6px; }
   .calendar-cell i { left: 4px; top: 2px; font-size: 11px; }
+  .calendar-cell.has-meal b { bottom: 7px; font-size: 10px; padding: 0 4px; }
+  .calendar-today-ring { inset: -4px; width: calc(100% + 8px); height: calc(100% + 8px); }
   .album-celebrate strong { font-size: 96px; }
+  .album-celebrate-person { width: 170px; height: 118px; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .album-celebrate, .album-celebrate strong { animation: none; }
-  .album-capture, .calendar-cell.has-meal img { transition: none; }
+  .album-celebrate, .album-celebrate strong, .album-celebrate-person, .album-header .brand-mark, .album-scene.is-playing { animation: none !important; }
+  .album-capture span, .calendar-print { transition: none; }
 }

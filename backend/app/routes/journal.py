@@ -79,9 +79,16 @@ def photos(rows) -> list[dict]:
     return [{'id': image['id'], 'image': image} for image in images]
 
 
+ENTRY_KEYS = ('id', 'entry_date', 'caption', 'created_at', 'updated_at', 'cover_upload_id')
+# “第 N 顿”：按日期、再按记录先后排；与列表 ORDER BY entry_date DESC, id DESC 互为倒序。
+ORDINAL_SQL = '''SELECT COUNT(*) FROM journal_entries o WHERE o.deleted_at IS NULL
+    AND (o.entry_date < $1 OR (o.entry_date = $1 AND o.id <= $2))'''
+
+
 async def entry(conn, row) -> dict:
     rows = await conn.fetch('SELECT * FROM journal_uploads WHERE entry_id=$1 ORDER BY position', row['id'])
-    return {**{k: row[k] for k in ('id', 'entry_date', 'caption', 'created_at', 'updated_at', 'cover_upload_id')}, 'photos': photos(rows)}
+    ordinal = await conn.fetchval(ORDINAL_SQL, row['entry_date'], row['id'])
+    return {**{k: row[k] for k in ENTRY_KEYS}, 'ordinal': ordinal, 'photos': photos(rows)}
 
 
 @router.post('/uploads', response_model=UploadResponse, status_code=201)
@@ -213,15 +220,20 @@ async def list_entries(limit: int = Query(20, ge=1, le=100), offset: int = Query
     async with pool.acquire() as conn, conn.transaction(isolation='repeatable_read', readonly=True):
         where = 'deleted_at IS NULL AND ($1::date IS NULL OR entry_date >= $1) AND ($2::date IS NULL OR entry_date < $2)'
         total = await conn.fetchval('SELECT COUNT(*) FROM journal_entries WHERE ' + where, start, end)
-        rows = await conn.fetch('SELECT * FROM journal_entries WHERE ' + where + ' ORDER BY entry_date DESC,id DESC LIMIT $3 OFFSET $4', start, end, limit, offset)
+        # 编号在全库范围内计算（不受月份筛选影响），同一快照内与 total 一致。
+        rows = await conn.fetch('''SELECT * FROM (SELECT *, ROW_NUMBER() OVER (ORDER BY entry_date, id) AS ordinal
+            FROM journal_entries WHERE deleted_at IS NULL) e WHERE ($1::date IS NULL OR entry_date >= $1) AND ($2::date IS NULL OR entry_date < $2)
+            ORDER BY entry_date DESC,id DESC LIMIT $3 OFFSET $4''', start, end, limit, offset)
+        months = {} if month else {r['month']: r['count'] for r in await conn.fetch(
+            "SELECT to_char(entry_date, 'YYYY-MM') AS month, COUNT(*) AS count FROM journal_entries WHERE deleted_at IS NULL AND to_char(entry_date, 'YYYY-MM') = ANY($1::text[]) GROUP BY 1",
+            sorted({row['entry_date'].strftime('%Y-%m') for row in rows}))}
         # 一次取整页的全部照片再按篇分组：逐篇查询在 100 篇时是 101 次往返。
         uploads = await conn.fetch('SELECT * FROM journal_uploads WHERE entry_id = ANY($1) ORDER BY position', [row['id'] for row in rows])
         by_entry: dict = {}
         for upload in uploads:
             by_entry.setdefault(upload['entry_id'], []).append(upload)
-        keys = ('id', 'entry_date', 'caption', 'created_at', 'updated_at', 'cover_upload_id')
-        data = [{**{k: row[k] for k in keys}, 'photos': photos(by_entry.get(row['id'], []))} for row in rows]
-        return {'data': data, 'meta': {'total': total, 'limit': limit, 'offset': offset}}
+        data = [{**{k: row[k] for k in ENTRY_KEYS}, 'ordinal': row['ordinal'], 'photos': photos(by_entry.get(row['id'], []))} for row in rows]
+        return {'data': data, 'meta': {'total': total, 'limit': limit, 'offset': offset, 'month_totals': months}}
 
 
 @router.post('/entries', response_model=EntryResponse, status_code=201)

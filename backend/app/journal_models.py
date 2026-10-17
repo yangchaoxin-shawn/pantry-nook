@@ -60,6 +60,7 @@ class JournalEntry(BaseModel):
     caption: str
     created_at: datetime
     updated_at: datetime
+    ordinal: int = Field(description='第几顿：全部手记按日期、再按记录先后排，最早一顿为 1；删除或补记会让之后的编号变化')
     photos: list[JournalPhoto]
 
 
@@ -75,6 +76,7 @@ class JournalMeta(BaseModel):
     total: int
     limit: int
     offset: int
+    month_totals: dict[str, int] = Field(default_factory=dict, description='本页出现的月份（YYYY-MM）各有多少顿；按月筛选时为空')
 
 
 class EntryListResponse(BaseModel):

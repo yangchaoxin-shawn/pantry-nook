@@ -44,12 +44,18 @@ export function JournalSceneHero({
   kind,
   eyebrow,
   actions,
+  title,
+  description,
+  page,
 }: {
   kind: keyof typeof scenes;
   eyebrow?: string;
   actions: ReactNode;
+  title?: ReactNode;
+  description?: ReactNode;
+  page?: string;
 }) {
-  const scene = scenes[kind];
+  const scene = { ...scenes[kind], ...(title ? { title } : {}), ...(description ? { description } : {}), ...(page ? { page } : {}) };
   const [playing, setPlaying] = useState(false);
 
   return <section className={`journal-page-hero journal-page-hero-${kind}`} aria-labelledby={`${kind}-page-title`}>

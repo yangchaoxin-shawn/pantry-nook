@@ -4320,6 +4320,11 @@
             "format": "date-time",
             "title": "Updated At"
           },
+          "ordinal": {
+            "type": "integer",
+            "title": "Ordinal",
+            "description": "第几顿：全部手记按日期、再按记录先后排，最早一顿为 1；删除或补记会让之后的编号变化"
+          },
           "photos": {
             "items": {
               "$ref": "#/components/schemas/JournalPhoto"
@@ -4336,6 +4341,7 @@
           "caption",
           "created_at",
           "updated_at",
+          "ordinal",
           "photos"
         ],
         "title": "JournalEntry"
@@ -4353,6 +4359,14 @@
           "offset": {
             "type": "integer",
             "title": "Offset"
+          },
+          "month_totals": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Month Totals",
+            "description": "本页出现的月份（YYYY-MM）各有多少顿；按月筛选时为空"
           }
         },
         "type": "object",

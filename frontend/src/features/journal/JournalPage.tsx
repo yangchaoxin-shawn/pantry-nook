@@ -1,21 +1,24 @@
 import { useEffect, useRef, useState } from 'react';
 import { Dialog } from '../../shared/ui/Primitives';
 import { localDate } from '../../shared/api/client';
-import { journalApi, mediaUrl, monthLabel, type JournalEntry } from './api';
+import { KitchenSketch } from '../../shared/ui/JournalArt';
+import { JournalSceneHero } from '../../shared/ui/JournalSceneHero';
+import { LittlePerson } from '../../shared/ui/LittlePerson';
+import { journalApi, monthLabel, type JournalEntry } from './api';
 import JournalComposer from './JournalComposer';
 import CalendarWall from './CalendarWall';
+import { MealSheet, MonthChapter, SceneArt } from './AlbumParts';
 import { shortDate } from './calendar';
 import './journal-page.css';
-import { coverFirst } from './draft';
 
 type View = 'timeline' | 'calendar';
+type Celebration = { id: number; date: string; ordinal: number };
 
-function CameraSketch() {
-  return <svg className="journal-camera-sketch" viewBox="0 0 120 130" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true"><circle cx="42" cy="26" r="10"/><path d="M35 36q-7 17-4 33l18 1 2-30M33 45 15 54l-5-10m39-1 12 10 13-10M35 70l-6 27-12 4m28-32 9 26 14 2"/><rect x="55" y="24" width="29" height="21" rx="3"/><circle cx="68" cy="34" r="6"/><path d="M60 24v-4h11v4m21 6 12-5m-10 13 10 5M78 100c15-7 24-3 27 5m-69 12q29-10 63-3"/></svg>;
-}
 export default function JournalPage({ active }: { active: boolean }) {
   const [entries, setEntries] = useState<JournalEntry[]>([]);
   const [total, setTotal] = useState(0);
+  // 后端随每页返回本页月份的全月顿数，与 total 同一快照，不另发请求。
+  const [monthTotals, setMonthTotals] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [loadMoreError, setLoadMoreError] = useState('');
@@ -28,8 +31,8 @@ export default function JournalPage({ active }: { active: boolean }) {
   const [deleteBusy, setDeleteBusy] = useState(false);
   const [deleteError, setDeleteError] = useState('');
   const [notice, setNotice] = useState<{ message: string; kind: 'success' | 'error' } | null>(null);
-  // 存的是刚记下那顿的日期：补记旧照片时告诉用户它归到了哪天，免得翻不到。
-  const [celebrate, setCelebrate] = useState<string | null>(null);
+  // 刚记下的那一顿：庆祝画面里由它的小人出场，并告诉用户补记的照片归到了哪天。
+  const [celebrate, setCelebrate] = useState<Celebration | null>(null);
   const deleteLock = useRef(false);
   const gallery = useRef<(() => void) | undefined>(undefined);
   const generation = useRef(0);
@@ -40,8 +43,8 @@ export default function JournalPage({ active }: { active: boolean }) {
     const controller = new AbortController(); generation.current++; moreLock.current = false;
     journalApi.list('', 0, controller.signal).then(result => {
       if (controller.signal.aborted) return;
-      setEntries(result.data); setTotal(result.meta?.total ?? result.data.length);
-    }).catch(err => { if (!controller.signal.aborted) setError(err instanceof Error ? err.message : '手记暂时读取失败。'); }).finally(() => { if (!controller.signal.aborted) setLoading(false); });
+      setEntries(result.data); setTotal(result.meta?.total ?? result.data.length); setMonthTotals(result.meta?.month_totals ?? {});
+    }).catch(err => { if (!controller.signal.aborted) setError(err instanceof Error ? err.message : '相册暂时读取失败。'); }).finally(() => { if (!controller.signal.aborted) setLoading(false); });
     return () => controller.abort();
   }, [revision]);
   useEffect(() => () => gallery.current?.(), []);
@@ -52,13 +55,13 @@ export default function JournalPage({ active }: { active: boolean }) {
   }, [notice]);
   useEffect(() => {
     if (!celebrate || loading) return;
-    const timer = setTimeout(() => setCelebrate(null), 2600);
+    const timer = setTimeout(() => setCelebrate(null), 3200);
     return () => clearTimeout(timer);
   }, [celebrate, loading]);
   async function more() {
     if (moreLock.current) return;
     const current = generation.current; moreLock.current = true; setMoreBusy(true); setLoadMoreError('');
-    try { const result = await journalApi.list('', entries.length); if (current === generation.current) { setEntries(existing => [...existing, ...result.data.filter(item => !existing.some(old => old.id === item.id))]); setTotal(result.meta?.total ?? total); } }
+    try { const result = await journalApi.list('', entries.length); if (current === generation.current) { setEntries(existing => [...existing, ...result.data.filter(item => !existing.some(old => old.id === item.id))]); setTotal(result.meta?.total ?? total); setMonthTotals(existing => ({ ...existing, ...result.meta?.month_totals })); } }
     catch (err) { if (current === generation.current) setLoadMoreError(err instanceof Error ? err.message : '下一页暂时读取失败，请重试。'); }
     finally { if (current === generation.current) { moreLock.current = false; setMoreBusy(false); } }
   }
@@ -76,37 +79,37 @@ export default function JournalPage({ active }: { active: boolean }) {
   }
   const begin = () => (start.current ? start.current() : setComposerOpen(true));
   const groups = entries.reduce<Record<string, JournalEntry[]>>((result, entry) => { (result[entry.entry_date.slice(0, 7)] ??= []).push(entry); return result; }, {});
+  const ready = !loading || entries.length > 0;
+  const heroTitle = !ready ? <>翻开相册，<span>稍等一下。</span></> : total ? <>我们一起，<span>吃了 <b className="album-hero-count">{total}</b> 顿饭。</span></> : <>把这一顿，<span>留在日子里。</span></>;
   return <section className="photo-journal" aria-label="厨房相册">
-    <header className="album-hero">
-      <div className="album-count">
-        {loading && !entries.length ? <p>正在翻开相册…</p> : error && !entries.length ? <p>相册暂时没打开</p> : total ? <><span>我们一起吃了</span><strong>{total}</strong><span>顿饭</span></> : <p>第一顿，从今天开始。</p>}
-      </div>
-      <button type="button" className="album-capture" onClick={begin}><span aria-hidden="true">＋</span>记一顿</button>
-      <p className="album-hint">拍了就传，日期按照片自动归档</p>
-    </header>
+    <JournalSceneHero kind="journal" eyebrow="OUR KITCHEN ALBUM" title={heroTitle} description="拍了就传，日期按照片自动归档。" page="01 / 厨房相册"
+      actions={<button type="button" className="album-capture" onClick={begin}><span aria-hidden="true">＋</span>记一顿</button>} />
     {total > 0 && <div className="album-views" role="group" aria-label="查看方式">
-      {([['timeline', '一顿一顿看'], ['calendar', '日历墙']] as const).map(([key, label]) => <button key={key} type="button" aria-pressed={view === key} className={view === key ? 'is-active' : ''} onClick={() => setView(key)}>{label}</button>)}
+      {([['timeline', '一顿一顿翻'], ['calendar', '日历墙']] as const).map(([key, label]) => <button key={key} type="button" aria-pressed={view === key} className={view === key ? 'is-active' : ''} onClick={() => setView(key)}>{label}</button>)}
     </div>}
     {notice?.kind === 'success' && active && !celebrate && <div className="toast" role="status">✓ {notice.message}</div>}
     {notice?.kind === 'error' && <p className="journal-notice journal-error" role="alert">{notice.message}<button aria-label="关闭提示" onClick={() => setNotice(null)}>×</button></p>}
-    {loading && !entries.length ? <div className="journal-empty" role="status"><CameraSketch /><p>正在翻开相册…</p></div>
-      : error ? <div className="journal-empty" role="alert"><h2>相册暂时没能打开。</h2><p>{error}</p><button className="btn-primary" onClick={() => refresh()}>重新打开</button></div>
-      : entries.length === 0 ? <div className="journal-empty"><CameraSketch /><h2>第一张照片，留给下一顿。</h2><p>刚出锅的菜、摆好的碗筷，<br />或者只是你们一起吃饭的样子。</p></div>
+    {loading && !entries.length ? <div className="album-state" role="status"><KitchenSketch kind="loading" /><p>正在翻开相册…</p></div>
+      : error ? <div className="album-state" role="alert"><KitchenSketch kind="error" /><h2>相册暂时没能打开。</h2><p>{error}</p><button className="btn-primary" onClick={() => refresh()}>重新打开</button></div>
+      : entries.length === 0 ? <div className="album-state album-first"><SceneArt scene="team" className="album-first-scene" /><h2>第一张照片，留给下一顿。</h2><p>刚出锅的菜、摆好的碗筷，<br />或者只是你们一起吃饭的样子。</p></div>
       : view === 'calendar' ? <CalendarWall revision={revision} openDay={entry => void openGallery(entry)} />
       : <>
-      {Object.entries(groups).map(([groupMonth, groupEntries]) => <section className="journal-month" key={groupMonth} aria-label={monthLabel(groupMonth)}><h2 className="journal-chapter">{monthLabel(groupMonth)}</h2>{groupEntries.map(entry => {
-        const orderedPhotos = coverFirst(entry);
-        const portraitCover = orderedPhotos[0]?.image.preview_height > orderedPhotos[0]?.image.preview_width;
-        return <article className={`journal-sheet ${entry.photos.length === 1 ? 'journal-single' : ''}`} key={entry.id}>
-        <div className="journal-margin"><div className="journal-day">{entry.entry_date.slice(-2)}</div><time dateTime={entry.entry_date}>{entry.entry_date === today ? '今天' : shortDate(entry.entry_date, today)} · {new Date(`${entry.entry_date}T12:00:00`).toLocaleDateString('zh-CN', { weekday: 'long' })}</time>{entry.caption && <p>{entry.caption}</p>}</div>
-        <div className={`journal-photo-story story-count-${entry.photos.length}${portraitCover && entry.photos.length >= 7 ? ' has-portrait-cover' : ''}`}>{orderedPhotos.map((photo, index) => <figure className={`journal-print ${photo.image.preview_height > photo.image.preview_width ? 'is-portrait' : 'is-landscape'}`} key={photo.id}><button className="journal-image-button" aria-label={`查看 ${entry.entry_date} 第 ${index + 1} 张照片`} onClick={() => void openGallery(entry, index)}><img src={mediaUrl(photo.image.preview_url)} alt={`${entry.entry_date} 的饭桌照片 ${index + 1}`} width={photo.image.preview_width} height={photo.image.preview_height} loading="lazy" /></button></figure>)}</div>
-        <div className="journal-entry-foot"><button onClick={() => setEditing(entry)}>改一改</button><button onClick={() => { setDeleting(entry); setDeleteError(''); }}>删除</button></div>
-      </article>;})}</section>)}
+      {Object.entries(groups).map(([month, monthEntries], chapter) => <section className="journal-month album-month" key={month} aria-label={monthLabel(month)}>
+        <MonthChapter month={month} count={monthTotals[month] ?? monthEntries.length} page={chapter + 1} />
+        {monthEntries.map(entry => <MealSheet key={entry.id} entry={entry} today={today}
+          ordinal={entry.ordinal}
+          open={index => void openGallery(entry, index)} edit={() => setEditing(entry)} remove={() => { setDeleting(entry); setDeleteError(''); }} />)}
+      </section>)}
       {loadMoreError && <p role="alert" className="journal-error">{loadMoreError}</p>}
-      <div className="journal-end">{entries.length < total ? <button className="btn-ghost" disabled={moreBusy} onClick={() => void more()}>{moreBusy ? '正在翻页…' : '再往前翻 ↓'}</button> : <p>最早的一顿就到这里。下一顿见。<br />﹏</p>}</div>
+      <div className="journal-end">{entries.length < total ? <button className="btn-ghost" disabled={moreBusy} onClick={() => void more()}>{moreBusy ? '正在翻页…' : '再往前翻 ↓'}</button> : <p>第 1 顿就到这里。下一顿见。<br />﹏</p>}</div>
     </>}
-    {celebrate && !loading && !error && <div className="album-celebrate" role="status"><p><span>第</span><strong>{total}</strong><span>顿，记下了</span></p>{celebrate !== today && <small>记在 {shortDate(celebrate, today)}</small>}</div>}
-    <JournalComposer active={active && !editing && !deleting} open={composerOpen} setOpen={setComposerOpen} startRef={start} onSaved={saved => { setView('timeline'); setCelebrate(saved?.entry_date || today); refresh(); }} />
+    {celebrate && !loading && !error && <div className="album-celebrate" role="status">
+      <LittlePerson namespace="meal" businessId={celebrate.id} className="album-celebrate-person" autoPlay />
+      <p><span>第</span><strong>{celebrate.ordinal}</strong><span>顿，记下了</span></p>
+      {celebrate.date !== today && <small>记在 {shortDate(celebrate.date, today)}</small>}
+    </div>}
+    <JournalComposer active={active && !editing && !deleting} open={composerOpen} setOpen={setComposerOpen} startRef={start}
+      onSaved={saved => { setView('timeline'); setCelebrate(saved ? { id: saved.id, date: saved.entry_date, ordinal: saved.ordinal } : null); refresh(saved ? '' : '记下了。'); }} />
     {editing && <JournalComposer key={editing.id} entry={editing} active={active} open setOpen={value => { if (!value) setEditing(null); }} onSaved={() => refresh('改好了。')} />}
     {deleting && <Dialog title="删除这一顿？" onClose={() => setDeleting(null)} busy={deleteBusy}><div className="journal-composer"><p>{deleting.entry_date} 的 {deleting.photos.length} 张照片和文字会从相册移除，删除后无法在页面恢复。</p>{deleteError && <p role="alert" className="journal-error">{deleteError}</p>}<div className="journal-form-footer"><button className="btn-ghost" onClick={() => setDeleting(null)} disabled={deleteBusy}>留着</button><button className="btn-danger" onClick={() => void remove()} disabled={deleteBusy}>确认删除</button></div></div></Dialog>}
   </section>;

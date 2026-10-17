@@ -4,7 +4,7 @@ export type JournalPhoto = components["schemas"]["JournalPhoto"];
 export type JournalEntry = components["schemas"]["JournalEntry"];
 export type EntryPayload = components["schemas"]["EntryCreate"] & { cover_upload_id: string };
 export type EditPayload = components["schemas"]["EntryUpdate"] & Pick<EntryPayload, "upload_ids" | "cover_upload_id" | "client_request_id">;
-export type Envelope<T> = { data: T; meta?: { total: number; limit: number; offset: number } };
+export type Envelope<T> = { data: T; meta?: components["schemas"]["JournalMeta"] };
 export const JOURNAL_BASE = (import.meta.env.VITE_API_BASE || '').replace(/\/$/, '');
 export function mediaUrl(path: string | null) { return path ? `${JOURNAL_BASE}${path}` : ''; }
 export class JournalError extends Error {

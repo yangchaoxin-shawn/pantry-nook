@@ -21,9 +21,13 @@ describe("业务对象的小人映射", () => {
     expect(assigned).toEqual(new Set(LITTLE_PERSON_IDS));
   });
 
-  it("搭配使用独立命名空间", () => {
+  it("搭配、相册里的每一顿各用独立命名空间，同号不撞姿态", () => {
     for (let id = 1; id <= LITTLE_PERSON_IDS.length; id += 1) {
-      expect(littlePersonId("plan", id)).not.toBe(littlePersonId("dish", id));
+      const dish = littlePersonId("dish", id);
+      expect(littlePersonId("plan", id)).not.toBe(dish);
+      expect(littlePersonId("meal", id)).not.toBe(dish);
+      expect(littlePersonId("meal", id)).not.toBe(littlePersonId("plan", id));
     }
+    expect(new Set(Array.from({ length: LITTLE_PERSON_IDS.length }, (_, i) => littlePersonId("meal", i + 1)))).toEqual(new Set(LITTLE_PERSON_IDS));
   });
 });

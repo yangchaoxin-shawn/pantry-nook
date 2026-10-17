@@ -674,6 +674,11 @@ export interface components {
              * Format: date-time
              */
             updated_at: string;
+            /**
+             * Ordinal
+             * @description 第几顿：全部手记按日期、再按记录先后排，最早一顿为 1；删除或补记会让之后的编号变化
+             */
+            ordinal: number;
             /** Photos */
             photos: components["schemas"]["JournalPhoto"][];
         };
@@ -685,6 +690,13 @@ export interface components {
             limit: number;
             /** Offset */
             offset: number;
+            /**
+             * Month Totals
+             * @description 本页出现的月份（YYYY-MM）各有多少顿；按月筛选时为空
+             */
+            month_totals?: {
+                [key: string]: number;
+            };
         };
         /** JournalPhoto */
         JournalPhoto: {

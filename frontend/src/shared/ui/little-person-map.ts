@@ -26,11 +26,12 @@ export const LITTLE_PERSON_IDS = [
 ] as const;
 
 export type LittlePersonId = (typeof LITTLE_PERSON_IDS)[number];
-export type LittlePersonNamespace = "dish" | "plan";
+export type LittlePersonNamespace = "dish" | "plan" | "meal";
 
 const namespaceOffset: Record<LittlePersonNamespace, number> = {
   dish: 0,
   plan: 11,
+  meal: 5,
 };
 
 /**

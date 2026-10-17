@@ -53,12 +53,16 @@ export function LittlePerson({
   namespace,
   businessId,
   className = "",
+  autoPlay = false,
 }: {
   namespace: LittlePersonNamespace;
   businessId: number;
   className?: string;
+  autoPlay?: boolean;
 }) {
-  const [pulse, setPulse] = useState(0);
+  // autoPlay 让小人出场时自己动一次；减少动态效果时保持静止。
+  const [pulse, setPulse] = useState(() =>
+    autoPlay && !window.matchMedia("(prefers-reduced-motion: reduce)").matches ? 1 : 0);
   const person = littlePersonId(namespace, businessId);
 
   return <span

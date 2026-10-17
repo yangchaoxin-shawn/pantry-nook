@@ -3,6 +3,7 @@ import JournalPage from '../features/journal/JournalPage';
 import { Icon } from '../shared/ui/Primitives';
 import '../App.css';
 import '../styles/journal.css';
+import '../shared/ui/journal-scene-hero.css';
 import './album.css';
 
 /** 厨房相册外壳：只保留相册本身；库存、菜单等旧模块代码和数据原样保留，入口不再展示。 */
@@ -22,7 +23,7 @@ export default function AlbumApp() {
     </header>
     <main id="main" className="main">
       <JournalPage active />
-      <footer className="footer"><Icon name="bowl" size={16} />一隅烟火，三餐日常。<span>食隅记</span></footer>
+      <footer className="footer"><Icon name="bowl" size={16} />一隅烟火，三餐日常。<span>食隅记 Pantry Nook</span></footer>
     </main>
   </div>;
 }
