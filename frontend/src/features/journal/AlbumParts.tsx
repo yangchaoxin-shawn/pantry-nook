@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { LittlePerson } from '../../shared/ui/LittlePerson';
 import { mediaUrl, monthLabel, type JournalEntry } from './api';
 import { chapterArt, pageIndex, printLine, SCENES, type SceneKey } from './album-art';
+import { useReveal } from './motion';
 import { coverFirst } from './draft';
 
 const WEEKDAYS = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
@@ -21,7 +22,8 @@ export function SceneArt({ scene, className = '' }: { scene: SceneKey; className
 /** 每个月一张章节页：插画轮换、页码和本月顿数，像翻手记的扉页。 */
 export function MonthChapter({ month, count, page }: { month: string; count: number; page: number }) {
   const art = chapterArt(month);
-  return <header className="album-chapter">
+  const { ref, revealed } = useReveal<HTMLElement>();
+  return <header ref={ref} className={`album-chapter album-reveal${revealed ? ' is-revealed' : ''}`}>
     <div className="album-chapter-copy">
       <span className="album-chapter-kicker"><i aria-hidden="true">✳</i>CHAPTER {pageIndex(page)}</span>
       <h2>{monthLabel(month)}</h2>
@@ -39,7 +41,8 @@ export function MealSheet({ entry, ordinal, today, open, edit, remove }: { entry
   const weekday = WEEKDAYS[new Date(`${entry.entry_date}T12:00:00`).getDay()];
   const portraitCover = photos[0]?.image.preview_height > photos[0]?.image.preview_width;
   const stroke = entry.id % 4;
-  return <article className={`meal-sheet meal-stroke-${stroke}${photos.length === 1 ? ' meal-single' : ''}`} aria-label={`第 ${ordinal} 顿，${Number(month)} 月 ${Number(day)} 日`}>
+  const { ref, revealed } = useReveal<HTMLElement>();
+  return <article ref={ref} className={`meal-sheet album-reveal${revealed ? ' is-revealed' : ''} meal-stroke-${stroke}${photos.length === 1 ? ' meal-single' : ''}`} aria-label={`第 ${ordinal} 顿，${Number(month)} 月 ${Number(day)} 日`}>
     <div className="meal-margin">
       <div className="meal-stamp">
         <span className="meal-no"><small>NO.</small>{pageIndex(ordinal)}</span>

@@ -1,4 +1,5 @@
 /* 厨房相册：沿用 V6 + 50% 纹理基线（journal.css），把各模块已确认的版式收进一本手记。 */
+.album-app { --album-ease: cubic-bezier(0.23, 1, 0.32, 1); }
 .album-app .main { padding-top: 0; }
 .album-header { padding-top: env(safe-area-inset-top); }
 .album-header .brand { cursor: default; }
@@ -30,7 +31,7 @@
 .album-scene img { display: block; width: 100%; object-fit: contain; }
 .album-scene > span { position: absolute; inset: auto 0 0; display: flex; justify-content: center; align-items: center; gap: 12px; font-size: 13px; transform: rotate(-3deg); }
 .album-scene i { font: 19px Georgia, serif; }
-.album-scene:hover { transform: rotate(-1deg); }
+.album-scene:active { transform: translateY(1px); }
 .album-scene.is-playing { animation: journal-page-scene-pulse 1.05s ease-in-out; }
 :root[data-theme='dark'] .album-scene img { filter: drop-shadow(.55px 0 .25px #f8f2dce6) drop-shadow(-.55px 0 .25px #f8f2dce6); }
 :root[data-theme='dark'] .album-scene > span { color: #d5b898; }
@@ -113,6 +114,32 @@
 .calendar-foot { display: flex; align-items: center; justify-content: space-between; margin-top: 14px; padding-top: 10px; border-top: 1px solid var(--hairline); color: var(--ink-muted); font-size: 12px; }
 .calendar-foot i { font: normal 30px Georgia, serif; line-height: 1; transform: rotate(-8deg); padding-right: 10px; }
 
+/* 翻到就渐显一次：只动透明度和位移，可被滚动打断。 */
+.album-reveal { opacity: 0; transform: translateY(16px); transition: opacity 480ms var(--album-ease), transform 480ms var(--album-ease); }
+.album-reveal.is-revealed { opacity: 1; transform: translateY(0); }
+
+/* 视图切换（时间线 ↔ 日历墙）：整个容器轻升入场。 */
+.album-view { animation: album-view-in 260ms var(--album-ease); }
+@keyframes album-view-in { from { opacity: 0; transform: translateY(10px); } }
+
+/* 日历换月：格子按次序错落入场（animation-fill-mode: backwards，动画被禁用时格子直接可见）。 */
+.calendar-grid > * { animation: album-cell-in 260ms var(--album-ease) backwards; animation-delay: calc(var(--i, 0) * 10ms); }
+@keyframes album-cell-in { from { opacity: 0; transform: translateY(8px) scale(0.96); } }
+
+/* 照片交互：拍立得悬停扶正轻抬、按下轻缩；触屏不触发悬停，键盘焦点不受限。 */
+.journal-print { transition: transform 220ms var(--album-ease); }
+.journal-image-button { transition: transform 160ms var(--album-ease); }
+.journal-image-button:active { transform: scale(0.98); }
+.calendar-cell.has-meal:focus-visible { z-index: 5; }
+.calendar-cell.has-meal:focus-visible .calendar-print { transform: rotate(0) scale(1.08); }
+@media (hover: hover) and (pointer: fine) {
+  .album-scene:hover { transform: rotate(-1deg); }
+  .meal-sheet .journal-print:hover { transform: rotate(0) translateY(-4px); }
+  .calendar-cell.has-meal:hover { z-index: 5; }
+  .calendar-cell.has-meal:hover .calendar-print { transform: rotate(0) scale(1.08); }
+  .calendar-cell.has-meal:active .calendar-print { transform: rotate(0) scale(0.97); }
+}
+
 /* 上传面板：用手绘小场景表示正在处理。 */
 .journal-dropzone .kitchen-sketch { width: 120px; height: 79px; margin-bottom: 4px; }
 .journal-dropzone.has-photos { padding: 14px; border-style: dashed; }
@@ -120,6 +147,8 @@
 .journal-uploading .kitchen-sketch { width: 72px; height: 48px; margin: 0; }
 
 /* 保存后：这一顿的小人出场，大数字弹出。只是一闪而过，不拦截点击。 */
+.album-app .toast { animation: album-toast-in 240ms var(--album-ease); }
+@keyframes album-toast-in { from { opacity: 0; transform: translateY(12px); } }
 .album-celebrate { position: fixed; inset: 0; z-index: 120; pointer-events: none; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; background: color-mix(in srgb, var(--canvas) 90%, transparent); backdrop-filter: blur(4px); color: var(--ink-soft); font-size: 22px; animation: album-pop 3.2s ease forwards; }
 .album-celebrate p { display: flex; align-items: center; gap: 14px; }
 .album-celebrate strong { font: italic 400 120px/1 Georgia, serif; color: var(--primary); letter-spacing: -4px; animation: album-number .7s .2s cubic-bezier(.2,1.4,.4,1) both; }
@@ -178,5 +207,8 @@
 }
 @media (prefers-reduced-motion: reduce) {
   .album-celebrate, .album-celebrate strong, .album-celebrate-person, .album-header .brand-mark, .album-scene.is-playing { animation: none !important; }
-  .album-capture span, .calendar-print { transition: none; }
+  .album-capture span, .calendar-print, .journal-print, .journal-image-button { transition: none; }
+  /* 减少动态效果时保留淡入、去掉位移和错落。 */
+  .album-reveal { transform: none; transition: opacity 200ms ease; }
+  .calendar-grid > *, .album-view, .album-app .toast { animation: none; }
 }

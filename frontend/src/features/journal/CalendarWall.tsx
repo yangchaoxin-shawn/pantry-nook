@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type CSSProperties } from 'react';
 import { localDate } from '../../shared/api/client';
 import { journalApi, mediaUrl, monthLabel, type JournalEntry } from './api';
 import { entriesByDay, mergeDay, monthCells, shiftMonth } from './calendar';
@@ -36,18 +36,20 @@ export default function CalendarWall({ revision, openDay }: { revision: number; 
       <button type="button" onClick={() => setMonth(value => shiftMonth(value, 1))} disabled={isCurrent} aria-label="下个月">›</button>
     </div>
     <p className="calendar-summary" role="status">{!ready ? '正在翻到这个月…' : state.error || (state.entries.length ? `这个月记下了 ${state.entries.length} 顿` : isCurrent ? '这个月还空着，等第一顿。' : '这个月没有留下照片。')}</p>
-    <div className="calendar-grid">
+    {/* 换月时重挂载，格子按次序错落入场。 */}
+    <div className="calendar-grid" key={month}>
       {WEEK.map(label => <span key={label} className="calendar-week" aria-hidden="true">{label}</span>)}
       {monthCells(month).map((day, index) => {
-        if (day === null) return <span key={`lead-${index}`} className="calendar-cell is-lead" aria-hidden="true" />;
+        const stagger = { '--i': index + 7 } as CSSProperties;
+        if (day === null) return <span key={`lead-${index}`} style={stagger} className="calendar-cell is-lead" aria-hidden="true" />;
         const list = days.get(day);
         const date = `${month}-${String(day).padStart(2, '0')}`;
         const isToday = date === today;
         const ring = isToday && <svg className="calendar-today-ring" viewBox="0 0 60 60" aria-hidden="true"><path d="M31 5c15 0 25 11 24 26-1 14-12 24-26 23C15 53 5 43 6 29 7 16 17 6 33 7" /></svg>;
-        if (!list) return <span key={day} className={`calendar-cell${isToday ? ' is-today' : ''}${date > today ? ' is-future' : ''}`}><i>{day}</i>{isToday && <span className="visually-hidden">今天，还没记</span>}{ring}</span>;
+        if (!list) return <span key={day} style={stagger} className={`calendar-cell${isToday ? ' is-today' : ''}${date > today ? ' is-future' : ''}`}><i>{day}</i>{isToday && <span className="visually-hidden">今天，还没记</span>}{ring}</span>;
         const cover = list[0].photos.find(photo => photo.image.id === list[0].cover_upload_id) ?? list[0].photos[0];
         const count = list.reduce((sum, entry) => sum + entry.photos.length, 0);
-        return <button key={day} type="button" className={`calendar-cell has-meal${isToday ? ' is-today' : ''}`} onClick={() => openDay(mergeDay(list))} aria-label={`${isToday ? '今天，' : ''}${Number(month.slice(5))} 月 ${day} 日，${list.length} 顿，${count} 张照片`}>
+        return <button key={day} type="button" style={stagger} className={`calendar-cell has-meal${isToday ? ' is-today' : ''}`} onClick={() => openDay(mergeDay(list))} aria-label={`${isToday ? '今天，' : ''}${Number(month.slice(5))} 月 ${day} 日，${list.length} 顿，${count} 张照片`}>
           <span className="calendar-print"><img src={mediaUrl(cover.image.thumbnail_url)} alt="" loading="lazy" /></span>
           <i>{day}</i>
           {list.length > 1 && <b>×{list.length}</b>}

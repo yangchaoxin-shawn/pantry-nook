@@ -8,6 +8,7 @@ import { journalApi, monthLabel, type JournalEntry } from './api';
 import JournalComposer from './JournalComposer';
 import CalendarWall from './CalendarWall';
 import { MealSheet, MonthChapter, SceneArt } from './AlbumParts';
+import { useCountUp } from './motion';
 import { shortDate } from './calendar';
 import './journal-page.css';
 
@@ -80,7 +81,8 @@ export default function JournalPage({ active }: { active: boolean }) {
   const begin = () => (start.current ? start.current() : setComposerOpen(true));
   const groups = entries.reduce<Record<string, JournalEntry[]>>((result, entry) => { (result[entry.entry_date.slice(0, 7)] ??= []).push(entry); return result; }, {});
   const ready = !loading || entries.length > 0;
-  const heroTitle = !ready ? <>翻开相册，<span>稍等一下。</span></> : total ? <>我们一起，<span>吃了 <b className="album-hero-count">{total}</b> 顿饭。</span></> : <>把这一顿，<span>留在日子里。</span></>;
+  const heroCount = useCountUp(total);
+  const heroTitle = !ready ? <>翻开相册，<span>稍等一下。</span></> : total ? <>我们一起，<span>吃了 <b className="album-hero-count">{heroCount}</b> 顿饭。</span></> : <>把这一顿，<span>留在日子里。</span></>;
   return <section className="photo-journal" aria-label="厨房相册">
     <JournalSceneHero kind="journal" eyebrow="OUR TABLE, OUR LITTLE DAYS" title={heroTitle} description="拍了就传，日期按照片自动归档。" page="01 / 厨房相册"
       actions={<button type="button" className="album-capture" onClick={begin}><span aria-hidden="true">＋</span>记一顿</button>} />
@@ -92,7 +94,8 @@ export default function JournalPage({ active }: { active: boolean }) {
     {loading && !entries.length ? <div className="album-state" role="status"><KitchenSketch kind="loading" /><p>正在翻开相册…</p></div>
       : error ? <div className="album-state" role="alert"><KitchenSketch kind="error" /><h2>相册暂时没能打开。</h2><p>{error}</p><button className="btn-primary" onClick={() => refresh()}>重新打开</button></div>
       : entries.length === 0 ? <div className="album-state album-first"><SceneArt scene="team" className="album-first-scene" /><h2>第一张照片，留给下一顿。</h2><p>刚出锅的菜、摆好的碗筷，<br />或者只是你们一起吃饭的样子。</p></div>
-      : view === 'calendar' ? <CalendarWall revision={revision} openDay={entry => void openGallery(entry)} />
+      : <div key={view} className="album-view">
+      {view === 'calendar' ? <CalendarWall revision={revision} openDay={entry => void openGallery(entry)} />
       : <>
       {Object.entries(groups).map(([month, monthEntries], chapter) => <section className="journal-month album-month" key={month} aria-label={monthLabel(month)}>
         <MonthChapter month={month} count={monthTotals[month] ?? monthEntries.length} page={chapter + 1} />
@@ -102,7 +105,9 @@ export default function JournalPage({ active }: { active: boolean }) {
       </section>)}
       {loadMoreError && <p role="alert" className="journal-error">{loadMoreError}</p>}
       <div className="journal-end">{entries.length < total ? <button className="btn-ghost" disabled={moreBusy} onClick={() => void more()}>{moreBusy ? '正在翻页…' : '再往前翻 ↓'}</button> : <p>第 1 顿就到这里。下一顿见。<br />﹏</p>}</div>
-    </>}
+      </>}
+    </div>
+    }
     {celebrate && !loading && !error && <div className="album-celebrate" role="status">
       <LittlePerson namespace="meal" businessId={celebrate.id} className="album-celebrate-person" autoPlay />
       <p><span>第</span><strong>{celebrate.ordinal}</strong><span>顿，记下了</span></p>
