@@ -155,7 +155,9 @@ try {
   $indexHtml = Get-Content -Raw $indexPath
   Assert-True ($indexHtml -match '/pantry-nook/assets/') 'index.html 未使用 /pantry-nook/assets/ 子路径。'
   Assert-True ($indexHtml -notmatch '(?:src|href)="/assets/') 'index.html 仍含站点根 /assets/ 路径。'
-  Assert-True ($indexHtml -match '/pantry-nook/favicon\.svg') 'favicon 未使用 /pantry-nook/ 子路径。'
+  # 图标文件名可随设计变化，门禁只约束子路径基座必须固化。
+  Assert-True ($indexHtml -match '<link rel="icon"[^>]*href="/pantry-nook/') 'favicon 未使用 /pantry-nook/ 子路径。'
+  Assert-True ($indexHtml -match '<link rel="manifest"[^>]*href="/pantry-nook/') 'manifest 未使用 /pantry-nook/ 子路径。'
   $builtJavascript = Get-ChildItem (Join-Path $distDir 'assets') -Filter '*.js' | ForEach-Object { Get-Content -Raw $_.FullName }
   Assert-True (($builtJavascript -join "`n") -match '/pantry-nook') '构建后的 JavaScript 未固化 /pantry-nook API 基路径。'
 
@@ -220,12 +222,13 @@ try {
   Assert-True ($null -ne $fontFile) '构建产物缺少字体文件。'
   $font = Get-Response "$baseUri/pantry-nook/assets/$($fontFile.Name)" $authHeaders
   Assert-True ($font.StatusCode -eq 200 -and [string]$font.Headers['Content-Type'] -match '^font/woff2') '字体未以 font/woff2 返回。'
+  # v2.0.0 起相册是主包，旧厨房模块（App-*）才是惰性分包；门禁验证分包存在且被鉴权保护。
   $journalAssets = Get-ChildItem (Join-Path $distDir 'assets') -File | Where-Object {
-    $_.Name -match '^(JournalPage-.+\.(?:js|css)|table-memories-.+\.(?:png|webp))$'
+    $_.Name -match '^(App-.+\.(?:js|css)|table-memories-.+\.(?:png|webp))$'
   }
-  Assert-True (@($journalAssets | Where-Object Extension -eq '.js').Count -gt 0) '构建产物缺少手记 JavaScript 分包。'
-  Assert-True (@($journalAssets | Where-Object Extension -eq '.css').Count -gt 0) '构建产物缺少手记 CSS 分包。'
-  Assert-True (@($journalAssets | Where-Object { $_.Name -match '^table-memories-' }).Count -gt 0) '构建产物缺少手记头图。'
+  Assert-True (@($journalAssets | Where-Object Extension -eq '.js').Count -gt 0) '构建产物缺少旧厨房模块 JavaScript 分包。'
+  Assert-True (@($journalAssets | Where-Object Extension -eq '.css').Count -gt 0) '构建产物缺少旧厨房模块 CSS 分包。'
+  Assert-True (@($journalAssets | Where-Object { $_.Name -match '^table-memories-' }).Count -gt 0) '构建产物缺少相册头图。'
   foreach ($file in $journalAssets) {
     $path = "/pantry-nook/assets/$($file.Name)"
     $anonymousAsset = Get-Response "$baseUri$path"
